@@ -1654,7 +1654,10 @@ SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1};
 
 var POS_HEAD = ['Филиал','Блюдо','Срок, ч','Приход','Продано','Потери','Доля потерь',
   'Возврат по сроку','Склад 50%','Списание','Дней с потерями','Дней на витрине',
-  'Дней в стопе','Скорость, шт/день','Худший день','Цена, ₸','Потери, ₸'];
+  'Дней в стопе','Скорость, шт/день','Худший день','Цена, ₸','Потери, ₸','Ушло на доставку'];
+/* «Доставка ТТ5 склад» — не витрина: филиалы свозят туда, дальше товар уходит в доставку.
+   Перемещение на неё — продажа по полной цене, а не потеря. */
+function isDelivery(w){ return /достав/i.test(S(w)); }
 var PAIR_HEAD = ['Маршрут','Блюдо','Точка А','Потери А','Доля А','Дней с потерями А',
   'Точка Б','Продано Б','Дней в стопе Б','Скорость Б','Можно перевезти, шт',
   'Экономия на скидке, ₸','Выручка вместо потерь, ₸'];
@@ -1687,6 +1690,7 @@ function chrono(dFrom, dTo){
     var key = wh + '|' + base;
     var a = acc[key] || (acc[key] = { wh: wh, k: base, days: {} });
     var dd = a.days[d] || (a.days[d] = { p:0, s:0, l:0, v:0, f50:0, sp:0 });
+    if (kind === 'perem_dost'){ dd.dost = (dd.dost || 0) + q * f; return; }
     if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other') dd.p += q * f;
     else if (kind === 'realiz')       dd.s  += q * f;
     else if (kind === 'vozvrat_srok'){ dd.v += q * f; dd.l += q * f; }
@@ -1700,12 +1704,12 @@ function chrono(dFrom, dTo){
   var rows = [];
   Object.keys(acc).forEach(function(key){
     var a = acc[key], sp = SPR[a.k];
-    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0;
+    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0;
     var dLoss = 0, dArr = 0, onShelf = 0, stop = 0;
     var bal = 0, minCum = 0, cum = 0, series = [];
     days.forEach(function(dd){
       var x = a.days[dd] || { p:0, s:0, l:0, v:0, f50:0, sp:0 };
-      P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp;
+      P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp; DS += (x.dost || 0);
       if (x.l > 1e-9) dLoss++;
       if (x.p > 1e-9) dArr++;
       cum += x.p - x.s - x.l;
@@ -1727,7 +1731,7 @@ function chrono(dFrom, dTo){
     rows.push([a.wh, sp.name, sp.srok || '', r3(P), r3(S_), r3(L),
       P > 1e-9 ? L / P : '', r3(V), r3(F), r3(SP), dLoss, onShelf, stop,
       onShelf ? r3(S_ / onShelf) : 0, bestD, price ? Math.round(price) : '',
-      price ? Math.round(L * price) : '']);
+      price ? Math.round(L * price) : '', r3(DS) || '']);
   });
   return rows;
 }
@@ -1740,6 +1744,7 @@ function pairsOf(rows, minPrih){
   rows.forEach(function(r){
     if (N(r[3]) < minPrih) return;
     if (r[6] === '') return;
+    if (isDelivery(r[0])) return;        // склад доставки — не точка на маршруте
     (byDish[r[1]] = byDish[r[1]] || []).push(r);
   });
   var routes = {}, hasRoutes = false;
@@ -1819,10 +1824,15 @@ function renderChrono(view){
 }
 
 function routeHint(){
-  var bs = branches(), no = bs.filter(function(b){ return !DB.routes[b]; });
-  $('routeHint').innerHTML = no.length
-    ? 'Без маршрута пока: <b>' + no.join(', ') + '</b>. Такие пары помечаются «разные маршруты».'
-    : 'Все филиалы разнесены по маршрутам.';
+  var bs = branches();
+  var dlv = bs.filter(isDelivery);
+  var no = bs.filter(function(b){ return !DB.routes[b] && !isDelivery(b); });
+  $('routeHint').innerHTML =
+    (no.length ? 'Без маршрута пока: <b>' + no.join(', ') + '</b>.<br>'
+               : 'Все филиалы разнесены по маршрутам.<br>') +
+    (dlv.length ? 'Склад доставки (' + dlv.join(', ') + ') в маршруты не входит и в пары ' +
+      'не попадает: филиалы свозят туда сами, и перемещение на него считается продажей, ' +
+      'а не потерей.' : '');
   var byR = {};
   Object.keys(DB.routes).forEach(function(b){ (byR[DB.routes[b]] = byR[DB.routes[b]] || []).push(b); });
   if (Object.keys(byR).length && !$('routes').value)
@@ -1833,8 +1843,11 @@ function routeHint(){
 /* номер филиала из названия склада: «010-Шугыла склад» → 10, «TT8 Qaratau» → 8 */
 function whNum(w){ var m = S(w).match(/\d+/); return m ? +m[0] : null; }
 /* все склады с этим номером — ТТ5 их два (доставка и магазин) */
-function branchesByNum(n){
-  return branches().filter(function(b){ return whNum(b) === n; });
+function branchesByNum(n, wantDelivery){
+  var all = branches().filter(function(b){ return whNum(b) === n; });
+  var shops = all.filter(function(b){ return !isDelivery(b); });
+  if (wantDelivery) return all;
+  return shops.length ? shops : all;     // «тт5» — это магазин, доставка отдельно
 }
 $('btnRoutes').onclick = function(){
   var map = {}, bad = [], used = {}, k = 0;
@@ -1848,7 +1861,7 @@ $('btnRoutes').onclick = function(){
     // ловим «тт2», «TT-10», «т 8», а также голые «010»
     var re = /(?:^|[^0-9a-zA-Zа-яёА-ЯЁ])(?:тт|тt|тт|т|tt|t)?\s*[-–—]?\s*(\d{1,3})/g, m, found = 0;
     while ((m = re.exec(' ' + rest))){
-      var n = +m[1], hits = branchesByNum(n);
+      var n = +m[1], hits = branchesByNum(n, /достав/i.test(rest));
       if (!hits.length){ bad.push('ТТ' + n); continue; }
       hits.forEach(function(b){ map[b] = name; used[b] = 1; });
       found++;
