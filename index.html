@@ -1733,27 +1733,42 @@ function chrono(dFrom, dTo){
 }
 function r3(x){ return Math.round(x * 1000) / 1000; }
 
-/* пары «точка А теряет — точка Б разбирает» */
+/* пары «точка А теряет — точка Б разбирает».
+   Возить можно только внутри маршрута, поэтому пары ищем в каждом маршруте отдельно. */
 function pairsOf(rows, minPrih){
   var byDish = {};
   rows.forEach(function(r){
     if (N(r[3]) < minPrih) return;
+    if (r[6] === '') return;
     (byDish[r[1]] = byDish[r[1]] || []).push(r);
   });
+  var routes = {}, hasRoutes = false;
+  Object.keys(DB.routes || {}).forEach(function(b){ routes[DB.routes[b]] = 1; hasRoutes = true; });
+  var groups = hasRoutes ? Object.keys(routes).concat(['— вне маршрутов —']) : ['*'];
+
   var out = [];
   Object.keys(byDish).forEach(function(dish){
-    var g = byDish[dish].filter(function(r){ return r[6] !== ''; });
-    if (g.length < 2) return;
-    var A = g[0]; g.forEach(function(r){ if (r[6] > A[6]) A = r; });
-    if (A[6] < 0.10 || A[10] < 3) return;          // не системно — пропускаем
-    var good = g.filter(function(r){ return r[6] <= 0.02 && r !== A; });
-    if (!good.length) return;
-    var B = good[0]; good.forEach(function(r){ if (N(r[4]) > N(B[4])) B = r; });
-    var move = Math.min(N(A[5]), N(B[13]) * 20), price = N(A[15]);
-    var rtA = DB.routes[A[0]] || '', rtB = DB.routes[B[0]] || '';
-    out.push([ rtA && rtA === rtB ? rtA : (rtA || rtB ? 'разные маршруты' : ''),
-      dish, A[0], A[5], A[6], A[10], B[0], B[4], B[12], B[13], r3(move),
-      price ? Math.round(move * price * 0.2) : '', price ? Math.round(move * price) : '' ]);
+    groups.forEach(function(gr){
+      var g = byDish[dish].filter(function(r){
+        if (gr === '*') return true;
+        var rt = DB.routes[r[0]] || '';
+        return gr === '— вне маршрутов —' ? !rt : rt === gr;
+      });
+      if (g.length < 2) return;
+      var A = g[0]; g.forEach(function(r){ if (r[6] > A[6]) A = r; });
+      if (A[6] < 0.10 || A[10] < 3) return;        // разовый случай — не системная проблема
+      // точка Б должна не просто «не терять», а реально продавать объём
+      var good = g.filter(function(r){
+        return r !== A && r[6] <= 0.02 && N(r[4]) >= Math.max(minPrih, 10); });
+      if (!good.length) return;
+      var B = good[0]; good.forEach(function(r){ if (N(r[4]) > N(B[4])) B = r; });
+      // не грузим Б больше чем на половину его же спроса
+      var move = Math.min(N(A[5]), N(B[4]) / 2), price = N(A[15]);
+      if (move < 1) return;
+      out.push([ gr === '*' ? '' : gr, dish, A[0], A[5], A[6], A[10],
+        B[0], B[4], B[12], B[13], r3(move),
+        price ? Math.round(move * price * 0.2) : '', price ? Math.round(move * price) : '' ]);
+    });
   });
   return out;
 }
@@ -1773,7 +1788,7 @@ function renderChrono(view){
   } else {
     head = PAIR_HEAD; st = SORT.pair;
     rows = CHRONO.pair.filter(function(r){
-      if ($('onlyRoute').checked && (!r[0] || r[0] === 'разные маршруты')) return false;
+      if ($('onlyRoute').checked && (!r[0] || r[0] === '— вне маршрутов —')) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
   }
   rows = applySort(rows, st, byIdx);
@@ -1815,22 +1830,38 @@ function routeHint(){
       return r + ': ' + byR[r].join(', '); }).join('\n');
 }
 
+/* номер филиала из названия склада: «010-Шугыла склад» → 10, «TT8 Qaratau» → 8 */
+function whNum(w){ var m = S(w).match(/\d+/); return m ? +m[0] : null; }
+/* все склады с этим номером — ТТ5 их два (доставка и магазин) */
+function branchesByNum(n){
+  return branches().filter(function(b){ return whNum(b) === n; });
+}
 $('btnRoutes').onclick = function(){
-  var bs = branches(), map = {}, bad = [];
+  var map = {}, bad = [], used = {}, k = 0;
   S($('routes').value).split(/\r?\n/).forEach(function(line){
     line = S(line); if (!line) return;
+    k++;
     var p = line.split(':');
-    var name = p.length > 1 ? S(p.shift()) : 'Маршрут';
-    p.join(':').split(',').forEach(function(x){
-      x = S(x); if (!x) return;
-      var hit = null;
-      bs.forEach(function(b){ if (nrm(b) === nrm(x) || nrm(b).indexOf(nrm(x)) >= 0) hit = b; });
-      if (hit) map[hit] = name; else bad.push(x);
-    });
+    var name = p.length > 1 ? S(p.shift()) : 'Маршрут ' + k;
+    if (!name) name = 'Маршрут ' + k;
+    var rest = p.length ? p.join(':') : line;
+    // ловим «тт2», «TT-10», «т 8», а также голые «010»
+    var re = /(?:^|[^0-9a-zA-Zа-яёА-ЯЁ])(?:тт|тt|тт|т|tt|t)?\s*[-–—]?\s*(\d{1,3})/g, m, found = 0;
+    while ((m = re.exec(' ' + rest))){
+      var n = +m[1], hits = branchesByNum(n);
+      if (!hits.length){ bad.push('ТТ' + n); continue; }
+      hits.forEach(function(b){ map[b] = name; used[b] = 1; });
+      found++;
+    }
+    if (!found) bad.push(line);
   });
   DB.routes = map; saveDB(); routeHint();
-  msg('m5', 'Сохранено. Филиалов в маршрутах: ' + Object.keys(map).length +
-      (bad.length ? '. <b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
+  var byR = {};
+  Object.keys(map).forEach(function(b){ (byR[map[b]] = byR[map[b]] || []).push(b); });
+  var txt = Object.keys(byR).map(function(r){
+    return '<b>' + r + ':</b> ' + byR[r].join(', '); }).join('<br>');
+  msg('m5', 'Сохранено.<br>' + txt +
+      (bad.length ? '<br><b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
   if (CHRONO){ CHRONO.pair = pairsOf(CHRONO.pos, CHRONO.min); renderChrono(); }
 };
 
