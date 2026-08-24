@@ -524,6 +524,17 @@ function D(v){
 function shift(d, n){ var p = d.split('-'); var t = new Date(+p[0], +p[1]-1, +p[2]); t.setDate(t.getDate()+n);
   return t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate()); }
 function ru(d){ var p = S(d).split('-'); return p.length === 3 ? p[2]+'.'+p[1]+'.'+p[0] : S(d); }
+/* шапка не всегда в одной и той же строке — ищем её по нужным колонкам */
+function findHdr(v, need, label){
+  for (var i = 0; i < Math.min(v.length, 40); i++){
+    var h = hdr(v[i]), ok = true;
+    for (var j = 0; j < need.length; j++)
+      if (h[need[j]] === undefined){ ok = false; break; }
+    if (ok) return { h: h, row: i };
+  }
+  throw new Error('Не нашла шапку в файле «' + label + '». Нужны колонки: ' + need.join(', ') +
+                  '. Выгружайте отчёт из iiko без изменений.');
+}
 function hdr(row){ var m = {}; (row||[]).forEach(function(h,i){ var t = S(h); if (t && m[t] === undefined) m[t] = i; }); return m; }
 function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg ' + c; e.innerHTML = t; }
 function $(id){ return document.getElementById(id); }
@@ -552,8 +563,9 @@ Object.keys(SPR).forEach(function(k){
 var DOCKINDS = {};
 
 function parseTovarny(v){
-  var h = hdr(v[6]), kinds = {};
-  for (var r = 7; r < v.length; r++){
+  var fh = findHdr(v, ['Номер документа','Наименование','Вид документа','Тип'], 'Товарный отчёт');
+  var h = fh.h, kinds = {};
+  for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row || !S(row[h['Номер документа']])) continue;
     var num = S(row[h['Номер документа']]), nm = S(row[h['Наименование']]).toLowerCase(),
         vid = S(row[h['Вид документа']]), tip = S(row[h['Тип']]), k;
@@ -588,14 +600,15 @@ function isBranchWh(w){
 }
 
 function parseTovarnaya(v, kinds){
-  var h = hdr(v[6]);
+  var fh = findHdr(v, ['Номенклатура','Тип','Количество в ед. изм.'], 'Товарная ведомость');
+  var h = fh.h;
   var iD = h['Дата документа'], iNum = h['Номер документа'], iVid = h['Вид документа'],
       iTip = h['Тип'], iNm = h['Номенклатура'], iQ = h['Количество в ед. изм.'],
       iWo = h['Склад расхода'], iWi = h['Склад прихода'];
   if (iNm === undefined || iWi === undefined)
     throw new Error('Не нашёл колонки «Номенклатура» / «Склад прихода» в товарной ведомости.');
   var out = [];
-  for (var r = 7; r < v.length; r++){
+  for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row || !S(row[iNm])) continue;
     var wo = S(row[iWo]), wi = S(row[iWi]);
     var wh = isBranchWh(wi) ? wi : (isBranchWh(wo) ? wo : '');
@@ -1502,6 +1515,26 @@ function setDateRange(){
   if (!$('dFrom').value) $('dFrom').value = defF;
   if (!$('dTo').value)   $('dTo').value   = defT;
 }
+/* по каким видам движений что распозналось — сразу видно, если товарный отчёт не подхватился */
+function movKinds(){
+  var c = {}, n = 0;
+  DB.mov.forEach(function(r){ c[r[3]] = (c[r[3]] || 0) + 1; n++; });
+  if (!n) return '';
+  var NAMES = { prihod_gp:'приход Цех ГП', prihod_tort:'приход Таугуль торт',
+    prihod_other:'приход прочий', realiz:'реализация', spisanie:'списание',
+    vozvrat_srok:'возврат по сроку', vozvrat_kach:'возврат по качеству',
+    perem_50:'перемещение на склад 50%', perem_dost:'перемещение на доставку',
+    prigotovlenie:'акт приготовления', inv_in:'инвентаризация приход',
+    inv_out:'инвентаризация расход', other:'не распознано' };
+  var out = [], warn = '';
+  Object.keys(NAMES).forEach(function(k){
+    if (c[k]) out.push((NAMES[k] || k) + ': ' + c[k]); });
+  if (!c['perem_50'] || !c['vozvrat_srok'] || !c['prihod_gp'])
+    warn = '<br><span class="warn">Не вижу приход Цех ГП / возврат по сроку / перемещение на ' +
+           'склад 50%. Скорее всего товарный отчёт не подхватился — загрузите все четыре файла ' +
+           'вместе, товарный отчёт обязательно.</span>';
+  return '<b>Виды движений:</b> ' + out.join(' · ') + warn;
+}
 function refresh(){
   var bs = branches();
   var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
@@ -1519,7 +1552,7 @@ function refresh(){
     '<b>Движения:</b> ' + span(DB.mov) + '<br>' +
     '<b>Продажи 20%:</b> ' + span(DB.s20) + '<br>' +
     '<b>Продажи 50%:</b> ' + span(DB.s50) + '<br>' +
-    '<b>Список филиалов:</b> ' + span(DB.list) +
+    '<b>Список филиалов:</b> ' + span(DB.list) + '<br>' + movKinds() +
     (unk ? '<br><span class="warn">Не распознано позиций: ' + unk + '</span>' : '');
   if (window.NAVBADGES) window.NAVBADGES();
 }
