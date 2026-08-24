@@ -83,6 +83,12 @@
     box-shadow:var(--sh)}
   input[type=file]::file-selector-button:hover{background:#f7f7f8}
 
+  input[type=date]{width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);
+    background:#fff;font:inherit;font-size:13px;color:inherit;box-shadow:var(--sh);min-height:34px;
+    -webkit-appearance:none;appearance:none}
+  input[type=date]:focus{outline:none;border-color:#c7c7cd;box-shadow:0 0 0 3px rgba(24,24,27,.06)}
+  input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.55}
+  input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
   input[type=text],select,textarea{width:100%;padding:7px 10px;border-radius:8px;
     border:1px solid var(--bd);background:#fff;font:inherit;font-size:13px;color:inherit;
     box-shadow:var(--sh);transition:border-color .12s,box-shadow .12s}
@@ -144,6 +150,8 @@
     font-size:11.5px;padding:9px 10px;text-align:center;white-space:normal;min-width:76px;
     border-bottom:1px solid var(--bd);border-right:1px solid var(--bd2)}
   th.frost{color:var(--acc2);background:#f4f8fc}
+  th.srt{cursor:pointer;user-select:none}
+  th.srt:hover{color:var(--txt);background:#f2f2f4}
   td{background:#fff;padding:8px 10px;text-align:center;color:#3f3f46;
      border-bottom:1px solid var(--bd2);border-right:1px solid var(--bd2)}
   tbody tr:last-child td{border-bottom:0}
@@ -279,7 +287,7 @@
           <textarea id="spisok" placeholder="Т8 05.08&#10;Шок кап-3&#10;Муравейник-7&#10;Тв б-2&#10;&#10;ТТ4 05.08&#10;Капкейк 2"></textarea>
           <div class="row">
             <div><label class="lbl">Год</label><input type="text" id="year"></div>
-            <div style="flex:0 0 210px"><label class="lbl">Филиал по умолчанию</label>
+            <div style="flex:0 0 210px"><label class="lbl">Филиал (если не указан в тексте)</label>
               <select id="defBranch"></select></div>
             <button id="btnSpisok">Разобрать</button>
             <button class="sec" id="btnClearSpisok">Очистить всё</button>
@@ -287,6 +295,20 @@
           <div class="msg" id="m2"></div>
           <div class="hint">Разобранное сохраняется в этом браузере. Что не распозналось — поправите
             на вкладке «Список филиала» в сверке и нажмёте «Запомнить».</div>
+        </div>
+
+        <div class="card">
+          <h2>Или загрузите таблицу</h2>
+          <p class="lead">Если филиалы заполняют общую Google-таблицу — скачайте её
+            (Файл → Скачать → Microsoft Excel .xlsx) и загрузите здесь. Колонки:
+            Дата, Филиал, Блюдо, Кол-во.</p>
+          <div class="f" style="max-width:520px">
+            <label>Таблица со списками</label>
+            <div class="h">Строки за те же дни и филиалы заменяются, остальные остаются</div>
+            <input type="file" id="fListXlsx" accept=".xlsx">
+          </div>
+          <div class="row"><button id="btnListXlsx">Загрузить таблицу</button></div>
+          <div class="msg" id="m2b"></div>
         </div>
       </section>
 
@@ -296,8 +318,8 @@
           <h2>Параметры</h2>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 240px"><label class="lbl">Филиал</label><select id="branch"></select></div>
-            <div><label class="lbl">с</label><input type="text" id="dFrom" placeholder="01.08.2026"></div>
-            <div><label class="lbl">по</label><input type="text" id="dTo" placeholder="20.08.2026"></div>
+            <div><label class="lbl">с</label><input type="date" id="dFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="dTo"></div>
             <button id="btnBuild">Собрать</button>
             <button class="sec" id="btnXlsx">Скачать Excel</button>
           </div>
@@ -432,7 +454,7 @@ function unesc(s){
           .replace(/&amp;/g,'&');
 }
 
-async function readXlsx(file){
+async function readXlsx(file, allSheets){
   var zip = await unzip(await file.arrayBuffer());
   var shared = [];
   if (zip.has('xl/sharedStrings.xml')){
@@ -444,10 +466,18 @@ async function readXlsx(file){
       shared.push(unesc(t));
     }
   }
-  var key = zip.has('xl/worksheets/sheet1.xml') ? 'xl/worksheets/sheet1.xml'
-          : zip.names.filter(function(x){ return /^xl\/worksheets\/.*\.xml$/.test(x); })[0];
-  if (!key) throw new Error('В файле нет ни одного листа.');
-  var sx = await zip.read(key);
+  var all = zip.names.filter(function(x){ return /^xl\/worksheets\/.*\.xml$/.test(x); })
+    .sort(function(a,b){ return (+(a.match(/(\d+)/)||[0,0])[1]) - (+(b.match(/(\d+)/)||[0,0])[1]); });
+  if (!all.length) throw new Error('В файле нет ни одного листа.');
+  var keys = allSheets ? all
+           : [zip.has('xl/worksheets/sheet1.xml') ? 'xl/worksheets/sheet1.xml' : all[0]];
+  var sheets = [];
+  for (var si = 0; si < keys.length; si++){
+    sheets.push(await readSheet(await zip.read(keys[si]), shared));
+  }
+  return allSheets ? sheets : sheets[0];
+}
+function readSheet(sx, shared){
   var sd = sx.match(/<sheetData\b[^>]*>([\s\S]*?)<\/sheetData>/);
   if (!sd) return [];
   var out = [], rowRe = /<row\b([^>]*)>([\s\S]*?)<\/row>/g, rm;
@@ -537,6 +567,7 @@ function parseTovarny(v){
         : nm.indexOf('возврат по качеству') >= 0 ? 'vozvrat_kach'
         : (nm.indexOf('50%') >= 0 || nm.indexOf('50 %') >= 0) ? 'perem_50'
         : nm.indexOf('доставка') >= 0 ? 'perem_dost' : 'other';
+    else if (vid === 'Акт приготовления') k = tip === 'Приход' ? 'prigotovlenie' : 'ap_rashod';
     else if (vid === 'Инвентаризация') k = tip === 'Приход' ? 'inv_in' : 'inv_out';
     else if (vid === 'Внутреннее перемещение')
       k = nm.indexOf('возврат по качеству') >= 0 ? 'vozvrat_kach'
@@ -661,6 +692,78 @@ function matchBranch(code){
   return '';
 }
 
+function sprIndex(){
+  var m = {}; Object.keys(SPR).forEach(function(k){ m[k] = SPR[k].name; }); return m;
+}
+/* «как написал филиал» → позиция справочника */
+function resolveName(nameRaw, sprByName){
+  sprByName = sprByName || sprIndex();
+  var key = nrm(nameRaw);
+  if (DB.syn[key])     return { target: DB.syn[key],     note: '' };
+  if (sprByName[key])  return { target: sprByName[key],  note: '' };
+  var hits = [];
+  Object.keys(sprByName).forEach(function(nk){
+    if (nk.indexOf(key) === 0 || key.indexOf(nk) === 0) hits.push(sprByName[nk]);
+  });
+  if (hits.length === 1) return { target: hits[0], note: 'подобрано по совпадению — проверьте' };
+  return { target: '', note: 'НЕ РАСПОЗНАНО' };
+}
+
+/* ═════════ список филиала из таблицы (Google Sheets → .xlsx) ═════════ */
+$('btnListXlsx').onclick = async function(){
+  var f = $('fListXlsx').files[0];
+  if (!f) return msg('m2b','Выберите файл таблицы.','err');
+  var btn = this; btn.disabled = true;
+  msg('m2b','Читаю таблицу…','wait');
+  try{
+    var sheets = await readXlsx(f, true), sprByName = sprIndex();
+    var out = [], unknown = [], used = null;
+    for (var si = 0; si < sheets.length && !used; si++){
+      var rows = sheets[si];
+      for (var hi = 0; hi < Math.min(rows.length, 20); hi++){
+        var H = hdr(rows[hi]);
+        var iD = H['Дата'], iB = H['Филиал'], iN = H['Блюдо'], iQ = H['Кол-во'];
+        if (iD === undefined || iN === undefined) continue;
+        used = { rows: rows, from: hi + 1, iD: iD, iB: iB, iN: iN, iQ: iQ };
+        break;
+      }
+    }
+    if (!used) throw new Error('Не нашла шапку с колонками «Дата» и «Блюдо». ' +
+      'Скачивайте таблицу как Microsoft Excel (.xlsx), лист «Заполнять» не переименовывайте.');
+
+    var bs = branches(), byNrm = {};
+    bs.forEach(function(b){ byNrm[nrm(b)] = b; });
+    for (var r = used.from; r < used.rows.length; r++){
+      var row = used.rows[r] || [];
+      var day = D(row[used.iD]);
+      var nameRaw = S(row[used.iN]);
+      if (!day || !nameRaw) continue;
+      var braw = used.iB === undefined ? '' : S(row[used.iB]);
+      var br = byNrm[nrm(braw)] || matchBranch(braw) || $('defBranch').value;
+      var qv = used.iQ === undefined ? '' : S(row[used.iQ]);
+      var qty = qv === '' ? '' : N(qv);
+      var rz = resolveName(nameRaw, sprByName), note = rz.note;
+      if (!rz.target) unknown.push(nameRaw);
+      if (qty === '') note = (note ? note + '; ' : '') + 'кол-во не указано';
+      out.push([day, br, nameRaw, qty === '' ? '' : qty, rz.target, note]);
+    }
+    if (!out.length) throw new Error('В таблице нет ни одной заполненной строки.');
+
+    var keys = {}; out.forEach(function(r){ keys[r[0] + '|' + r[1]] = 1; });
+    DB.list = DB.list.filter(function(r){ return !keys[r[0] + '|' + r[1]]; }).concat(out);
+    saveDB();
+    var dd = {}; out.forEach(function(r){ dd[r[0]] = 1; });
+    var txt = 'Загружено строк: ' + out.length + ' за ' + Object.keys(dd).length + ' дн.';
+    if (unknown.length){
+      var uq = unknown.filter(function(v,i,a){ return a.indexOf(v) === i; });
+      txt += ' <b>Не распознано: ' + uq.length + '</b> — поправьте на вкладке «Список филиала».';
+    }
+    msg('m2b', txt, unknown.length ? 'wait' : 'ok');
+    refresh();
+  } catch(e){ msg('m2b','Ошибка: ' + (e.message || e),'err'); }
+  btn.disabled = false;
+};
+
 $('btnSpisok').onclick = function(){
   var text = $('spisok').value;
   if (!text.trim()) return msg('m2','Вставьте текст списка.','err');
@@ -691,17 +794,8 @@ $('btnSpisok').onclick = function(){
     nameRaw = nameRaw.replace(/[\-–—:]+$/, '').trim();
     if (!nameRaw) return;
 
-    var key = nrm(nameRaw), target = '', note = '';
-    if (DB.syn[key]) target = DB.syn[key];
-    else if (sprByName[key]) target = sprByName[key];
-    else {
-      var hits = [];
-      Object.keys(sprByName).forEach(function(nk){
-        if (nk.indexOf(key) === 0 || key.indexOf(nk) === 0) hits.push(sprByName[nk]);
-      });
-      if (hits.length === 1){ target = hits[0]; note = 'подобрано по совпадению — проверьте'; }
-      else { note = 'НЕ РАСПОЗНАНО'; unknown.push(nameRaw); }
-    }
+    var rz = resolveName(nameRaw, sprByName), target = rz.target, note = rz.note;
+    if (!target) unknown.push(nameRaw);
     if (qty === '') note = (note ? note + '; ' : '') + 'кол-во не указано';
     out.push([day, br, nameRaw, qty === '' ? '' : qty, target, note]);
   });
@@ -803,18 +897,35 @@ function build(wh, dFrom, dTo){
       var vList = list[lk] !== undefined, nq = !!noQty[lk], c = vList ? list[lk] : 0;
       var dSp = mv(k,T3,'spisanie'), h = sk(k,T), vz = mv(k,T3,'vozvrat_srok'), p50 = mv(k,T,'perem_50');
       var dSp0 = mv(k,T,'spisanie');   // списание, оформленное в сам день отчёта
-      var L;
-      if (nq)            L = 'нет данных';
+      // ── проверка продажи 20% ──────────────────────────────
+      var sum20 = h + p50 + dSp + vz, L;
+      if (nq)               L = 'нет данных';
       else if (T > posLast) L = 'нет данных';
-      else if (c > 0)    L = Math.abs((h+p50+dSp+vz) - c) < 1e-6 ? 'ок' : 'нарушение';
-      else               L = (h+p50+dSp+vz) < 1e-9 ? 'ок' : 'нарушение (нет в списке филиала)';
+      else if (c > 0)       L = Math.abs(sum20 - c) < 1e-6 ? 'ок'
+                              : (sum20 > c ? 'продажа больше списка' : 'продажа меньше списка');
+      else                  L = sum20 < 1e-9 ? 'ок' : 'нарушение (нет в списке филиала)';
 
-      var P = prihodDate(k,T), pf = null, frozen = false;
-      if (P){ var g = pGp(k,P), t = pTt(k,P); frozen = t > 0; pf = (g+t) || null; }
-      var M = c <= 0 ? '' : frozen ? 'не известна разморозка' : pf === null ? 'нет данных'
-            : (pf >= c - 1e-9 ? 'ок' : 'нарушение');
-      var Nn = dSp <= 0 ? '' : frozen ? 'не известна разморозка' : pf === null ? 'нет данных'
-            : (pf >= dSp - 1e-9 ? 'ок' : 'нарушение');
+      // ── приход по ФИФО на дату «срок минус сутки» ─────────
+      var P = prihodDate(k,T), pf = null, frozen = frozenByName(sp.name);
+      if (P){ var g = pGp(k,P), t = pTt(k,P); if (t > 0) frozen = true; pf = (g+t) || null; }
+
+      // ── проверка прихода 20% ──────────────────────────────
+      var M;
+      if (c <= 0)               M = '';
+      else if (frozen)          M = 'невозможно отследить';
+      else if (!pf)             M = 'нету прихода по сроку';
+      else if (pf >= c - 1e-9)  M = 'ок';
+      else                      M = 'приход меньше скидки';
+
+      // ── проверка прихода списания: за сам день отчёта ─────
+      var Nn;
+      if (dSp0 <= 0)                Nn = '';
+      else if (isPizza(sp.name))    Nn = mv(k,T1,'prigotovlenie') > 1e-9
+                                       ? 'ок' : 'нету акта приготовления';
+      else if (frozen)              Nn = 'невозможно отследить';
+      else if (!pf)                 Nn = 'нету прихода по сроку';
+      else if (pf >= dSp0 - 1e-9)   Nn = 'ок';
+      else                          Nn = 'приход меньше списания';
 
       rep.push({ day: T, name: sp.name, inList: vList,
         v: [ru(T), sp.name, nq ? '' : (c || ''),
@@ -822,7 +933,7 @@ function build(wh, dFrom, dTo){
              pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
              pGp(k,T)||'',  pTt(k,T)||'',
              L, M, Nn] });
-      if (vList){ inL++; if (L === 'ок') ok++; else if (L === 'нарушение') bad++; }
+      if (vList){ inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++; }
       else if (L.indexOf('нарушение (нет') === 0) noL++;
     });
     tot.push([ru(T), inL, ok, bad, noL]);
@@ -883,7 +994,7 @@ function match50(){
     }
   });
 
-  var byMove = {}, rows = [];
+  var byMove = {}, rows = [], keyed = [];
   moves.forEach(function(m){
     var txt = m.buyers.map(function(b){
       return b.who + ' (' + ru(b.d) + (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') + ')';
@@ -891,21 +1002,19 @@ function match50(){
     byMove[m.wh + '|' + m.d + '|' + m.k] = txt;
     if (m.buyers.length)
       m.buyers.forEach(function(b){
-        rows.push([ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q), '']);
+        keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q), '']]);
       });
     if (m.left > 1e-9)
-      rows.push([ru(m.d), m.wh, m.name, round3(m.q), '', '', round3(m.left),
-                 'покупатель не найден']);
+      keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
+                 'покупатель не найден']]);
   });
   sales.forEach(function(sl){
     if (sl.left > 1e-9)
-      rows.push(['', '', sl.name, '', sl.who, ru(sl.d), round3(sl.left),
-                 'продажа со скидкой 50% без расходной накладной на склад 50%']);
+      keyed.push([sl.d, ['—', '—', sl.name, '—', sl.who, ru(sl.d), round3(sl.left),
+                 'продажа со скидкой 50% без расходной накладной на склад 50%']]);
   });
-  rows.sort(function(a, b){
-    var x = a[0] || a[5], y = b[0] || b[5];
-    return x < y ? -1 : x > y ? 1 : 0;
-  });
+  keyed.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+  rows = keyed.map(function(x){ return x[1]; });
   return { byMove: byMove, rows: rows };
 }
 function round3(x){ return Math.round(x * 1000) / 1000; }
@@ -918,7 +1027,7 @@ var REP_HEAD = ['День','Блюдо','Продукция с ожидаемо�
   'Приход Цех ГП (за 2 дня до)','Приход Таугуль торт (за 2 дня до)',
   'Приход Цех ГП (за день до)','Приход Таугуль торт (за день до)',
   'Приход Цех ГП (в день отчёта)','Приход Таугуль торт (в день отчёта)',
-  'Проверка продажи','Проверка прихода','Проверка списания'];
+  'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания'];
 var FROST = [10,12,14];        // колонки заморозки
 var CHK0  = 15;                // с какой колонки идут проверки
 var COMPACT = [0,1,2,3,6,7,8]; // что видно в компактном режиме (плюс проверка продажи справа)
@@ -927,10 +1036,45 @@ var LIST_HEAD = ['Дата','Филиал','Как написал филиал',
 var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
                 'Покупатель','Дата покупки','Кол-во выкуплено','Замечание'];
 
+/* бөрек, самса, шығыс самсасы — время разморозки в учёте не фиксируется */
+function frozenByName(n){
+  return /(^|\s)(б[өo]рек|борек|самса)/i.test(S(n)) || /шығыс самсасы/i.test(S(n));
+}
+function isPizza(n){ return /пицц/i.test(S(n)); }
+
+/* ═════════ сортировка по клику на заголовок ═════════ */
+var SORT = { rep:{i:-1,d:1}, tot:{i:-1,d:1}, list:{i:-1,d:1}, m50:{i:-1,d:1} };
+var DMY = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+function sortKey(v){
+  v = S(v);
+  var m = v.match(DMY); if (m) return m[3]+m[2]+m[1];
+  if (v === '' || v === '—') return null;
+  var n = parseFloat(v.replace(/\s/g,'').replace(',','.'));
+  return isNaN(n) ? v.toLowerCase() : n;
+}
+function cmpVal(a, b){
+  var x = sortKey(a), y = sortKey(b);
+  if (x === null && y === null) return 0;
+  if (x === null) return 1;          // пустые всегда внизу
+  if (y === null) return -1;
+  if (typeof x === 'number' && typeof y === 'number') return x - y;
+  x = String(x); y = String(y);
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+function applySort(arr, st, get){
+  if (st.i < 0) return arr;
+  var c = arr.slice();
+  c.sort(function(a, b){ return cmpVal(get(a, st.i), get(b, st.i)) * st.d; });
+  return c;
+}
+function arrow(st, i){ return st.i === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''; }
+function byIdx(r, i){ return r[i]; }
+
 function cls(v){
   v = S(v); if (!v) return '';
   if (v === 'ок') return 'ok';
-  if (v.indexOf('нет данных') === 0 || v.indexOf('не известна') === 0) return 'na';
+  if (v.indexOf('нет данных') === 0 || v.indexOf('не известна') === 0
+      || v.indexOf('невозможно отследить') === 0) return 'na';
   return 'bad';
 }
 var CHIP_SHORT = {
@@ -1000,14 +1144,16 @@ function render(view){
   if (!REPORT){ o.innerHTML = ''; return; }
 
   if (view === 'rep'){
-    var full = $('fullMode').checked, rows = rowsFiltered();
+    var full = $('fullMode').checked;
+    var rows = applySort(rowsFiltered(), SORT.rep, function(r, i){ return r.v[i]; });
     var cols = full ? REP_HEAD.map(function(_, i){ return i; }) : COMPACT;
     h = '<table><thead><tr>' + (full ? '' : '<th class="chev"></th>') +
         cols.map(function(i){
-          return '<th class="' + (i===0?'c0':i===1?'c1':'') +
-                 (FROST.indexOf(i)>=0?' frost':'') + '">' + REP_HEAD[i] + '</th>'; }).join('') +
-        (full ? '' : '<th class="cR">' + REP_HEAD[CHK0] + '</th>') +
-        (full ? '' : '') + '</tr></thead><tbody>';
+          return '<th data-s="' + i + '" class="srt ' + (i===0?'c0':i===1?'c1':'') +
+                 (FROST.indexOf(i)>=0?' frost':'') + '">' + REP_HEAD[i] +
+                 arrow(SORT.rep, i) + '</th>'; }).join('') +
+        (full ? '' : '<th class="cR srt" data-s="' + CHK0 + '">' + REP_HEAD[CHK0] +
+                     arrow(SORT.rep, CHK0) + '</th>') + '</tr></thead><tbody>';
     rows.forEach(function(r, ri){
       var v = r.v;
       h += '<tr class="' + (r.inList ? 'inlist' : '') + '" data-r="' + ri + '">' +
@@ -1027,9 +1173,10 @@ function render(view){
     $('cnt').textContent = 'строк: ' + rows.length + ' из ' + REPORT.rep.length;
 
   } else if (view === 'tot'){
-    h = '<table><thead><tr>' + TOT_HEAD.map(function(t){ return '<th>'+t+'</th>'; }).join('') +
+    h = '<table><thead><tr>' + TOT_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.tot,i)+'</th>'; }).join('') +
         '</tr></thead><tbody>';
-    REPORT.tot.forEach(function(r){
+    applySort(REPORT.tot, SORT.tot, byIdx).forEach(function(r){
       h += '<tr>' + r.map(function(v,i){
         var c = i === 2 && v ? 'ok' : i === 3 && v ? 'bad' : i === 4 && v ? 'na' : '';
         return '<td>' + (c ? '<span class="chip '+c+'">'+v+'</span>' : v) + '</td>'; }).join('') + '</tr>'; });
@@ -1037,9 +1184,10 @@ function render(view){
 
   } else if (view === 'm50'){
     var m = MATCH50 || match50();
-    h = '<table><thead><tr>' + M50_HEAD.map(function(t){ return '<th>'+t+'</th>'; }).join('') +
+    h = '<table><thead><tr>' + M50_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.m50,i)+'</th>'; }).join('') +
         '</tr></thead><tbody>';
-    m.rows.forEach(function(r){
+    applySort(m.rows, SORT.m50, byIdx).forEach(function(r){
       var warn = !!r[7];
       h += '<tr' + (warn ? ' class="badrow"' : '') + '>' + r.map(function(v, i){
         var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : v);
@@ -1051,7 +1199,9 @@ function render(view){
   } else {
     var sorted = DB.list.slice().sort(function(a,b){
       return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[2] < b[2] ? -1 : 1); });
-    h = '<table><thead><tr>' + LIST_HEAD.map(function(t){ return '<th>'+t+'</th>'; }).join('') +
+    if (SORT.list.i >= 0) sorted = applySort(sorted, SORT.list, byIdx);
+    h = '<table><thead><tr>' + LIST_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.list,i)+'</th>'; }).join('') +
         '<th>Запомнить</th></tr></thead><tbody>';
     sorted.forEach(function(r, i){
       var unknown = S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0;
@@ -1070,6 +1220,14 @@ function render(view){
   }
   o.innerHTML = h;
 
+  o.querySelectorAll('th.srt').forEach(function(th){
+    th.onclick = function(){
+      var st = SORT[view] || SORT.rep, i = +this.dataset.s;
+      if (st.i === i) st.d = -st.d; else { st.i = i; st.d = 1; }
+      render(view);
+    };
+  });
+
   if (view === 'rep' && !$('fullMode').checked){
     o.querySelectorAll('td.chev').forEach(function(td){
       td.onclick = function(){
@@ -1081,7 +1239,8 @@ function render(view){
     });
   }
   if (view === 'list'){
-    var sorted2 = DB.list.slice().sort(function(a,b){
+    var sorted2 = applySort(DB.list.slice(), SORT.list, byIdx);
+    if (SORT.list.i < 0) sorted2 = DB.list.slice().sort(function(a,b){
       return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[2] < b[2] ? -1 : 1); });
     o.querySelectorAll('select.sug').forEach(function(sel){
       sel.onchange = function(){
@@ -1308,13 +1467,50 @@ function span(rows){
     if (!mn || d < mn) mn = d; if (!mx || d > mx) mx = d; });
   return rows.length ? rows.length + ' строк, ' + ru(mn) + ' — ' + ru(mx) : 'пусто';
 }
+/* филиал общий для списка и сверки — выбрали в одном месте, встал везде */
+function syncBranch(v){
+  ['branch','defBranch'].forEach(function(id){
+    var el = $(id); if (!el || el.value === v) return;
+    for (var i = 0; i < el.options.length; i++)
+      if (el.options[i].value === v){ el.value = v; break; }
+  });
+  try{ localStorage.setItem('sverka20_branch', v); }catch(e){}
+}
+function minMaxDay(rows){
+  var mn = '', mx = '';
+  (rows||[]).forEach(function(r){ var d = r[0]; if (!d) return;
+    if (!mn || d < mn) mn = d; if (!mx || d > mx) mx = d; });
+  return [mn, mx];
+}
+function shiftDay(d, n){
+  if (!d) return '';
+  var p = d.split('-'), t = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.getUTCFullYear() + '-' + pad(t.getUTCMonth()+1) + '-' + pad(t.getUTCDate());
+}
+/* границы календаря по загруженным данным + подстановка периода при первом заходе */
+function setDateRange(){
+  var mv = minMaxDay(DB.mov);
+  if (!mv[0]) return;
+  var lo = mv[0], hi = mv[1];
+  ['dFrom','dTo'].forEach(function(id){ var el = $(id); el.min = lo; el.max = hi; });
+  // выгрузку берут на день шире с обеих сторон — значит отчётный период на день уже
+  var defF = shiftDay(lo, 1), defT = shiftDay(hi, -1);
+  var sl = minMaxDay(DB.s20);
+  if (sl[0]){ defF = sl[0]; defT = sl[1]; }
+  if (defF < lo) defF = lo; if (defT > hi) defT = hi;
+  if (!$('dFrom').value) $('dFrom').value = defF;
+  if (!$('dTo').value)   $('dTo').value   = defT;
+}
 function refresh(){
   var bs = branches();
+  var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
   ['branch','defBranch'].forEach(function(id){
-    var el = $(id), cur = el.value;
+    var el = $(id), cur = el.value || saved;
     el.innerHTML = bs.map(function(b){ return '<option>' + b + '</option>'; }).join('');
     if (bs.indexOf(cur) >= 0) el.value = cur;
   });
+  setDateRange();
   var unk = DB.list.filter(function(r){ return S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0; }).length;
   $('status').innerHTML =
     '<b>Справочник:</b> ' + Object.keys(SPR).length + ' позиций · <b>Синонимы:</b> ' +
@@ -1330,6 +1526,8 @@ function refresh(){
 
 loadDB();
 $('year').value = new Date().getFullYear();
+$('branch').onchange    = function(){ syncBranch(this.value); };
+$('defBranch').onchange = function(){ syncBranch(this.value); };
 refresh();
 if (!window.DecompressionStream)
   msg('m1','Ваш браузер слишком старый: не умеет распаковывать .xlsx. Откройте в Chrome или Edge.','err');
