@@ -613,6 +613,7 @@ function loadDB(){
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
   ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
+  if (!DB.closed) DB.closed = {};
 }
 
 /* ═════════ справочник ═════════ */
@@ -1625,6 +1626,7 @@ function refresh(){
     el.innerHTML = bs.map(function(b){ return '<option>' + b + '</option>'; }).join('');
     if (bs.indexOf(cur) >= 0) el.value = cur;
   });
+  if (typeof applyDefaults === 'function') applyDefaults();
   setDateRange();
   var unk = DB.list.filter(function(r){ return S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0; }).length;
   $('status').innerHTML =
@@ -1658,6 +1660,40 @@ var POS_HEAD = ['Филиал','Блюдо','Срок, ч','Приход','Пр�
 /* «Доставка ТТ5 склад» — не витрина: филиалы свозят туда, дальше товар уходит в доставку.
    Перемещение на неё — продажа по полной цене, а не потеря. */
 function isDelivery(w){ return /достав/i.test(S(w)); }
+/* Маршруты развоза — постоянные. Заданы номерами складов, чтобы не ломались
+   от переименований. Их можно переопределить на вкладке «Маршруты». */
+var DEFAULT_ROUTES = { 2:'Маршрут 1', 10:'Маршрут 1', 11:'Маршрут 1',
+                       8:'Маршрут 2',  6:'Маршрут 2',  1:'Маршрут 2',
+                       3:'Маршрут 3',  4:'Маршрут 3',  9:'Маршрут 3' };
+var DEFAULT_CLOSED = [/магазин\s*tt?5/i];      // Магазин TT5 Taugul закрыт
+var ROUTES_V = 2;      // подняли версию — старые сохранённые маршруты перезапишутся
+function applyDefaults(){
+  var bs = branches(); if (!bs.length) return;
+  var stale = (DB.routesV || 0) < ROUTES_V;
+  if (stale){ DB.routes = {}; DB.closed = {}; DB.routesV = ROUTES_V; }
+  if (!DB.routes || !Object.keys(DB.routes).length){
+    DB.routes = {};
+    bs.forEach(function(b){
+      if (isDelivery(b)) return;
+      var n = whNum(b), r = DEFAULT_ROUTES[n];
+      if (r) DB.routes[b] = r;
+    });
+  }
+  if (!DB.closed || !Object.keys(DB.closed).length){
+    DB.closed = {};
+    bs.forEach(function(b){
+      DEFAULT_CLOSED.forEach(function(re){ if (re.test(b)) DB.closed[b] = 1; }); });
+  }
+  if (stale) saveDB();
+}
+function isClosed(w){ return !!(DB.closed && DB.closed[w]); }
+/* последний день, когда филиал что-то продал */
+function lastSale(w){
+  var d = '';
+  DB.mov.forEach(function(r){
+    if (r[1] === w && r[3] === 'realiz' && r[0] > d) d = r[0]; });
+  return d;
+}
 var PAIR_HEAD = ['Маршрут','Блюдо','Точка А','Потери А','Доля А','Дней с потерями А',
   'Точка Б','Продано Б','Дней в стопе Б','Скорость Б','Можно перевезти, шт',
   'Экономия на скидке, ₸','Выручка вместо потерь, ₸'];
@@ -1683,7 +1719,7 @@ function chrono(dFrom, dTo){
   DB.mov.forEach(function(r){
     var d = r[0]; if (d < dFrom || d > dTo) return;
     var wh = r[1], k = nrm(r[2]), kind = r[3], q = N(r[4]);
-    if (!SPR[k]) return;
+    if (!SPR[k] || isClosed(wh)) return;
     var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
     var f = isKus[k] ? 1 / KUSOK : 1;
     if (!SPR[base]) return;
@@ -1825,19 +1861,28 @@ function renderChrono(view){
 
 function routeHint(){
   var bs = branches();
-  var dlv = bs.filter(isDelivery);
-  var no = bs.filter(function(b){ return !DB.routes[b] && !isDelivery(b); });
+  var dlv = bs.filter(isDelivery), cl = bs.filter(isClosed);
+  var no = bs.filter(function(b){ return !DB.routes[b] && !isDelivery(b) && !isClosed(b); });
+  var last = '';
+  DB.mov.forEach(function(r){ if (r[0] > last) last = r[0]; });
+  var quiet = no.filter(function(b){
+    var d = lastSale(b); return d && last && daysBetween(d, last) > 10; })
+    .map(function(b){ return b + ' (последняя продажа ' + ru(lastSale(b)) + ')'; });
   $('routeHint').innerHTML =
     (no.length ? 'Без маршрута пока: <b>' + no.join(', ') + '</b>.<br>'
                : 'Все филиалы разнесены по маршрутам.<br>') +
+    (quiet.length ? '<span class="warn">Похоже, уже не работают: ' + quiet.join(', ') +
+      '</span> — допишите строкой «Закрыто: тт5», и они уйдут из расчёта.<br>' : '') +
+    (cl.length ? 'Закрыты и не считаются: <b>' + cl.join(', ') + '</b>.<br>' : '') +
     (dlv.length ? 'Склад доставки (' + dlv.join(', ') + ') в маршруты не входит и в пары ' +
       'не попадает: филиалы свозят туда сами, и перемещение на него считается продажей, ' +
       'а не потерей.' : '');
   var byR = {};
   Object.keys(DB.routes).forEach(function(b){ (byR[DB.routes[b]] = byR[DB.routes[b]] || []).push(b); });
-  if (Object.keys(byR).length && !$('routes').value)
-    $('routes').value = Object.keys(byR).map(function(r){
-      return r + ': ' + byR[r].join(', '); }).join('\n');
+  var lines = Object.keys(byR).sort().map(function(r){ return r + ': ' + byR[r].join(', '); });
+  Object.keys(DB.closed || {}).forEach(function(b){ lines.push('Закрыто: ' + b); });
+  if (lines.length && document.activeElement !== $('routes'))
+    $('routes').value = lines.join('\n');
 }
 
 /* номер филиала из названия склада: «010-Шугыла склад» → 10, «TT8 Qaratau» → 8 */
@@ -1850,32 +1895,37 @@ function branchesByNum(n, wantDelivery){
   return shops.length ? shops : all;     // «тт5» — это магазин, доставка отдельно
 }
 $('btnRoutes').onclick = function(){
-  var map = {}, bad = [], used = {}, k = 0;
+  var map = {}, bad = [], closed = {}, k = 0;
   S($('routes').value).split(/\r?\n/).forEach(function(line){
     line = S(line); if (!line) return;
-    k++;
     var p = line.split(':');
-    var name = p.length > 1 ? S(p.shift()) : 'Маршрут ' + k;
-    if (!name) name = 'Маршрут ' + k;
+    var name = p.length > 1 ? S(p.shift()) : '';
     var rest = p.length ? p.join(':') : line;
+    var shut = /закрыт|не работает|закрыл/i.test(name) || /закрыт|не работает|закрыл/i.test(line);
+    if (!shut){ k++; if (!name) name = 'Маршрут ' + k; }
     // ловим «тт2», «TT-10», «т 8», а также голые «010»
     var re = /(?:^|[^0-9a-zA-Zа-яёА-ЯЁ])(?:тт|тt|тт|т|tt|t)?\s*[-–—]?\s*(\d{1,3})/g, m, found = 0;
     while ((m = re.exec(' ' + rest))){
       var n = +m[1], hits = branchesByNum(n, /достав/i.test(rest));
       if (!hits.length){ bad.push('ТТ' + n); continue; }
-      hits.forEach(function(b){ map[b] = name; used[b] = 1; });
+      hits.forEach(function(b){ if (shut) closed[b] = 1; else map[b] = name; });
       found++;
     }
     if (!found) bad.push(line);
   });
-  DB.routes = map; saveDB(); routeHint();
+  DB.routes = map; DB.closed = closed; saveDB(); routeHint(); refresh();
   var byR = {};
   Object.keys(map).forEach(function(b){ (byR[map[b]] = byR[map[b]] || []).push(b); });
   var txt = Object.keys(byR).map(function(r){
     return '<b>' + r + ':</b> ' + byR[r].join(', '); }).join('<br>');
+  var cl = Object.keys(closed);
+  if (cl.length) txt += '<br><b>Закрыты:</b> ' + cl.join(', ') + ' — в расчёт не идут';
   msg('m5', 'Сохранено.<br>' + txt +
       (bad.length ? '<br><b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
-  if (CHRONO){ CHRONO.pair = pairsOf(CHRONO.pos, CHRONO.min); renderChrono(); }
+  if (CHRONO && $('cFrom').value){
+    var pos = chrono(D($('cFrom').value), D($('cTo').value));
+    CHRONO.pos = pos; CHRONO.pair = pairsOf(pos, CHRONO.min); renderChrono();
+  }
 };
 
 $('btnChrono').onclick = function(){
@@ -1907,6 +1957,9 @@ $('btnChrono').onclick = function(){
   } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
 };
 function fmtT(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₸'; }
+
+/* маршруты и закрытые филиалы применяем здесь: к этому месту всё уже объявлено */
+applyDefaults(); refresh();
 
 document.querySelectorAll('#tabsC button').forEach(function(b){
   b.onclick = function(){
