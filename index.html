@@ -234,6 +234,7 @@
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
       <div class="navsec">Отчёт</div>
       <a data-page="rep" class="on"><span class="ic">📊</span>Сверка</a>
+      <a data-page="chr"><span class="ic">📈</span>Хронология</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
       <a data-page="help"><span class="ic">❔</span>Как это считается</a>
@@ -341,6 +342,49 @@
             <span class="cnt" id="cnt"></span>
           </div>
           <div class="wrapT" id="out"></div>
+        </div>
+      </section>
+
+      <!-- ─── Хронология ───────────────────────────────── -->
+      <section class="page wide" id="pg-chr">
+        <div class="card">
+          <h2>Период</h2>
+          <p class="lead">Считается сразу по всем филиалам: скорость продажи, доля потерь,
+            дни выхода в стоп и пары «здесь уценивают — там разбирают».</p>
+          <div class="row" style="margin-top:10px">
+            <div><label class="lbl">с</label><input type="date" id="cFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="cTo"></div>
+            <div style="flex:0 0 150px"><label class="lbl">мин. приход, шт</label>
+              <input type="text" id="cMin" value="10"></div>
+            <button id="btnChrono">Посчитать</button>
+            <button class="sec" id="btnChrXlsx">Скачать Excel</button>
+          </div>
+          <div class="msg" id="m4"></div>
+        </div>
+
+        <div id="cardChr" style="display:none">
+          <div class="kpi" id="kpiC"></div>
+          <div class="tabs" id="tabsC">
+            <button class="on" data-c="pos">Позиции</button>
+            <button data-c="pair">Перемещать вместо уценки</button>
+            <button data-c="route">Маршруты</button>
+          </div>
+          <div class="fbar" id="fbarC">
+            <input type="text" id="qC" placeholder="Поиск по блюду или филиалу">
+            <label><input type="checkbox" id="onlyRoute"> только пары на одном маршруте</label>
+            <span class="cnt" id="cntC"></span>
+          </div>
+          <div class="wrapT" id="outC"></div>
+        </div>
+
+        <div class="card" id="cardRoutes" style="display:none">
+          <h2>Маршруты развоза</h2>
+          <p class="lead">Пары для перемещения имеют смысл только внутри одного маршрута.
+            Впишите их — по строке на маршрут, филиалы через запятую, в порядке объезда.</p>
+          <textarea id="routes" placeholder="Маршрут 1: ТТ1 Атакент склад, ТТ2 Сарыарка склад, 010-Шугыла склад&#10;Маршрут 2: ТТ4 Ньютон склад, ТТ6 Автодом, 011 Алма-Сити 5"></textarea>
+          <div class="row"><button id="btnRoutes">Сохранить маршруты</button></div>
+          <div class="msg" id="m5"></div>
+          <div class="hint" id="routeHint"></div>
         </div>
       </section>
 
@@ -568,6 +612,7 @@ function loadDB(){
   try{ var s = localStorage.getItem('sverka20'); if (s) DB = JSON.parse(s); }catch(e){}
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
   ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  if (!DB.routes) DB.routes = {};
 }
 
 /* ═════════ справочник ═════════ */
@@ -656,13 +701,15 @@ function parseTovarnaya(v, kinds){
 }
 
 function parseProdazhi(v, hasCredit, onlyTip){
-  var h = hdr(v[4]);
-  var iDay = h['Учетный день'] !== undefined ? h['Учетный день'] : 0;
-  var iC = h['Концепция'], iCat = h['Категория блюда'], iDish = h['Блюдо'],
-      iTip = h['Тип скидки'], iCr = h['В кредит на...'], iQ = h['Количество блюд'];
+  var fh = findHdr(v, ['Блюдо','Тип скидки','Количество блюд'], 'Отчёт по продажам');
+  var h = fh.h;
+  var iDay = col(h,'Учетный день') !== undefined ? col(h,'Учетный день') : 0;
+  var iC = col(h,'Концепция'), iCat = col(h,'Категория блюда'), iDish = col(h,'Блюдо'),
+      iTip = col(h,'Тип скидки'), iCr = col(h,'В кредит на...'), iQ = col(h,'Количество блюд');
+  var iS0 = col(h,'Сумма без скидки, тенге');
   if (iQ === undefined) iQ = hasCredit ? 6 : 5;
   var out = [], day = '', conc = '', dish = '', tipCur = '';
-  for (var r = 5; r < v.length; r++){
+  for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row) continue;
     var c0 = S(row[iDay]);
     if (c0){ if (c0 === 'Итого') break; day = D(row[iDay]); conc = ''; dish = ''; tipCur = ''; }
@@ -676,7 +723,8 @@ function parseProdazhi(v, hasCredit, onlyTip){
     if (onlyTip && tp.toLowerCase().indexOf(onlyTip) < 0) continue;
     if (!dish) continue;
     var q = N(row[iQ]); if (!q) continue;
-    out.push(hasCredit ? [day, conc, dish, q, S(row[iCr])] : [day, conc, dish, q]);
+    var s0 = iS0 === undefined ? 0 : N(row[iS0]);
+    out.push(hasCredit ? [day, conc, dish, q, S(row[iCr])] : [day, conc, dish, q, s0]);
   }
   return out;
 }
@@ -1599,12 +1647,252 @@ refresh();
 if (!window.DecompressionStream)
   msg('m1','Ваш браузер слишком старый: не умеет распаковывать .xlsx. Откройте в Chrome или Edge.','err');
 
+
+/* ═════════ хронология продукции и маршруты ═════════ */
+var CHRONO = null, CHR_VIEW = 'pos';
+SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1};
+
+var POS_HEAD = ['Филиал','Блюдо','Срок, ч','Приход','Продано','Потери','Доля потерь',
+  'Возврат по сроку','Склад 50%','Списание','Дней с потерями','Дней на витрине',
+  'Дней в стопе','Скорость, шт/день','Худший день','Цена, ₸','Потери, ₸'];
+var PAIR_HEAD = ['Маршрут','Блюдо','Точка А','Потери А','Доля А','Дней с потерями А',
+  'Точка Б','Продано Б','Дней в стопе Б','Скорость Б','Можно перевезти, шт',
+  'Экономия на скидке, ₸','Выручка вместо потерь, ₸'];
+var DOW = ['пн','вт','ср','чт','пт','сб','вс'];
+
+function dowOf(d){ var p = S(d).split('-'); return (new Date(+p[0], +p[1]-1, +p[2])).getDay(); }
+
+/* цена позиции — из отчёта по продажам со скидкой 20% */
+function priceMap(){
+  var q = {}, sum = {};
+  DB.s20.forEach(function(r){
+    var k = nrm(r[2]), s0 = N(r[4]);
+    if (!s0) return;
+    q[k] = (q[k] || 0) + N(r[3]); sum[k] = (sum[k] || 0) + s0;
+  });
+  var p = {};
+  Object.keys(q).forEach(function(k){ if (q[k] > 0) p[k] = sum[k] / q[k]; });
+  return p;
+}
+
+function chrono(dFrom, dTo){
+  var PR = priceMap(), acc = {};
+  DB.mov.forEach(function(r){
+    var d = r[0]; if (d < dFrom || d > dTo) return;
+    var wh = r[1], k = nrm(r[2]), kind = r[3], q = N(r[4]);
+    if (!SPR[k]) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    var f = isKus[k] ? 1 / KUSOK : 1;
+    if (!SPR[base]) return;
+    var key = wh + '|' + base;
+    var a = acc[key] || (acc[key] = { wh: wh, k: base, days: {} });
+    var dd = a.days[d] || (a.days[d] = { p:0, s:0, l:0, v:0, f50:0, sp:0 });
+    if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other') dd.p += q * f;
+    else if (kind === 'realiz')       dd.s  += q * f;
+    else if (kind === 'vozvrat_srok'){ dd.v += q * f; dd.l += q * f; }
+    else if (kind === 'perem_50')    { dd.f50 += q * f; dd.l += q * f; }
+    else if (kind === 'spisanie')    { dd.sp += q * f; dd.l += q * f; }
+  });
+
+  var days = [], d = dFrom;
+  while (d <= dTo){ days.push(d); d = shift(d, 1); }
+
+  var rows = [];
+  Object.keys(acc).forEach(function(key){
+    var a = acc[key], sp = SPR[a.k];
+    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0;
+    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0;
+    var bal = 0, minCum = 0, cum = 0, series = [];
+    days.forEach(function(dd){
+      var x = a.days[dd] || { p:0, s:0, l:0, v:0, f50:0, sp:0 };
+      P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp;
+      if (x.l > 1e-9) dLoss++;
+      if (x.p > 1e-9) dArr++;
+      cum += x.p - x.s - x.l;
+      if (cum < minCum) minCum = cum;
+      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s });
+    });
+    if (P < 1e-9 && S_ < 1e-9) return;
+    var open = Math.max(0, -minCum), prev = 0;
+    series.forEach(function(x, i){
+      bal = open + x.cum;
+      if (bal > 1e-9) onShelf++;
+      else if (x.p > 1e-9 || prev > 1e-9) stop++;
+      prev = x.p;
+    });
+    var dl = {}, best = -1, bestD = '';
+    series.forEach(function(x){ if (x.l > 1e-9){ var w = dowOf(x.d);
+      dl[w] = (dl[w] || 0) + x.l; if (dl[w] > best){ best = dl[w]; bestD = DOW[w]; } } });
+    var price = PR[a.k] || 0;
+    rows.push([a.wh, sp.name, sp.srok || '', r3(P), r3(S_), r3(L),
+      P > 1e-9 ? L / P : '', r3(V), r3(F), r3(SP), dLoss, onShelf, stop,
+      onShelf ? r3(S_ / onShelf) : 0, bestD, price ? Math.round(price) : '',
+      price ? Math.round(L * price) : '']);
+  });
+  return rows;
+}
+function r3(x){ return Math.round(x * 1000) / 1000; }
+
+/* пары «точка А теряет — точка Б разбирает» */
+function pairsOf(rows, minPrih){
+  var byDish = {};
+  rows.forEach(function(r){
+    if (N(r[3]) < minPrih) return;
+    (byDish[r[1]] = byDish[r[1]] || []).push(r);
+  });
+  var out = [];
+  Object.keys(byDish).forEach(function(dish){
+    var g = byDish[dish].filter(function(r){ return r[6] !== ''; });
+    if (g.length < 2) return;
+    var A = g[0]; g.forEach(function(r){ if (r[6] > A[6]) A = r; });
+    if (A[6] < 0.10 || A[10] < 3) return;          // не системно — пропускаем
+    var good = g.filter(function(r){ return r[6] <= 0.02 && r !== A; });
+    if (!good.length) return;
+    var B = good[0]; good.forEach(function(r){ if (N(r[4]) > N(B[4])) B = r; });
+    var move = Math.min(N(A[5]), N(B[13]) * 20), price = N(A[15]);
+    var rtA = DB.routes[A[0]] || '', rtB = DB.routes[B[0]] || '';
+    out.push([ rtA && rtA === rtB ? rtA : (rtA || rtB ? 'разные маршруты' : ''),
+      dish, A[0], A[5], A[6], A[10], B[0], B[4], B[12], B[13], r3(move),
+      price ? Math.round(move * price * 0.2) : '', price ? Math.round(move * price) : '' ]);
+  });
+  return out;
+}
+
+function renderChrono(view){
+  if (view) CHR_VIEW = view; view = CHR_VIEW;
+  var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
+  $('cardRoutes').style.display = view === 'route' ? '' : 'none';
+  $('fbarC').style.display = view === 'route' ? 'none' : '';
+  if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
+
+  var q = nrm($('qC').value), head, rows, st;
+  if (view === 'pos'){
+    head = POS_HEAD; st = SORT.pos;
+    rows = CHRONO.pos.filter(function(r){
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
+  } else {
+    head = PAIR_HEAD; st = SORT.pair;
+    rows = CHRONO.pair.filter(function(r){
+      if ($('onlyRoute').checked && (!r[0] || r[0] === 'разные маршруты')) return false;
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
+  }
+  rows = applySort(rows, st, byIdx);
+  var pct = view === 'pos' ? [6] : [4];
+  var h = '<table><thead><tr>' + head.map(function(t, i){
+      return '<th class="srt" data-s="'+i+'">'+t+arrow(st,i)+'</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    h += '<tr>' + r.map(function(v, i){
+      var cell = v;
+      if (pct.indexOf(i) >= 0 && v !== '') cell = Math.round(v * 1000) / 10 + '%';
+      if (v === '' || v === null || v === undefined) cell = '';
+      var cl = (i === 1 || (view === 'pos' && i === 0) || (view === 'pair' && (i === 2 || i === 6)))
+             ? 'name' : '';
+      if (pct.indexOf(i) >= 0 && v !== '' && v >= 0.15) cl += ' bad';
+      return '<td class="' + cl.trim() + '">' + cell + '</td>'; }).join('') + '</tr>';
+  });
+  h += '</tbody></table>';
+  o.innerHTML = h;
+  $('cntC').textContent = 'строк: ' + rows.length;
+  o.querySelectorAll('th.srt').forEach(function(th){
+    th.onclick = function(){
+      var i = +this.dataset.s;
+      if (st.i === i) st.d = -st.d; else { st.i = i; st.d = 1; }
+      renderChrono();
+    };
+  });
+}
+
+function routeHint(){
+  var bs = branches(), no = bs.filter(function(b){ return !DB.routes[b]; });
+  $('routeHint').innerHTML = no.length
+    ? 'Без маршрута пока: <b>' + no.join(', ') + '</b>. Такие пары помечаются «разные маршруты».'
+    : 'Все филиалы разнесены по маршрутам.';
+  var byR = {};
+  Object.keys(DB.routes).forEach(function(b){ (byR[DB.routes[b]] = byR[DB.routes[b]] || []).push(b); });
+  if (Object.keys(byR).length && !$('routes').value)
+    $('routes').value = Object.keys(byR).map(function(r){
+      return r + ': ' + byR[r].join(', '); }).join('\n');
+}
+
+$('btnRoutes').onclick = function(){
+  var bs = branches(), map = {}, bad = [];
+  S($('routes').value).split(/\r?\n/).forEach(function(line){
+    line = S(line); if (!line) return;
+    var p = line.split(':');
+    var name = p.length > 1 ? S(p.shift()) : 'Маршрут';
+    p.join(':').split(',').forEach(function(x){
+      x = S(x); if (!x) return;
+      var hit = null;
+      bs.forEach(function(b){ if (nrm(b) === nrm(x) || nrm(b).indexOf(nrm(x)) >= 0) hit = b; });
+      if (hit) map[hit] = name; else bad.push(x);
+    });
+  });
+  DB.routes = map; saveDB(); routeHint();
+  msg('m5', 'Сохранено. Филиалов в маршрутах: ' + Object.keys(map).length +
+      (bad.length ? '. <b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
+  if (CHRONO){ CHRONO.pair = pairsOf(CHRONO.pos, CHRONO.min); renderChrono(); }
+};
+
+$('btnChrono').onclick = function(){
+  var f = D($('cFrom').value), t = D($('cTo').value);
+  if (!DB.mov.length) return msg('m4','Сначала загрузите выгрузки iiko.','err');
+  if (!f || !t) return msg('m4','Укажите период.','err');
+  msg('m4','Считаю…','wait');
+  try{
+    var minP = N($('cMin').value) || 0;
+    var pos = chrono(f, t);
+    CHRONO = { pos: pos, pair: pairsOf(pos, minP), min: minP, from: f, to: t };
+    $('cardChr').style.display = '';
+    var L = 0, M = 0, whL = {};
+    pos.forEach(function(r){ L += N(r[5]); M += N(r[16]); whL[r[0]] = (whL[r[0]]||0) + N(r[5]); });
+    var worst = '', wv = -1;
+    Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
+    var eco = 0; CHRONO.pair.forEach(function(r){ eco += N(r[11]); });
+    $('kpiC').innerHTML =
+      '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b></div>' +
+      '<div><span>Потери всего</span><b style="color:#b42318">' + Math.round(L) + ' шт</b></div>' +
+      '<div><span>Потери в деньгах</span><b style="color:#b42318">' + fmtT(M) + '</b></div>' +
+      '<div><span>Больше всех теряет</span><b style="font-size:15px">' + worst +
+        '<span style="font-size:12px;color:#71717a"> · ' + Math.round(wv) + ' шт</span></b></div>' +
+      '<div><span>Пар для перемещения</span><b style="color:#067647">' + CHRONO.pair.length +
+        '</b><span>экономия ' + fmtT(eco) + '</span></div>';
+    document.querySelectorAll('#tabsC button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
+    renderChrono('pos');
+    msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.', 'ok');
+  } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
+};
+function fmtT(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₸'; }
+
+document.querySelectorAll('#tabsC button').forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll('#tabsC button').forEach(function(x){ x.classList.remove('on'); });
+    this.classList.add('on'); renderChrono(this.dataset.c);
+  };
+});
+$('qC').oninput = function(){ renderChrono(); };
+$('onlyRoute').onchange = function(){ renderChrono(); };
+
+$('btnChrXlsx').onclick = function(){
+  if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
+  var blob = makeXlsx([
+    { name: 'Позиции', head: POS_HEAD, rows: CHRONO.pos },
+    { name: 'Перемещать вместо уценки', head: PAIR_HEAD, rows: CHRONO.pair }
+  ]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Хронология ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+};
+
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     rep: ['Сверка',''],
+    chr: ['Хронология','как продаётся и где теряется'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
   };
@@ -1621,6 +1909,11 @@ if (!window.DecompressionStream)
     el('side').classList.remove('open');
     el('scrim').classList.remove('on');
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
+    if (p === 'chr'){
+      if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;
+      if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
+      if (typeof routeHint === 'function') routeHint();
+    }
   }
   function badges(){
     try{
