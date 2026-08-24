@@ -13,9 +13,29 @@
     --okBg:#ecfdf3;--okT:#067647;--okB:#abefc6;
     --badBg:#fef3f2;--badT:#b42318;--badB:#fecdca;
     --naBg:#fffaeb;--naT:#b54708;--naB:#fedf89;
+    --row:#fff;--rowHov:#f7f7f8;--head:#fafafa;--soft:#ececef;
+    --mark:#2a78d6;--markSoft:#cde2fb;--grid:#e8e8ec;
     --sh:0 1px 2px rgba(16,24,40,.05);
     --shCard:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.04);
     --shPanel:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.14);
+  }
+  /* тёмная тема — свои шаги от тех же цветов, а не механическая инверсия */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141413;--panel:#1a1a19;--card:#201f1e;
+      --bd:#33322f;--bd2:#2a2926;
+      --txt:#f2f1ee;--mut:#a3a29b;--mut2:#7a7973;
+      --acc:#8fb3e8;--acc2:#6da7ec;--accbg:#22303f;
+      --okBg:#12291d;--okT:#6ee7a8;--okB:#1f5138;
+      --badBg:#2e1717;--badT:#fca5a5;--badB:#5c2626;
+      --naBg:#2b2210;--naT:#fcd34d;--naB:#5a441a;
+      --row:#201f1e;--rowHov:#282725;--head:#1c1b1a;--soft:#2a2926;
+      --mark:#3987e5;--markSoft:#184f95;--grid:#33322f;
+      --sh:0 1px 2px rgba(0,0,0,.4);
+      --shCard:0 1px 2px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
+      --shPanel:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme:dark;
+    }
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -39,20 +59,20 @@
   .navsec{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut2);
     margin:16px 10px 6px;font-weight:600}
   .nav a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;margin-bottom:1px;
-    color:#3f3f46;font-size:13.5px;text-decoration:none;cursor:pointer;user-select:none;
+    color:var(--txt);font-size:13.5px;text-decoration:none;cursor:pointer;user-select:none;
     transition:background .12s,color .12s}
   .nav a .ic{width:17px;text-align:center;font-size:13px;opacity:.75;flex:0 0 17px}
-  .nav a:hover{background:#ececef}
+  .nav a:hover{background:var(--soft)}
   .nav a.on{background:var(--card);color:var(--txt);font-weight:500;
     box-shadow:var(--sh),inset 0 0 0 1px var(--bd)}
   .nav a.on .ic{opacity:1}
-  .nav a .pill{margin-left:auto;font-size:11px;color:var(--mut);background:#ececef;
+  .nav a .pill{margin-left:auto;font-size:11px;color:var(--mut);background:var(--soft);
     border-radius:999px;padding:0 7px;line-height:17px}
   .nav a.on .pill{background:var(--accbg);color:var(--acc)}
 
-  .sidefoot{padding:10px;border-radius:10px;background:#ececef;font-size:11.5px;color:var(--mut);
+  .sidefoot{padding:10px;border-radius:10px;background:var(--soft);font-size:11.5px;color:var(--mut);
     line-height:1.55;margin-top:10px}
-  .sidefoot b{color:#3f3f46;font-weight:600}
+  .sidefoot b{color:var(--txt);font-weight:600}
 
   .topbar{flex:0 0 auto;min-height:54px;display:flex;align-items:center;gap:10px;padding:0 18px;
     border-bottom:1px solid var(--bd);background:var(--card)}
@@ -74,36 +94,36 @@
 
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}
   @media(max-width:820px){.grid{grid-template-columns:1fr}}
-  .f{border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:#fdfdfe}
+  .f{border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--panel)}
   .f label{display:block;font-weight:600;margin-bottom:2px;font-size:13px}
   .f .h{color:var(--mut);font-size:12px;margin-bottom:8px;line-height:1.45}
   input[type=file]{width:100%;font-size:12.5px;color:var(--mut)}
-  input[type=file]::file-selector-button{border:1px solid var(--bd);border-radius:7px;background:#fff;
+  input[type=file]::file-selector-button{border:1px solid var(--bd);border-radius:7px;background:var(--card);
     color:var(--txt);padding:5px 11px;margin-right:9px;font:inherit;font-size:12.5px;cursor:pointer;
     box-shadow:var(--sh)}
-  input[type=file]::file-selector-button:hover{background:#f7f7f8}
+  input[type=file]::file-selector-button:hover{background:var(--rowHov)}
 
   input[type=date]{width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);
-    background:#fff;font:inherit;font-size:13px;color:inherit;box-shadow:var(--sh);min-height:34px;
+    background:var(--card);font:inherit;font-size:13px;color:inherit;box-shadow:var(--sh);min-height:34px;
     -webkit-appearance:none;appearance:none}
   input[type=date]:focus{outline:none;border-color:#c7c7cd;box-shadow:0 0 0 3px rgba(24,24,27,.06)}
   input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.55}
   input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
   input[type=text],select,textarea{width:100%;padding:7px 10px;border-radius:8px;
-    border:1px solid var(--bd);background:#fff;font:inherit;font-size:13px;color:inherit;
+    border:1px solid var(--bd);background:var(--card);font:inherit;font-size:13px;color:inherit;
     box-shadow:var(--sh);transition:border-color .12s,box-shadow .12s}
   input[type=text]:focus,select:focus,textarea:focus{outline:none;border-color:#c7c7cd;
     box-shadow:0 0 0 3px rgba(24,24,27,.06)}
   textarea{min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
   label.lbl{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
 
-  button{background:var(--txt);color:#fff;border:1px solid var(--txt);border-radius:8px;
+  button{background:var(--txt);color:var(--card);border:1px solid var(--txt);border-radius:8px;
     padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;box-shadow:var(--sh);
     transition:background .12s,border-color .12s}
   button:hover:not(:disabled){background:#333338;border-color:#333338}
   button:disabled{background:#d4d4d8;border-color:#d4d4d8;color:#fafafa;cursor:default;box-shadow:none}
-  button.sec{background:#fff;color:var(--txt);border:1px solid var(--bd)}
-  button.sec:hover:not(:disabled){background:#f7f7f8;border-color:#dcdce1}
+  button.sec{background:var(--card);color:var(--txt);border:1px solid var(--bd)}
+  button.sec:hover:not(:disabled){background:var(--rowHov);border-color:var(--mut2)}
 
   .row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
   .row>div{flex:0 0 165px}
@@ -114,7 +134,7 @@
   .msg.err{background:var(--badBg);color:var(--badT);border-color:var(--badB);display:block}
   .msg.wait{background:var(--naBg);color:var(--naT);border-color:var(--naB);display:block}
 
-  .st{font-size:12.5px;line-height:1.85;color:#3f3f46}
+  .st{font-size:12.5px;line-height:1.85;color:var(--txt)}
   .st b{color:var(--txt);font-weight:600}
 
   /* ── плитки итогов ──────────────────────── */
@@ -136,40 +156,40 @@
   .fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
   .fbar input[type=text]{width:230px}
   .fbar label{display:inline-flex;gap:7px;align-items:center;cursor:pointer;font-size:12.5px;
-    white-space:nowrap;border:1px solid var(--bd);border-radius:8px;padding:6px 11px;background:#fff;
+    white-space:nowrap;border:1px solid var(--bd);border-radius:8px;padding:6px 11px;background:var(--card);
     box-shadow:var(--sh)}
-  .fbar label:hover{background:#f7f7f8}
+  .fbar label:hover{background:var(--rowHov)}
   .fbar input[type=checkbox]{width:auto;margin:0;accent-color:var(--txt)}
   .cnt{color:var(--mut);font-size:12px;margin-left:auto}
 
   /* ── таблица ────────────────────────────── */
-  .wrapT{overflow:auto;max-height:66vh;border:1px solid var(--bd);border-radius:12px;background:#fff;
+  .wrapT{overflow:auto;max-height:66vh;border:1px solid var(--bd);border-radius:12px;background:var(--card);
     box-shadow:var(--shCard)}
   table{border-collapse:separate;border-spacing:0;font-size:12.5px;white-space:nowrap;width:100%}
-  th{position:sticky;top:0;z-index:2;background:#fafafa;color:var(--mut);font-weight:500;
+  th{position:sticky;top:0;z-index:2;background:var(--head);color:var(--mut);font-weight:500;
     font-size:11.5px;padding:9px 10px;text-align:center;white-space:normal;min-width:76px;
     border-bottom:1px solid var(--bd);border-right:1px solid var(--bd2)}
-  th.frost{color:var(--acc2);background:#f4f8fc}
+  th.frost{color:var(--acc2);background:var(--accbg)}
   th.srt{cursor:pointer;user-select:none}
-  th.srt:hover{color:var(--txt);background:#f2f2f4}
-  td{background:#fff;padding:8px 10px;text-align:center;color:#3f3f46;
+  th.srt:hover{color:var(--txt);background:var(--rowHov)}
+  td{background:var(--row);padding:8px 10px;text-align:center;color:var(--txt);
      border-bottom:1px solid var(--bd2);border-right:1px solid var(--bd2)}
   tbody tr:last-child td{border-bottom:0}
   td.name,th.name{text-align:left;min-width:220px;white-space:normal}
   td.name{color:var(--txt);font-weight:500}
-  tbody tr:hover td{background:#fafafa}
+  tbody tr:hover td{background:var(--rowHov)}
   td.c0,th.c0{position:sticky;left:0;z-index:1;min-width:96px;width:96px}
   td.c1,th.c1{position:sticky;left:96px;z-index:1;box-shadow:8px 0 10px -10px rgba(16,24,40,.2)}
-  th.c0,th.c1,th.cR{z-index:3;background:#fafafa}
+  th.c0,th.c1,th.cR{z-index:3;background:var(--head)}
   td.cR,th.cR{position:sticky;right:0;z-index:1;min-width:210px;
               box-shadow:-8px 0 10px -10px rgba(16,24,40,.2)}
   tr.inlist td.c1{box-shadow:inset 3px 0 0 #e0912c,8px 0 10px -10px rgba(16,24,40,.2)}
   td.chev{cursor:pointer;user-select:none;color:var(--mut2);min-width:30px;padding:8px 4px;
     font-size:11px}
   td.chev:hover{color:var(--txt)}
-  tr.det>td{background:#fafafa;text-align:left;white-space:normal;padding:0}
+  tr.det>td{background:var(--head);text-align:left;white-space:normal;padding:0}
   .dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;padding:11px 16px}
-  .dgrid div{font-size:12px;color:#3f3f46}
+  .dgrid div{font-size:12px;color:var(--txt)}
   .dgrid b{color:var(--mut);font-weight:500}
   .dgrid .z{color:#c7c7cd}
   tr.badrow td:first-child{box-shadow:inset 3px 0 0 #f0a4a0}
@@ -188,11 +208,19 @@
   .warn{color:var(--badT);font-weight:600}
 
   .bootWarn{position:fixed;left:10px;right:10px;top:10px;z-index:200;padding:12px 15px;
-    border-radius:11px;background:#fffaeb;color:#b54708;border:1px solid #fedf89;font-size:13px;
+    border-radius:11px;background:var(--naBg);color:var(--naT);border:1px solid var(--naB);font-size:13px;
     line-height:1.5;box-shadow:0 8px 24px -12px rgba(16,24,40,.3)}
   .bootWarn b{font-weight:600}
-  .bootWarn.err{background:#fef3f2;color:#b42318;border-color:#fecdca;top:auto;bottom:10px;
+  .bootWarn.err{background:var(--badBg);color:var(--badT);border-color:var(--badB);top:auto;bottom:10px;
     font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-word}
+
+  .chartBox{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+    padding:14px 16px 6px;margin-bottom:12px;box-shadow:var(--shCard)}
+  .chartT{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px}
+  .chartScroll{overflow-x:auto}
+  .chartScroll svg{display:block;max-width:100%;height:auto}
+  .bar rect{transition:opacity .12s}
+  .chartScroll g:hover rect{opacity:.82}
 
   /* ── мобильный ──────────────────────────── */
   @media(max-width:900px){
@@ -366,6 +394,7 @@
           <div class="kpi" id="kpiC"></div>
           <div class="tabs" id="tabsC">
             <button class="on" data-c="pos">Позиции</button>
+            <button data-c="dyn">Динамика</button>
             <button data-c="pair">Перемещать вместо уценки</button>
             <button data-c="route">Маршруты</button>
           </div>
@@ -607,13 +636,46 @@ function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
 var DB = { mov: [], s20: [], s50: [], list: [], syn: {} };
-function saveDB(){ try{ localStorage.setItem('sverka20', JSON.stringify(DB)); }catch(e){} }
+function saveDB(){
+  try{
+    var s = JSON.stringify(DB);
+    localStorage.setItem('sverka20', s);
+    DBSIZE = s.length;
+    return true;
+  }catch(e){
+    // в браузере ~5 МБ на сайт; на большом периоде упираемся
+    var w = document.getElementById('errWarn');
+    if (w){ w.style.display = 'block';
+      w.innerHTML = '<b>Не смогла сохранить данные в браузере — не хватило места.</b><br>' +
+        'Отчёты сейчас соберутся, но после закрытия страницы выгрузки придётся загрузить заново. ' +
+        'Возьмите период короче (месяц вместо двух) или нажмите «Сохранить данные в файл» ' +
+        'в разделе «Хранилище».'; }
+    return false;
+  }
+}
+var DBSIZE = 0;
 function loadDB(){
   try{ var s = localStorage.getItem('sverka20'); if (s) DB = JSON.parse(s); }catch(e){}
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
   ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
+  migrateDB();
+}
+
+var DB_V = 3;
+/* Приводим ранее сохранённые данные к текущей форме.
+   Без этого старые записи молча дают пустые цены и сломанные проверки. */
+function migrateDB(){
+  var was = DB.v || 0;
+  if (was >= DB_V) return;
+  // v2: в продажах 20% появилась сумма без скидки (нужна для цены)
+  if (was < 2) DB.s20 = (DB.s20 || []).map(function(r){
+    return r.length >= 5 ? r : [r[0], r[1], r[2], r[3], 0]; });
+  // v3: движения обязаны иметь 5 полей — дата, склад, блюдо, вид, количество
+  if (was < 3) DB.mov = (DB.mov || []).filter(function(r){ return r && r.length >= 5; });
+  DB.v = DB_V;
+  try{ localStorage.setItem('sverka20', JSON.stringify(DB)); }catch(e){}
 }
 
 /* ═════════ справочник ═════════ */
@@ -656,6 +718,9 @@ function parseTovarny(v){
         : nm.indexOf('50%') >= 0 ? 'perem_50' : 'other';
     else k = 'other';
     kinds[num + '|' + tip] = k;
+    var d = D(row[col(h,'Дата документа')]);
+    if (d){ if (!kinds.__from || d < kinds.__from) kinds.__from = d;
+            if (!kinds.__to   || d > kinds.__to)   kinds.__to   = d; }
   }
   return kinds;
 }
@@ -685,9 +750,14 @@ function parseTovarnaya(v, kinds){
     if (!wh) continue;
     var tip = S(row[iTip]), num = S(row[iNum]), vid = S(row[iVid]);
     var k = kinds[num + '|' + tip];
-    seen++;
+    // у актов реализации, списания и инвентаризации назначение и так однозначно;
+    // важно оно только для накладных и перемещений
+    // считаем только витринную продукцию: перчатки и дезсредство на проверки не влияют
+    var matters = (vid === 'Приходная накладная' || vid === 'Расходная накладная' ||
+                   vid === 'Внутреннее перемещение') && !!SPR[nrm(row[iNm])];
+    if (matters) seen++;
     if (!k){
-      missed++;
+      if (matters) missed++;
       k = vid === 'Приходная накладная' ? 'prihod_other'
         : vid === 'Акт реализации' ? 'realiz'
         : vid === 'Акт списания' ? 'spisanie'
@@ -737,13 +807,17 @@ function mergeRows(key, rows){
 
 $('btnLoad').onclick = async function(){
   var b = this; b.disabled = true;
-  var done = [];
+  var done = [], problems = [];
   try{
     var f;
     f = $('fTovarny').files[0];
     if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
       DOCKINDS = parseTovarny(await readXlsx(f));
-      done.push('товарный отчёт: ' + Object.keys(DOCKINDS).length + ' документов'); }
+      var nd = Object.keys(DOCKINDS).filter(function(k){ return k.indexOf('__') !== 0; }).length;
+      if (!nd) throw new Error('В файле «' + f.name + '» не нашлось ни одного документа. ' +
+        'Похоже, это не товарный отчёт — проверьте, тот ли файл выбран.');
+      done.push('товарный отчёт: ' + nd + ' документов' +
+        (DOCKINDS.__from ? ', ' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) : '')); }
 
     f = $('fTovarnaya').files[0];
     if (f){
@@ -753,18 +827,36 @@ $('btnLoad').onclick = async function(){
       var rows = parseTovarnaya(await readXlsx(f), DOCKINDS);
       mergeRows('mov', rows); done.push('движения: ' + rows.length + ' строк');
     }
+    // продажи не критичны для сверки движений — если сломаются, скажем и пойдём дальше
     f = $('fProd20').files[0];
     if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
-      var r20 = parseProdazhi(await readXlsx(f), false, 'скидка 20%');
-      mergeRows('s20', r20); done.push('продажи 20%: ' + r20.length + ' строк'); }
+      try{
+        var r20 = parseProdazhi(await readXlsx(f), false, 'скидка 20%');
+        if (!r20.length) problems.push('В «' + f.name + '» нет ни одной продажи со скидкой 20%. ' +
+          'Проверьте, что при выгрузке выбран тип скидки «Скидка 20%».');
+        else { mergeRows('s20', r20); done.push('продажи 20%: ' + r20.length + ' строк'); }
+      }catch(e){ problems.push('Продажи 20%: ' + (e.message || e)); }
+    }
 
     f = $('fProd50').files[0];
     if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
-      var r50 = parseProdazhi(await readXlsx(f), true, 'скидка 50%');
-      mergeRows('s50', r50); done.push('продажи 50%: ' + r50.length + ' строк'); }
+      try{
+        var r50 = parseProdazhi(await readXlsx(f), true, 'скидка 50%');
+        if (!r50.length) problems.push('В «' + f.name + '» нет ни одной продажи со скидкой 50%.');
+        else { mergeRows('s50', r50); done.push('продажи 50%: ' + r50.length + ' строк'); }
+      }catch(e){ problems.push('Продажи 50%: ' + (e.message || e)); }
+    }
 
-    if (!done.length) msg('m1','Ни один файл не выбран.','err');
-    else { saveDB(); msg('m1','Готово.<br>' + done.join('<br>'), 'ok'); }
+    problems = problems.concat(checkCoverage());
+
+    if (!done.length && !problems.length) msg('m1','Ни один файл не выбран.','err');
+    else {
+      saveDB();
+      msg('m1', (done.length ? 'Готово.<br>' + done.join('<br>') : '') +
+        (problems.length ? '<br><br><b>На что обратить внимание:</b><br>• ' +
+          problems.join('<br>• ') : ''),
+        problems.length ? 'wait' : 'ok');
+    }
   } catch(e){ msg('m1','Ошибка: ' + (e.message || e), 'err'); }
   b.disabled = false; refresh();
 };
@@ -981,7 +1073,10 @@ function build(wh, dFrom, dTo){
     Object.keys(SPR).forEach(function(k){
       if (isKus[k]) return; var sp = SPR[k];
       if (!sp.srok || sp.skidka === 'Нет') return;
-      if (sk(k,T) || mv(k,T,'perem_50') || mv(k,T3,'spisanie') || mv(k,T3,'vozvrat_srok')) keys[k] = 1;
+      // списание в день отчёта тоже должно попадать в таблицу — иначе проверка
+      // прихода списания никогда не сработает по незаявленной позиции
+      if (sk(k,T) || mv(k,T,'perem_50') || mv(k,T,'spisanie') ||
+          mv(k,T3,'spisanie') || mv(k,T3,'vozvrat_srok')) keys[k] = 1;
     });
     var inL = 0, ok = 0, bad = 0, noL = 0;
     Object.keys(keys).sort().forEach(function(k){
@@ -1594,6 +1689,34 @@ function setDateRange(){
   if (!$('dFrom').value) $('dFrom').value = defF;
   if (!$('dTo').value)   $('dTo').value   = defT;
 }
+/* сходятся ли периоды и хватает ли товарного отчёта на всю ведомость */
+function checkCoverage(){
+  var out = [];
+  if (DOCCOVER && DOCCOVER.seen){
+    var pct = Math.round(DOCCOVER.missed / DOCCOVER.seen * 100);
+    if (pct > 5)
+      out.push('Назначение документа не определилось у <b>' + pct + '%</b> строк ведомости (' +
+        DOCCOVER.missed + ' из ' + DOCCOVER.seen + '). Товарный отчёт покрывает не все ' +
+        'накладные — возврат по сроку, склад 50% и разделение прихода будут неполными.');
+  }
+  var mf = '', mt = '';
+  DB.mov.forEach(function(r){ if (!r[0]) return;
+    if (!mf || r[0] < mf) mf = r[0]; if (!mt || r[0] > mt) mt = r[0]; });
+  if (mf && DOCKINDS && DOCKINDS.__from){
+    if (DOCKINDS.__from > mf || DOCKINDS.__to < mt)
+      out.push('Товарный отчёт выгружен за <b>' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) +
+        '</b>, а ведомость за <b>' + ru(mf) + ' — ' + ru(mt) + '</b>. ' +
+        'Выгрузите товарный отчёт за тот же период.');
+  }
+  var s20f = '', s20t = '';
+  DB.s20.forEach(function(r){ if (!r[0]) return;
+    if (!s20f || r[0] < s20f) s20f = r[0]; if (!s20t || r[0] > s20t) s20t = r[0]; });
+  if (s20f && mf && (s20f > mt || s20t < mf))
+    out.push('Продажи со скидкой 20% (' + ru(s20f) + ' — ' + ru(s20t) +
+      ') не пересекаются с движениями (' + ru(mf) + ' — ' + ru(mt) + ').');
+  return out;
+}
+
 /* по каким видам движений что распозналось — сразу видно, если товарный отчёт не подхватился */
 function movKinds(){
   var c = {}, n = 0;
@@ -1608,10 +1731,11 @@ function movKinds(){
   var out = [], warn = '';
   Object.keys(NAMES).forEach(function(k){
     if (c[k]) out.push((NAMES[k] || k) + ': ' + c[k]); });
-  var oth = (c['other'] || 0) + (c['prihod_other'] || 0), share = n ? oth / n : 0;
-  if (share > 0.15 || !c['perem_50'] || !c['vozvrat_srok'])
+  var miss = DOCCOVER ? DOCCOVER.missed : 0, tot = DOCCOVER ? DOCCOVER.seen : n;
+  var share = tot ? miss / tot : 0;
+  if (share > 0.05 || !c['perem_50'] || !c['vozvrat_srok'])
     warn = '<br><span class="warn">Назначение документа не определилось у ' +
-      Math.round(share * 100) + '% строк (' + oth + ' из ' + n + ').</span> ' +
+      Math.round(share * 100) + '% строк (' + miss + ' из ' + tot + ').</span> ' +
       'Это значит, что товарный отчёт покрывает не все накладные из товарной ведомости. ' +
       'Выгрузите товарный отчёт <b>за тот же период и без фильтров</b>, что и ведомость, ' +
       'и загрузите оба файла заново. Пока этого нет, возврат по сроку, перемещение на склад 50% ' +
@@ -1636,7 +1760,10 @@ function refresh(){
     '<b>Движения:</b> ' + span(DB.mov) + '<br>' +
     '<b>Продажи 20%:</b> ' + span(DB.s20) + '<br>' +
     '<b>Продажи 50%:</b> ' + span(DB.s50) + '<br>' +
-    '<b>Список филиалов:</b> ' + span(DB.list) + '<br>' + movKinds() +
+    '<b>Список филиалов:</b> ' + span(DB.list) + '<br>' +
+    '<b>Занято в браузере:</b> ' + (DBSIZE/1048576).toFixed(1) + ' МБ из ~5 МБ' +
+      (DBSIZE > 4*1048576 ? ' <span class="warn">— близко к пределу</span>' : '') + '<br>' +
+    movKinds() +
     (unk ? '<br><span class="warn">Не распознано позиций: ' + unk + '</span>' : '');
   if (window.NAVBADGES) window.NAVBADGES();
 }
@@ -1737,6 +1864,8 @@ function chrono(dFrom, dTo){
   var days = [], d = dFrom;
   while (d <= dTo){ days.push(d); d = shift(d, 1); }
 
+  var byDay = {}, byWh = {};
+  days.forEach(function(d){ byDay[d] = { d: d, loss: 0, money: 0, sold: 0 }; });
   var rows = [];
   Object.keys(acc).forEach(function(key){
     var a = acc[key], sp = SPR[a.k];
@@ -1764,13 +1893,24 @@ function chrono(dFrom, dTo){
     series.forEach(function(x){ if (x.l > 1e-9){ var w = dowOf(x.d);
       dl[w] = (dl[w] || 0) + x.l; if (dl[w] > best){ best = dl[w]; bestD = DOW[w]; } } });
     var price = PR[a.k] || 0;
+    if (!isDelivery(a.wh)){
+      series.forEach(function(x){
+        if (!byDay[x.d]) return;
+        byDay[x.d].loss += x.l; byDay[x.d].sold += x.s; byDay[x.d].money += x.l * price;
+      });
+      var w = byWh[a.wh] || (byWh[a.wh] = { loss:0, prih:0, money:0, sold:0 });
+      w.loss += L; w.prih += P; w.money += L * price; w.sold += S_;
+    }
     rows.push([a.wh, sp.name, sp.srok || '', r3(P), r3(S_), r3(L),
       P > 1e-9 ? L / P : '', r3(V), r3(F), r3(SP), dLoss, onShelf, stop,
       onShelf ? r3(S_ / onShelf) : 0, bestD, price ? Math.round(price) : '',
       price ? Math.round(L * price) : '', r3(DS) || '']);
   });
+  CHRONO_DAYS = days.map(function(d){ return byDay[d]; });
+  CHRONO_WH = byWh;
   return rows;
 }
+var CHRONO_DAYS = null, CHRONO_WH = null;
 function r3(x){ return Math.round(x * 1000) / 1000; }
 
 /* пары «точка А теряет — точка Б разбирает».
@@ -1814,12 +1954,117 @@ function pairsOf(rows, minPrih){
   return out;
 }
 
+
+/* ═════════ графики: свой SVG, без библиотек и без интернета ═════════ */
+function esc2(t){ return S(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function fmtNum(n){
+  n = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/* Столбики по дням: одна серия, поэтому легенда не нужна — её называет заголовок. */
+function chartDays(days, title, unit){
+  if (!days.length) return '<div class="hint">Нет данных за период.</div>';
+  var H = 210, R = 14, T = 26, B = 34;
+  var max = 0; days.forEach(function(d){ if (d.v > max) max = d.v; });
+  if (max <= 0) max = 1;
+  // ширина под подписи оси — иначе крупные суммы обрезаются слева
+  var L = 16 + fmtNum(max).length * 7;
+  var W = Math.max(560, days.length * 34 + L + R);
+  var iw = W - L - R, ih = H - T - B;
+  var step = iw / days.length, bw = Math.min(26, step - 6);
+  var g = '', ticks = 4, maxI = 0;
+  days.forEach(function(d, i){ if (d.v > days[maxI].v) maxI = i; });
+  for (var t = 0; t <= ticks; t++){
+    var y = T + ih - ih * t / ticks, val = max * t / ticks;
+    g += '<line x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) +
+         '" stroke="var(--grid)" stroke-width="1"/>' +
+         '<text x="' + (L - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" ' +
+         'font-size="10" fill="var(--mut)">' + fmtNum(val) + '</text>';
+  }
+  days.forEach(function(d, i){
+    var h = ih * d.v / max, x = L + i * step + (step - bw) / 2, y = T + ih - h;
+    g += '<g class="bar"><title>' + esc2(ru(d.d)) + ' — ' + fmtNum(d.v) + ' ' + unit + '</title>' +
+      '<rect x="' + x.toFixed(1) + '" y="' + (T).toFixed(1) + '" width="' + bw.toFixed(1) +
+        '" height="' + ih.toFixed(1) + '" fill="transparent"/>' +
+      (d.v > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+        '" height="' + Math.max(h, 2).toFixed(1) + '" rx="4" fill="var(--mark)"/>' : '') +
+      '</g>';
+    if (days.length <= 24 || i % 2 === 0)
+      g += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 12) + '" text-anchor="middle" ' +
+           'font-size="10" fill="var(--mut)">' + ru(d.d).slice(0, 5) + '</text>';
+    if (i === maxI && d.v > 0)
+      g += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) +
+           '" text-anchor="middle" font-size="11" font-weight="600" fill="var(--txt)">' +
+           fmtNum(d.v) + '</text>';
+  });
+  return '<div class="chartBox"><div class="chartT">' + esc2(title) + '</div>' +
+    '<div class="chartScroll"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" role="img" aria-label="' + esc2(title) + '">' + g + '</svg></div></div>';
+}
+
+/* Горизонтальные полосы: сравнение филиалов, отсортировано, подпись у каждой */
+function chartBars(rows, title, unit){
+  if (!rows.length) return '<div class="hint">Нет данных за период.</div>';
+  var L = 190, T = 24, bh = 26, gap = 8;
+  var lab = 0;
+  rows.forEach(function(r){ var t = (r.label || fmtNum(r.v)).length; if (t > lab) lab = t; });
+  var R = 20 + lab * 7;                 // место под подпись справа от полосы
+  var W = 660 + R, H = T + rows.length * (bh + gap) + 10, iw = W - L - R;
+  var max = 0; rows.forEach(function(r){ if (r.v > max) max = r.v; });
+  if (max <= 0) max = 1;
+  var g = '';
+  rows.forEach(function(r, i){
+    var y = T + i * (bh + gap), w = iw * r.v / max;
+    g += '<g><title>' + esc2(r.k) + ' — ' + esc2(r.label || (fmtNum(r.v) + ' ' + unit)) + '</title>' +
+      '<text x="' + (L - 10) + '" y="' + (y + bh / 2 + 4) + '" text-anchor="end" font-size="12" ' +
+        'fill="var(--txt)">' + esc2(r.k.length > 24 ? r.k.slice(0, 23) + '…' : r.k) + '</text>' +
+      '<rect x="' + L + '" y="' + y + '" width="' + iw + '" height="' + bh + '" rx="4" ' +
+        'fill="var(--markSoft)" opacity=".28"/>' +
+      '<rect x="' + L + '" y="' + y + '" width="' + Math.max(w, 2).toFixed(1) + '" height="' + bh +
+        '" rx="4" fill="var(--mark)"/>' +
+      '<text x="' + (L + Math.max(w, 2) + 10).toFixed(1) + '" y="' + (y + bh / 2 + 4) +
+        '" font-size="12" font-weight="600" fill="var(--txt)">' +
+        esc2(r.label || fmtNum(r.v)) + '</text></g>';
+  });
+  return '<div class="chartBox"><div class="chartT">' + esc2(title) + '</div>' +
+    '<div class="chartScroll"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" role="img" aria-label="' + esc2(title) + '">' + g + '</svg></div></div>';
+}
+
+function renderDyn(){
+  var o = $('outC');
+  if (!CHRONO || !CHRONO.days){ o.innerHTML = ''; return; }
+  var unitMoney = CHRONO.days.some(function(d){ return d.money > 0; });
+  var h = chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.loss }; }),
+                    'Потери по дням, шт', 'шт');
+  if (unitMoney)
+    h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.money }; }),
+                   'Потери по дням, ₸', '₸');
+  var bs = Object.keys(CHRONO.byWh).map(function(w){
+    var x = CHRONO.byWh[w];
+    return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0,
+             label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 1000) / 10) : 0) + '%  ·  ' +
+                    fmtNum(x.loss) + ' шт' };
+  }).sort(function(a, b){ return b.v - a.v; });
+  h += chartBars(bs, 'Доля потерь по филиалам — сколько из пришедшего не продали', '');
+  var money = Object.keys(CHRONO.byWh).map(function(w){
+    return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸' };
+  }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
+  if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам', '₸');
+  h += '<div class="hint" style="padding:0 4px 6px">Те же числа таблицей — на вкладке ' +
+       '«Позиции». Наведите на столбик, чтобы увидеть точное значение.</div>';
+  o.innerHTML = h;
+  $('cntC').textContent = '';
+}
+
 function renderChrono(view){
   if (view) CHR_VIEW = view; view = CHR_VIEW;
   var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
   $('cardRoutes').style.display = view === 'route' ? '' : 'none';
-  $('fbarC').style.display = view === 'route' ? 'none' : '';
+  $('fbarC').style.display = (view === 'route' || view === 'dyn') ? 'none' : '';
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
+  if (view === 'dyn'){ renderDyn(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   if (view === 'pos'){
@@ -1936,7 +2181,8 @@ $('btnChrono').onclick = function(){
   try{
     var minP = N($('cMin').value) || 0;
     var pos = chrono(f, t);
-    CHRONO = { pos: pos, pair: pairsOf(pos, minP), min: minP, from: f, to: t };
+    CHRONO = { pos: pos, pair: pairsOf(pos, minP), min: minP, from: f, to: t,
+               days: CHRONO_DAYS, byWh: CHRONO_WH };
     $('cardChr').style.display = '';
     var L = 0, M = 0, whL = {};
     pos.forEach(function(r){ L += N(r[5]); M += N(r[16]); whL[r[0]] = (whL[r[0]]||0) + N(r[5]); });
