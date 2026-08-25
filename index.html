@@ -206,6 +206,8 @@
   .miniBtn{padding:4px 10px;font-size:12px;border-radius:7px}
   .hint{color:var(--mut);font-size:12px;margin-top:10px;line-height:1.55}
   .warn{color:var(--badT);font-weight:600}
+  td.bad{color:var(--badT);font-weight:600}
+  td.good{color:var(--okT);font-weight:600}
 
   .bootWarn{position:fixed;left:10px;right:10px;top:10px;z-index:200;padding:12px 15px;
     border-radius:11px;background:var(--naBg);color:var(--naT);border:1px solid var(--naB);font-size:13px;
@@ -335,9 +337,15 @@
       <div class="navsec">Данные</div>
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
-      <div class="navsec">Отчёт</div>
-      <a data-page="rep" class="on"><span class="ic">📊</span>Сверка</a>
-      <a data-page="chr"><span class="ic">📈</span>Хронология</a>
+      <div class="navsec">Сверка</div>
+      <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
+      <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
+      <div class="navsec">Аналитика</div>
+      <a data-page="chr" data-tab="pos"><span class="ic">📈</span>Хронология</a>
+      <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
+      <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
+      <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
+      <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
@@ -488,12 +496,13 @@
           <div class="tabs" id="tabsC">
             <button class="on" data-c="pos">Позиции</button>
             <button data-c="dyn">Динамика</button>
+            <button data-c="trio">Топ-20: худший / средний / лучший</button>
             <button data-c="pair">Перемещать вместо уценки</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
             <input type="text" id="qC" placeholder="Поиск по блюду или филиалу">
-            <label><input type="checkbox" id="onlyRoute"> только пары на одном маршруте</label>
+            <label id="labOnlyRoute"><input type="checkbox" id="onlyRoute"> только пары на одном маршруте</label>
             <span class="cnt" id="cntC"></span>
           </div>
           <div class="wrapT" id="outC"></div>
@@ -563,6 +572,14 @@
             Срок на витрине идёт от разморозки, а её время в учёте не фиксируется.</p>
           <div class="hint" style="margin-top:0">Поэтому проверки по приходу для таких партий
             не считаются — ставится «не известна разморозка». Колонки такого прихода помечены голубым.</div>
+        </div>
+        <div class="card">
+          <h2>Потери в деньгах</h2>
+          <p class="lead">Потеря = непроданное (возврат по сроку + склад 50% + списание) по полной цене
+            <b>плюс</b> продажи со скидкой 20% — по размеру скидки, то есть 20% от цены.</p>
+          <div class="hint" style="margin-top:0">«Что делать»: если позиция часто попадает на скидку —
+            «снизить заявку»; если подолгу стоит в стопе с нулевым остатком — «увеличить заявку».
+            Колонка «Последняя продажа» показывает, когда позицию купили в последний раз.</div>
         </div>
         <div class="card">
           <h2>Путь на склад 50%</h2>
@@ -1912,14 +1929,35 @@ if (!window.DecompressionStream)
 
 /* ═════════ хронология продукции и маршруты ═════════ */
 var CHRONO = null, CHR_VIEW = 'pos';
-SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1};
+SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1}; SORT.trio = {i:-1,d:1};
 
-var POS_HEAD = ['Филиал','Блюдо','Срок, ч','Приход','Продано','Потери','Доля потерь',
+var P_WH=0, P_DISH=1, P_CAT=2, P_SROK=3, P_PRIH=4, P_SOLD=5, P_LOSS=6, P_SHARE=7,
+    P_D20=8, P_DSH=9, P_VOZ=10, P_F50=11, P_SPIS=12, P_DLOSS=13, P_ONSHELF=14,
+    P_STOP=15, P_LAST=16, P_BAL=17, P_SPEED=18, P_WDAY=19, P_PRICE=20, P_MONEY=21,
+    P_TODO=22, P_DOST=23;
+var POS_HEAD = ['Филиал','Блюдо','Категория','Срок, ч','Приход','Продано всего',
+  'Не продано, шт','Доля не проданного','из них со скидкой 20%','Доля дней со скидкой',
   'Возврат по сроку','Склад 50%','Списание','Дней с потерями','Дней на витрине',
-  'Дней в стопе','Скорость, шт/день','Худший день','Цена, ₸','Потери, ₸','Ушло на доставку'];
+  'Дней в стопе','Последняя продажа','Остаток на конец','Скорость, шт/день',
+  'Худший день','Цена, ₸','Потери всего, ₸','Что делать','Ушло на доставку'];
 /* «Доставка ТТ5 склад» — не витрина: филиалы свозят туда, дальше товар уходит в доставку.
    Перемещение на неё — продажа по полной цене, а не потеря. */
 function isDelivery(w){ return /достав/i.test(S(w)); }
+/* Возить между филиалами имеет смысл только то, что живёт дольше суток.
+   Выпечка со сроком 24 ч приедет уже к концу срока — смысла нет. */
+function movable(k){ var sp = SPR[k]; return !!sp && sp.srok >= 48; }
+/* перемещать между филиалами имеет смысл только то, что живёт дольше суток */
+var MOVE_CATS = { 'торт':1, 'пирог':1, 'пирожное':1 };
+function catOf(n){
+  var s = S(n).toLowerCase();
+  if (/торт|чизкейк|наполеон|медовик|тирамису|балхадиша|шпинатны/.test(s)) return 'торт';
+  if (/бәліш|балиш|бэлиш|пирог|орама/.test(s))                              return 'пирог';
+  if (/тарт|пирожное|эклер|капкейк|маффин|макаронс|мадлен|берлинер|шу|брест|мусс|меренга|трайфл|трилече|кекс|синнабон|печенье|cookies|вупи|профитроль|круассан/.test(s))
+    return 'пирожное';
+  if (/бөрек|борек|самса|бауырсақ|сосиска|булочка|тоқаш|қалталы|пицца|рогалик|самса/.test(s))
+    return 'выпечка';
+  return 'прочее';
+}
 /* Маршруты развоза — постоянные. Заданы номерами складов, чтобы не ломались
    от переименований. Их можно переопределить на вкладке «Маршруты». */
 var DEFAULT_ROUTES = { 2:'Маршрут 1', 10:'Маршрут 1', 11:'Маршрут 1',
@@ -1976,6 +2014,19 @@ function priceMap(){
 
 function chrono(dFrom, dTo){
   var PR = priceMap(), acc = {};
+  // продажи со скидкой 20% по филиалу и дню — это тоже потеря, но в цене
+  var S20 = {};
+  DB.s20.forEach(function(r){
+    var d = r[0]; if (!d || d < dFrom || d > dTo) return;
+    var k = nrm(r[2]); if (!SPR[k]) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    var f = isKus[k] ? 1 / KUSOK : 1;
+    branches().forEach(function(w){
+      if (!sameBranch(r[1], w)) return;
+      var key = w + '|' + base + '|' + d;
+      S20[key] = (S20[key] || 0) + N(r[3]) * f;
+    });
+  });
   DB.mov.forEach(function(r){
     var d = r[0]; if (d < dFrom || d > dTo) return;
     var wh = r[1], k = nrm(r[2]), kind = r[3], q = N(r[4]);
@@ -2003,13 +2054,16 @@ function chrono(dFrom, dTo){
   Object.keys(acc).forEach(function(key){
     var a = acc[key], sp = SPR[a.k];
     var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0;
-    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0;
+    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0, D20 = 0, dDisc = 0, lastS = '';
     var bal = 0, minCum = 0, cum = 0, series = [];
     days.forEach(function(dd){
       var x = a.days[dd] || { p:0, s:0, l:0, v:0, f50:0, sp:0 };
       P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp; DS += (x.dost || 0);
       if (x.l > 1e-9) dLoss++;
       if (x.p > 1e-9) dArr++;
+      if (x.s > 1e-9) lastS = dd;
+      var q20 = S20[a.wh + '|' + a.k + '|' + dd] || 0;
+      if (q20 > 1e-9){ D20 += q20; dDisc++; }
       cum += x.p - x.s - x.l;
       if (cum < minCum) minCum = cum;
       series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s });
@@ -2026,18 +2080,33 @@ function chrono(dFrom, dTo){
     series.forEach(function(x){ if (x.l > 1e-9){ var w = dowOf(x.d);
       dl[w] = (dl[w] || 0) + x.l; if (dl[w] > best){ best = dl[w]; bestD = DOW[w]; } } });
     var price = PR[a.k] || 0;
+    var endBal = r3(open + cum);
+    // деньги: непроданное теряем целиком, уценённое — на размер скидки
+    var money = price ? L * price + D20 * price * 0.2 : 0;
+    var discShare = onShelf ? dDisc / onShelf : 0;
+    var stopShare = onShelf ? stop / days.length : 0;
+    var lossShare = P > 1e-9 ? L / P : 0, todo = '';
+    if (P > 1e-9 && S_ < 1e-9)                      todo = 'не продаётся — перевезти';
+    else if (stop >= 3 && discShare < 0.15 && L < 1e-9) todo = 'увеличить заявку';
+    else if (discShare >= 0.3 || lossShare >= 0.15) todo = 'снизить заявку';
+    else if (discShare >= 0.15)                     todo = 'часто на скидке — проверить';
+    else if (lossShare >= 0.08)                     todo = 'много списаний — проверить';
     if (!isDelivery(a.wh)){
       series.forEach(function(x){
         if (!byDay[x.d]) return;
-        byDay[x.d].loss += x.l; byDay[x.d].sold += x.s; byDay[x.d].money += x.l * price;
+        var q = S20[a.wh + '|' + a.k + '|' + x.d] || 0;
+        byDay[x.d].loss += x.l; byDay[x.d].sold += x.s;
+        byDay[x.d].money += x.l * price + q * price * 0.2;
       });
-      var w = byWh[a.wh] || (byWh[a.wh] = { loss:0, prih:0, money:0, sold:0 });
-      w.loss += L; w.prih += P; w.money += L * price; w.sold += S_;
+      var w = byWh[a.wh] || (byWh[a.wh] = { loss:0, prih:0, money:0, sold:0, disc:0 });
+      w.loss += L; w.prih += P; w.money += money; w.sold += S_; w.disc += D20;
     }
-    rows.push([a.wh, sp.name, sp.srok || '', r3(P), r3(S_), r3(L),
-      P > 1e-9 ? L / P : '', r3(V), r3(F), r3(SP), dLoss, onShelf, stop,
-      onShelf ? r3(S_ / onShelf) : 0, bestD, price ? Math.round(price) : '',
-      price ? Math.round(L * price) : '', r3(DS) || '']);
+    rows.push([a.wh, sp.name, catOf(sp.name), sp.srok || '', r3(P), r3(S_),
+      r3(L), P > 1e-9 ? r3(L / P) : '', r3(D20), r3(discShare),
+      r3(V), r3(F), r3(SP), dLoss, onShelf, stop,
+      lastS ? ru(lastS) : '', endBal, onShelf ? r3(S_ / onShelf) : 0, bestD,
+      price ? Math.round(price) : '', money ? Math.round(money) : '',
+      todo, r3(DS) || '']);
   });
   CHRONO_DAYS = days.map(function(d){ return byDay[d]; });
   CHRONO_WH = byWh;
@@ -2051,10 +2120,11 @@ function r3(x){ return Math.round(x * 1000) / 1000; }
 function pairsOf(rows, minPrih){
   var byDish = {};
   rows.forEach(function(r){
-    if (N(r[3]) < minPrih) return;
-    if (r[6] === '') return;
-    if (isDelivery(r[0])) return;        // склад доставки — не точка на маршруте
-    (byDish[r[1]] = byDish[r[1]] || []).push(r);
+    if (N(r[P_PRIH]) < minPrih) return;
+    if (r[P_SHARE] === '') return;
+    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;   // выпечка (24 ч) — возить нет смысла
+    if (isDelivery(r[P_WH])) return;     // склад доставки — не точка на маршруте
+    (byDish[r[P_DISH]] = byDish[r[P_DISH]] || []).push(r);
   });
   var routes = {}, hasRoutes = false;
   Object.keys(DB.routes || {}).forEach(function(b){ routes[DB.routes[b]] = 1; hasRoutes = true; });
@@ -2065,22 +2135,22 @@ function pairsOf(rows, minPrih){
     groups.forEach(function(gr){
       var g = byDish[dish].filter(function(r){
         if (gr === '*') return true;
-        var rt = DB.routes[r[0]] || '';
+        var rt = DB.routes[r[P_WH]] || '';
         return gr === '— вне маршрутов —' ? !rt : rt === gr;
       });
       if (g.length < 2) return;
-      var A = g[0]; g.forEach(function(r){ if (r[6] > A[6]) A = r; });
-      if (A[6] < 0.10 || A[10] < 3) return;        // разовый случай — не системная проблема
+      var A = g[0]; g.forEach(function(r){ if (r[P_SHARE] > A[P_SHARE]) A = r; });
+      if (A[P_SHARE] < 0.10 || A[P_DLOSS] < 3) return;   // разовый случай — не системная проблема
       // точка Б должна не просто «не терять», а реально продавать объём
       var good = g.filter(function(r){
-        return r !== A && r[6] <= 0.02 && N(r[4]) >= Math.max(minPrih, 10); });
+        return r !== A && r[P_SHARE] <= 0.02 && N(r[P_SOLD]) >= Math.max(minPrih, 10); });
       if (!good.length) return;
-      var B = good[0]; good.forEach(function(r){ if (N(r[4]) > N(B[4])) B = r; });
+      var B = good[0]; good.forEach(function(r){ if (N(r[P_SOLD]) > N(B[P_SOLD])) B = r; });
       // не грузим Б больше чем на половину его же спроса
-      var move = Math.min(N(A[5]), N(B[4]) / 2), price = N(A[15]);
+      var move = Math.min(N(A[P_LOSS]), N(B[P_SOLD]) / 2), price = N(A[P_PRICE]);
       if (move < 1) return;
-      out.push([ gr === '*' ? '' : gr, dish, A[0], A[5], A[6], A[10],
-        B[0], B[4], B[12], B[13], r3(move),
+      out.push([ gr === '*' ? '' : gr, dish, A[P_WH], A[P_LOSS], A[P_SHARE], A[P_DLOSS],
+        B[P_WH], B[P_SOLD], B[P_STOP], B[P_SPEED], r3(move),
         price ? Math.round(move * price * 0.2) : '', price ? Math.round(move * price) : '' ]);
     });
   });
@@ -2088,6 +2158,57 @@ function pairsOf(rows, minPrih){
 }
 
 
+
+/* ═════════ ТОП-20: где теряем — кто продаёт ═════════
+   Для каждой позиции внутри маршрута три строки: худший филиал, средний и лучший.
+   Лучший может подсказать худшему, как он это продаёт, либо забрать остаток к себе.
+   Только торты / пироги / пирожные: у выпечки срок 24 ч, возить смысла нет. */
+var TRIO_HEAD = ['Маршрут','Блюдо','Категория','Место','Филиал','Приход','Продано всего',
+  'Не продано, шт','Доля потерь','из них со скидкой 20%','Доля дней со скидкой','Дней в стопе',
+  'Последняя продажа','Остаток','Скорость, шт/день','Потери, ₸','Что делать'];
+
+function trioOf(rows, topN){
+  topN = topN || 20;
+  var byRoute = {};
+  rows.forEach(function(r){
+    if (isDelivery(r[P_WH])) return;
+    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;
+    if (r[P_SHARE] === '' && !N(r[P_D20])) return;
+    var rt = DB.routes[r[P_WH]] || '— вне маршрутов —';
+    var g = byRoute[rt] || (byRoute[rt] = {});
+    (g[r[P_DISH]] = g[r[P_DISH]] || []).push(r);
+  });
+
+  var out = [];
+  Object.keys(byRoute).sort().forEach(function(rt){
+    var g = byRoute[rt];
+    // топ позиций маршрута по деньгам: непроданное + уценка
+    var dishes = Object.keys(g).filter(function(d){ return g[d].length >= 2; });
+    dishes.sort(function(a, b){
+      return sumBy(g[b], P_MONEY) - sumBy(g[a], P_MONEY); });
+    dishes.slice(0, topN).forEach(function(dish){
+      var list = g[dish].slice();
+      // «плохо» = доля потерь + доля дней со скидкой: и списали, и уценили — обе потери
+      list.sort(function(a, b){
+        return (badness(b) - badness(a)) || (N(a[P_SOLD]) - N(b[P_SOLD])); });
+      var mid = list[Math.floor((list.length - 1) / 2)];
+      var picks = [['1. Худший', list[0]], ['2. Средний', mid],
+                   ['3. Лучший', list[list.length - 1]]];
+      var seen = {};
+      picks.forEach(function(pk){
+        var r = pk[1];
+        if (!r || seen[r[P_WH]]) return;
+        seen[r[P_WH]] = 1;
+        out.push([rt, dish, r[P_CAT], pk[0], r[P_WH], r[P_PRIH], r[P_SOLD],
+          r[P_LOSS], r[P_SHARE], r[P_D20], r[P_DSH], r[P_STOP],
+          r[P_LAST], r[P_BAL], r[P_SPEED], r[P_MONEY], r[P_TODO]]);
+      });
+    });
+  });
+  return out;
+}
+function sumBy(arr, i){ var t = 0; arr.forEach(function(r){ t += N(r[i]); }); return t; }
+function badness(r){ return N(r[P_SHARE]) + N(r[P_DSH]) * 0.5; }
 
 /* ═════════ история сверок ═════════ */
 var HIST_MAX = 300;
@@ -2289,11 +2410,16 @@ function renderChrono(view){
   var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
   $('cardRoutes').style.display = view === 'route' ? '' : 'none';
   $('fbarC').style.display = (view === 'route' || view === 'dyn') ? 'none' : '';
+  $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
-  if (view === 'pos'){
+  if (view === 'trio'){
+    head = TRIO_HEAD; st = SORT.trio;
+    rows = (CHRONO.trio || []).filter(function(r){
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0; });
+  } else if (view === 'pos'){
     head = POS_HEAD; st = SORT.pos;
     rows = CHRONO.pos.filter(function(r){
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
@@ -2304,8 +2430,16 @@ function renderChrono(view){
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
   }
   rows = applySort(rows, st, byIdx);
-  var pct = view === 'pos' ? [6] : [4];
-  var h = '<table><thead><tr>' + head.map(function(t, i){
+  var pct = view === 'pos' ? [P_SHARE, P_DSH] : (view === 'trio' ? [8, 10] : [4]);
+  var h = '';
+  if (view === 'trio')
+    h += '<div class="hint" style="padding:0 4px 8px">Топ-20 позиций каждого маршрута по потерям ' +
+         'в деньгах. На каждую позицию три филиала: <b>худший</b>, средний и <b>лучший</b> — ' +
+         'лучший может подсказать худшему, как он это продаёт, или забрать остаток к себе. ' +
+         'Только торты, пироги и пирожные: у выпечки срок 24 ч, возить нет смысла. ' +
+         '<b>«Продано всего»</b> — это полная цена и скидка вместе; колонка ' +
+         '«из них со скидкой 20%» показывает, сколько из них ушло по уценке.</div>';
+  h += '<table><thead><tr>' + head.map(function(t, i){
       return '<th class="srt" data-s="'+i+'">'+t+arrow(st,i)+'</th>'; }).join('') +
     '</tr></thead><tbody>';
   rows.forEach(function(r){
@@ -2313,9 +2447,16 @@ function renderChrono(view){
       var cell = v;
       if (pct.indexOf(i) >= 0 && v !== '') cell = Math.round(v * 1000) / 10 + '%';
       if (v === '' || v === null || v === undefined) cell = '';
-      var cl = (i === 1 || (view === 'pos' && i === 0) || (view === 'pair' && (i === 2 || i === 6)))
+      var cl = (i === 1 || (view === 'pos' && (i === P_WH || i === P_TODO))
+             || (view === 'trio' && (i === 3 || i === 4 || i === 16))
+             || (view === 'pair' && (i === 2 || i === 6)))
              ? 'name' : '';
       if (pct.indexOf(i) >= 0 && v !== '' && v >= 0.15) cl += ' bad';
+      if (view === 'trio'){
+        if (i === 3) cl += (String(v).charAt(0) === '1' ? ' bad'
+                          : String(v).charAt(0) === '3' ? ' good' : '');
+        if (i === 16 && v) cl += (/снизить|списан|перевезти/.test(v) ? ' bad' : ' good');
+      }
       return '<td class="' + cl.trim() + '" data-l="' + esc(head[i]) + '">' + cell + '</td>';
     }).join('') + '</tr>';
   });
@@ -2396,7 +2537,8 @@ $('btnRoutes').onclick = function(){
       (bad.length ? '<br><b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
   if (CHRONO && $('cFrom').value){
     var pos = chrono(D($('cFrom').value), D($('cTo').value));
-    CHRONO.pos = pos; CHRONO.pair = pairsOf(pos, CHRONO.min); renderChrono();
+    CHRONO.pos = pos; CHRONO.pair = pairsOf(pos, CHRONO.min);
+    CHRONO.trio = trioOf(pos); renderChrono();
   }
 };
 
@@ -2408,11 +2550,12 @@ $('btnChrono').onclick = function(){
   try{
     var minP = N($('cMin').value) || 0;
     var pos = chrono(f, t);
-    CHRONO = { pos: pos, pair: pairsOf(pos, minP), min: minP, from: f, to: t,
+    CHRONO = { pos: pos, pair: pairsOf(pos, minP), trio: trioOf(pos),
+               min: minP, from: f, to: t,
                days: CHRONO_DAYS, byWh: CHRONO_WH };
     $('cardChr').style.display = '';
     var L = 0, M = 0, whL = {};
-    pos.forEach(function(r){ L += N(r[5]); M += N(r[16]); whL[r[0]] = (whL[r[0]]||0) + N(r[5]); });
+    pos.forEach(function(r){ L += N(r[P_LOSS]); M += N(r[P_MONEY]); whL[r[P_WH]] = (whL[r[P_WH]]||0) + N(r[P_LOSS]); });
     var worst = '', wv = -1;
     Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
     var eco = 0; CHRONO.pair.forEach(function(r){ eco += N(r[11]); });
@@ -2449,6 +2592,7 @@ $('btnChrXlsx').onclick = function(){
   if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
   var blob = makeXlsx([
     { name: 'Позиции', head: POS_HEAD, rows: CHRONO.pos },
+    { name: 'Топ-20 худший-средний-лучший', head: TRIO_HEAD, rows: CHRONO.trio || [] },
     { name: 'Перемещать вместо уценки', head: PAIR_HEAD, rows: CHRONO.pair }
   ]);
   var a = document.createElement('a');
@@ -2499,18 +2643,26 @@ function showFresh(){
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     rep: ['Сверка',''],
-    chr: ['Хронология','как продаётся и где теряется'],
+    chr: ['Аналитика','как продаётся и где теряется'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
   };
   function el(id){ return document.getElementById(id); }
   function fmtN(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
-  function go(p){
+  function go(p, tab, srcA){
     var pgs = document.querySelectorAll('.page');
     for (var i=0;i<pgs.length;i++) pgs[i].classList.toggle('on', pgs[i].id === 'pg'+'-'+p);
     var as = document.querySelectorAll('.nav a');
-    for (var j=0;j<as.length;j++) as[j].classList.toggle('on', as[j].getAttribute('data-page') === p);
+    for (var j=0;j<as.length;j++){
+      var on = srcA ? (as[j] === srcA)
+                    : (as[j].getAttribute('data-page') === p && !as[j].getAttribute('data-tab'));
+      as[j].classList.toggle('on', on);
+    }
+    if (!srcA && !tab){   // переход не из меню — подсветим первый пункт этой страницы
+      for (var j2=0;j2<as.length;j2++)
+        if (as[j2].getAttribute('data-page') === p){ as[j2].classList.add('on'); break; }
+    }
     var t = TITLES[p] || ['',''];
     el('pgTitle').textContent = t[0];
     el('pgSub').textContent = t[1];
@@ -2524,6 +2676,17 @@ function showFresh(){
       if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
       if (typeof routeHint === 'function') routeHint();
     }
+    if (tab) openTab(p, tab);
+  }
+  /* нажатие на пункт меню сразу открывает нужную вкладку внутри страницы */
+  function openTab(p, tab){
+    var sel = p === 'chr' ? '#tabsC button' : '.tabs button[data-v]';
+    var bs = document.querySelectorAll(sel), hit = null;
+    for (var i=0;i<bs.length;i++){
+      var v = bs[i].getAttribute('data-c') || bs[i].getAttribute('data-v');
+      if (v === tab) hit = bs[i];
+    }
+    if (hit) hit.click();
   }
   function badges(){
     try{
@@ -2545,7 +2708,7 @@ function showFresh(){
       if (t.id === 'scrim'){
         el('side').classList.remove('open'); el('scrim').classList.remove('on'); return; }
       if (t.getAttribute && t.getAttribute('data-page')){
-        go(t.getAttribute('data-page')); return; }
+        go(t.getAttribute('data-page'), t.getAttribute('data-tab'), t); return; }
       t = t.parentNode;
     }
   }, false);
