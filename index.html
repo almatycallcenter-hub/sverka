@@ -222,6 +222,73 @@
   .bar rect{transition:opacity .12s}
   .chartScroll g:hover rect{opacity:.82}
 
+  .quick{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px;
+    font-size:12px;color:var(--mut)}
+  .stale{margin-top:12px;padding:10px 14px;border-radius:11px;background:var(--naBg);
+    color:var(--naT);border:1px solid var(--naB);font-size:12.5px;line-height:1.5}
+
+  /* печать: только содержимое отчёта, без меню и кнопок */
+  @media print{
+    @page{ size:A4 landscape; margin:12mm }
+    body{background:#fff;color:#000}
+    .side,.topbar,.noprint,.fbar,.tabs,.quick,.bootWarn,.scrim,#cardRoutes,
+    .stale,td.chev,th.chev,tr.det{display:none!important}
+    .panel{margin:0;border:0;border-radius:0;box-shadow:none}
+    .bodyArea{overflow:visible;padding:0;background:#fff}
+    .page{display:none!important}
+    .page.on{display:block!important;max-width:none}
+    .card{border:0;box-shadow:none;padding:0;margin:0 0 8mm}
+    .card .row,.card .grid,.card .lead{display:none}
+    .card h2{font-size:13pt;margin:0 0 3mm}
+    .msg{display:none!important}
+    .kpi{display:flex;gap:4mm;margin-bottom:5mm;page-break-inside:avoid}
+    .kpi div{flex:1;border:1px solid #ccc;box-shadow:none;padding:3mm 4mm;border-radius:2mm}
+    .kpi b{font-size:16pt}
+    .wrapT{max-height:none!important;overflow:visible;border:1px solid #ccc;box-shadow:none}
+    table{width:100%;font-size:8pt}
+    th{background:#eee!important;color:#000!important;position:static}
+    td,th{border-color:#ddd!important}
+    td{background:#fff!important;color:#000!important}
+    td.c0,td.c1,td.cR,th.c0,th.c1,th.cR{position:static;box-shadow:none}
+    tr{page-break-inside:avoid}
+    thead{display:table-header-group}
+    .chip{border:1px solid #999;background:#fff!important;color:#000!important}
+    .chartBox{border:1px solid #ccc;box-shadow:none;page-break-inside:avoid}
+    .printHead{display:block!important;margin-bottom:5mm;font-size:11pt}
+    .printHead b{font-size:14pt}
+  }
+  .printHead{display:none}
+
+  /* На узком экране широкая таблица не читается: липкие колонки слева и справа
+     съедают всю ширину и перекрывают названия. Показываем строки карточками. */
+  @media(max-width:820px){
+    .wrapT{max-height:none;border:0;background:none;box-shadow:none;overflow:visible}
+    .wrapT table{display:block;width:100%;white-space:normal;border-collapse:collapse}
+    .wrapT thead{display:none}
+    .wrapT tbody{display:block}
+    .wrapT tbody tr{display:block;background:var(--card);border:1px solid var(--bd);
+      border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shCard)}
+    .wrapT tbody tr:hover td{background:none}
+    .wrapT td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+      position:static!important;width:auto;min-width:0;background:none!important;
+      border:0;border-bottom:1px solid var(--bd2);padding:5px 0;text-align:right;
+      box-shadow:none!important;white-space:normal}
+    .wrapT td:last-child{border-bottom:0}
+    .wrapT td::before{content:attr(data-l);color:var(--mut);font-size:11.5px;text-align:left;
+      flex:1 1 auto;font-weight:400}
+    .wrapT td:empty{display:none}
+    /* название блюда — заголовок карточки */
+    .wrapT td.name:first-of-type,.wrapT td.c1{display:block;text-align:left;
+      font-size:14px;font-weight:600;color:var(--txt);padding:0 0 6px;
+      border-bottom:1px solid var(--bd)}
+    .wrapT td.c1::before{display:none}
+    .wrapT td.c0{border-bottom:1px solid var(--bd2)}
+    .wrapT td.chev{display:none}
+    .wrapT tr.det{display:none}
+    .wrapT tr.badrow td:first-child{box-shadow:none!important}
+    .chartScroll{margin:0 -6px}
+  }
+
   /* ── мобильный ──────────────────────────── */
   @media(max-width:900px){
     .side{position:fixed;z-index:80;left:0;top:0;bottom:0;width:250px;background:var(--bg);
@@ -234,6 +301,14 @@
     .scrim.on{display:block}
     .bodyArea{padding:14px}
     .card{padding:14px}
+    /* плитки итогов на телефоне — по две в ряд, иначе занимают весь экран */
+    .kpi{grid-template-columns:1fr 1fr;gap:8px}
+    .kpi div{padding:8px 10px}
+    .kpi b{font-size:19px}
+    .kpi span{font-size:11px}
+    .tabs{gap:0;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+    .tabs button{padding:9px 10px;white-space:nowrap}
+    .quick{font-size:11.5px}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -263,6 +338,7 @@
       <div class="navsec">Отчёт</div>
       <a data-page="rep" class="on"><span class="ic">📊</span>Сверка</a>
       <a data-page="chr"><span class="ic">📈</span>Хронология</a>
+      <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
       <a data-page="help"><span class="ic">❔</span>Как это считается</a>
@@ -279,6 +355,7 @@
     </div>
 
     <div class="bodyArea">
+      <div class="printHead" id="printHead"></div>
 
       <!-- ─── Выгрузки ─────────────────────────────────── -->
       <section class="page" id="pg-up">
@@ -343,7 +420,7 @@
 
       <!-- ─── Сверка ───────────────────────────────────── -->
       <section class="page wide on" id="pg-rep">
-        <div class="card">
+        <div class="card noprint">
           <h2>Параметры</h2>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 240px"><label class="lbl">Филиал</label><select id="branch"></select></div>
@@ -351,7 +428,15 @@
             <div><label class="lbl">по</label><input type="date" id="dTo"></div>
             <button id="btnBuild">Собрать</button>
             <button class="sec" id="btnXlsx">Скачать Excel</button>
+            <button class="sec" id="btnPrint">Печать / PDF</button>
           </div>
+          <div class="quick">Быстро:
+            <button class="sec miniBtn" data-q="week"      data-t="rep">эта неделя</button>
+            <button class="sec miniBtn" data-q="prevweek"  data-t="rep">прошлая неделя</button>
+            <button class="sec miniBtn" data-q="month"     data-t="rep">этот месяц</button>
+            <button class="sec miniBtn" data-q="prevmonth" data-t="rep">прошлый месяц</button>
+          </div>
+          <div id="freshRep"></div>
           <div class="msg" id="m3"></div>
         </div>
 
@@ -375,7 +460,7 @@
 
       <!-- ─── Хронология ───────────────────────────────── -->
       <section class="page wide" id="pg-chr">
-        <div class="card">
+        <div class="card noprint">
           <h2>Период</h2>
           <p class="lead">Считается сразу по всем филиалам: скорость продажи, доля потерь,
             дни выхода в стоп и пары «здесь уценивают — там разбирают».</p>
@@ -386,7 +471,15 @@
               <input type="text" id="cMin" value="10"></div>
             <button id="btnChrono">Посчитать</button>
             <button class="sec" id="btnChrXlsx">Скачать Excel</button>
+            <button class="sec" id="btnPrintC">Печать / PDF</button>
           </div>
+          <div class="quick">Быстро:
+            <button class="sec miniBtn" data-q="week"      data-t="chr">эта неделя</button>
+            <button class="sec miniBtn" data-q="prevweek"  data-t="chr">прошлая неделя</button>
+            <button class="sec miniBtn" data-q="month"     data-t="chr">этот месяц</button>
+            <button class="sec miniBtn" data-q="prevmonth" data-t="chr">прошлый месяц</button>
+          </div>
+          <div id="freshChr"></div>
           <div class="msg" id="m4"></div>
         </div>
 
@@ -415,6 +508,20 @@
           <div class="msg" id="m5"></div>
           <div class="hint" id="routeHint"></div>
         </div>
+      </section>
+
+      <!-- ─── История ──────────────────────────────────── -->
+      <section class="page wide" id="pg-hist">
+        <div class="card noprint">
+          <h2>Каждая сборка отчёта записывается сюда</h2>
+          <p class="lead">Чтобы через месяц было видно, стало лучше или хуже — без
+            перезагрузки старых выгрузок.</p>
+          <div class="row">
+            <button class="sec" id="btnPrintH">Печать / PDF</button>
+            <button class="sec" id="btnHistClear">Очистить историю</button>
+          </div>
+        </div>
+        <div id="outH"></div>
       </section>
 
       <!-- ─── Хранилище ────────────────────────────────── -->
@@ -636,9 +743,30 @@ function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
 var DB = { mov: [], s20: [], s50: [], list: [], syn: {} };
+/* В движениях одни и те же названия складов, блюд и видов повторяются
+   десятками тысяч раз. Храним их словарём, а в строках — номера.
+   В памяти формат прежний, поэтому остальной код не меняется. */
+function packDB(db){
+  var d = {}, list = [];
+  function id(x){ var k = String(x);
+    if (d[k] === undefined){ d[k] = list.length; list.push(k); } return d[k]; }
+  var out = {}; for (var k in db) if (k !== 'mov') out[k] = db[k];
+  out.dict = list;
+  out.movP = (db.mov || []).map(function(r){
+    return [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]]; });
+  out.packed = 1;
+  return out;
+}
+function unpackDB(db){
+  if (!db || !db.packed) return db;
+  var L = db.dict || [];
+  db.mov = (db.movP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]]; });
+  delete db.movP; delete db.dict; delete db.packed;
+  return db;
+}
 function saveDB(){
   try{
-    var s = JSON.stringify(DB);
+    var s = JSON.stringify(packDB(DB));
     localStorage.setItem('sverka20', s);
     DBSIZE = s.length;
     return true;
@@ -655,7 +783,7 @@ function saveDB(){
 }
 var DBSIZE = 0;
 function loadDB(){
-  try{ var s = localStorage.getItem('sverka20'); if (s) DB = JSON.parse(s); }catch(e){}
+  try{ var s = localStorage.getItem('sverka20'); if (s) DB = unpackDB(JSON.parse(s)); }catch(e){}
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
   ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
@@ -675,7 +803,7 @@ function migrateDB(){
   // v3: движения обязаны иметь 5 полей — дата, склад, блюдо, вид, количество
   if (was < 3) DB.mov = (DB.mov || []).filter(function(r){ return r && r.length >= 5; });
   DB.v = DB_V;
-  try{ localStorage.setItem('sverka20', JSON.stringify(DB)); }catch(e){}
+  try{ localStorage.setItem('sverka20', JSON.stringify(packDB(DB))); }catch(e){}
 }
 
 /* ═════════ справочник ═════════ */
@@ -1349,9 +1477,10 @@ function render(view){
           var c = '';
           if (i === 0) c = 'c0'; if (i === 1) c = 'c1 name';
           var val = (v[i] === '' || v[i] == null) ? '' : (i >= CHK0 ? chipHtml(v[i]) : v[i]);
-          return '<td class="' + c.trim() + '">' + val + '</td>';
+          return '<td class="' + c.trim() + '" data-l="' + esc(REP_HEAD[i]) + '">' + val + '</td>';
         }).join('') +
-        (full ? '' : '<td class="cR">' + chipHtml(v[CHK0]) + '</td>') + '</tr>';
+        (full ? '' : '<td class="cR" data-l="' + esc(REP_HEAD[CHK0]) + '">' +
+                     chipHtml(v[CHK0]) + '</td>') + '</tr>';
       if (!full)
         h += '<tr class="det" id="det' + ri + '" style="display:none"><td colspan="' +
              (cols.length + 2) + '">' + detailHtml(v) + '</td></tr>';
@@ -1366,7 +1495,8 @@ function render(view){
     applySort(REPORT.tot, SORT.tot, byIdx).forEach(function(r){
       h += '<tr>' + r.map(function(v,i){
         var c = i === 2 && v ? 'ok' : i === 3 && v ? 'bad' : i === 4 && v ? 'na' : '';
-        return '<td>' + (c ? '<span class="chip '+c+'">'+v+'</span>' : v) + '</td>'; }).join('') + '</tr>'; });
+        return '<td data-l="' + esc(TOT_HEAD[i]) + '">' +
+               (c ? '<span class="chip '+c+'">'+v+'</span>' : v) + '</td>'; }).join('') + '</tr>'; });
     h += '</tbody></table>';
 
   } else if (view === 'm50'){
@@ -1378,7 +1508,8 @@ function render(view){
       var warn = !!r[7];
       h += '<tr' + (warn ? ' class="badrow"' : '') + '>' + r.map(function(v, i){
         var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : v);
-        return '<td class="' + (i===2||i===4||i===7 ? 'name' : '') + '">' + val + '</td>'; }).join('') + '</tr>';
+        return '<td class="' + (i===2||i===4||i===7 ? 'name' : '') +
+               '" data-l="' + esc(M50_HEAD[i]) + '">' + val + '</td>'; }).join('') + '</tr>';
     });
     h += '</tbody></table>';
     $('cnt').textContent = '';
@@ -1491,6 +1622,8 @@ $('btnBuild').onclick = function(){
       '<div><span>Доля совпавших</span><b>' + pct + '%</b></div>';
     document.querySelectorAll('.tabs button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
     render('rep');
+    histAdd({ ts: new Date().toISOString(), kind: 'rep', wh: REPORT.wh, from: f, to: t,
+              list: k.list, ok: k.ok, bad: k.bad, noList: k.noList, pct: pct });
     msg('m3','Готово: ' + REPORT.rep.length + ' строк. Движения в выгрузке по ' + ru(REPORT.movLast) +
         ', продажи по ' + ru(REPORT.posLast) + '.', 'ok');
   } catch(e){ msg('m3','Ошибка: ' + (e.message || e), 'err'); }
@@ -1955,6 +2088,99 @@ function pairsOf(rows, minPrih){
 }
 
 
+
+/* ═════════ история сверок ═════════ */
+var HIST_MAX = 300;
+function histAdd(rec){
+  if (!DB.hist) DB.hist = [];
+  var key = rec.wh + '|' + rec.from + '|' + rec.to + '|' + rec.kind;
+  DB.hist = DB.hist.filter(function(x){
+    return (x.wh + '|' + x.from + '|' + x.to + '|' + x.kind) !== key; });
+  DB.hist.push(rec);
+  if (DB.hist.length > HIST_MAX) DB.hist = DB.hist.slice(-HIST_MAX);
+  saveDB();
+}
+var HIST_HEAD = ['Когда собрали','Что','Филиал','Период','Заявлено','Совпало',
+                 'Расхождений','Доля совпавших','Потери, шт','Потери, ₸'];
+function renderHist(){
+  var o = $('outH'), h = DB.hist || [];
+  if (!h.length){
+    o.innerHTML = '<div class="hint" style="padding:14px">Пока пусто. Каждый раз, когда вы ' +
+      'нажимаете «Собрать» или «Посчитать», сюда записывается строка с итогами — ' +
+      'чтобы через месяц было с чем сравнить.</div>';
+    return;
+  }
+  var rows = h.slice().reverse();
+  var t = '<table><thead><tr>' + HIST_HEAD.map(function(x){ return '<th>' + x + '</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    t += '<tr>' +
+      '<td>' + ru(r.ts.slice(0,10)) + ' ' + r.ts.slice(11,16) + '</td>' +
+      '<td>' + (r.kind === 'chr' ? 'хронология' : 'сверка') + '</td>' +
+      '<td class="name">' + esc(r.wh || 'все филиалы') + '</td>' +
+      '<td>' + ru(r.from) + ' — ' + ru(r.to) + '</td>' +
+      '<td>' + (r.list !== undefined ? r.list : '') + '</td>' +
+      '<td>' + (r.ok !== undefined ? r.ok : '') + '</td>' +
+      '<td>' + (r.bad !== undefined ? r.bad : '') + '</td>' +
+      '<td>' + (r.pct !== undefined ? '<span class="chip ' + (r.pct >= 80 ? 'ok' :
+                 r.pct >= 50 ? 'na' : 'bad') + '">' + r.pct + '%</span>' : '') + '</td>' +
+      '<td>' + (r.loss !== undefined ? fmtNum(r.loss) : '') + '</td>' +
+      '<td>' + (r.money ? fmtNum(r.money) : '') + '</td>' +
+      '</tr>';
+  });
+  t += '</tbody></table>';
+
+  var sv = h.filter(function(x){ return x.kind === 'rep' && x.pct !== undefined; });
+  var chart = '';
+  if (sv.length > 1){
+    var pts = sv.slice(-30).map(function(x){ return { d: x.to, v: x.pct }; });
+    chart = chartDays(pts, 'Доля совпавших позиций от сверки к сверке, %', '%');
+  }
+  o.innerHTML = chart + '<div class="wrapT" style="max-height:none">' + t + '</div>';
+}
+
+/* ═════════ быстрые периоды ═════════ */
+function isoToday(){
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function setPeriod(kind, idFrom, idTo){
+  var t = isoToday(), p = t.split('-'), y = +p[0], m = +p[1], dd = +p[2];
+  var f, to;
+  if (kind === 'week' || kind === 'prevweek'){
+    var back = kind === 'week' ? 0 : 7;
+    var dt = new Date(Date.UTC(y, m-1, dd));
+    var wd = (dt.getUTCDay() + 6) % 7;             // понедельник = 0
+    dt.setUTCDate(dt.getUTCDate() - wd - back);
+    f = dt.toISOString().slice(0,10);
+    dt.setUTCDate(dt.getUTCDate() + 6);
+    to = dt.toISOString().slice(0,10);
+  } else {
+    var mm = m, yy = y;
+    if (kind === 'prevmonth'){ mm--; if (mm < 1){ mm = 12; yy--; } }
+    f = yy + '-' + pad(mm) + '-01';
+    var last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+    to = yy + '-' + pad(mm) + '-' + pad(last);
+  }
+  // не выходим за пределы загруженных данных
+  var lo = $(idFrom).min, hi = $(idFrom).max;
+  if (lo && f < lo) f = lo;
+  if (hi && to > hi) to = hi;
+  $(idFrom).value = f; $(idTo).value = to;
+}
+
+/* ═════════ свежесть выгрузок ═════════ */
+function dataFreshness(){
+  var last = '';
+  DB.mov.forEach(function(r){ if (r[0] > last) last = r[0]; });
+  if (!last) return { html: '', stale: 0 };
+  var days = daysBetween(last, isoToday());
+  if (days <= 2) return { html: '', stale: days };
+  return { stale: days, html: '<div class="stale">Выгрузки заканчиваются <b>' + ru(last) +
+    '</b> — это ' + days + ' дн. назад. Обновите четыре файла из iiko, иначе последние дни ' +
+    'в отчёте будут выглядеть пустыми.</div>' };
+}
+
 /* ═════════ графики: свой SVG, без библиотек и без интернета ═════════ */
 function esc2(t){ return S(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function fmtNum(n){
@@ -2090,7 +2316,8 @@ function renderChrono(view){
       var cl = (i === 1 || (view === 'pos' && i === 0) || (view === 'pair' && (i === 2 || i === 6)))
              ? 'name' : '';
       if (pct.indexOf(i) >= 0 && v !== '' && v >= 0.15) cl += ' bad';
-      return '<td class="' + cl.trim() + '">' + cell + '</td>'; }).join('') + '</tr>';
+      return '<td class="' + cl.trim() + '" data-l="' + esc(head[i]) + '">' + cell + '</td>';
+    }).join('') + '</tr>';
   });
   h += '</tbody></table>';
   o.innerHTML = h;
@@ -2199,6 +2426,8 @@ $('btnChrono').onclick = function(){
         '</b><span>экономия ' + fmtT(eco) + '</span></div>';
     document.querySelectorAll('#tabsC button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
     renderChrono('pos');
+    histAdd({ ts: new Date().toISOString(), kind: 'chr', wh: '', from: f, to: t,
+              loss: Math.round(L), money: Math.round(M), pairs: CHRONO.pair.length });
     msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.', 'ok');
   } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
 };
@@ -2229,6 +2458,41 @@ $('btnChrXlsx').onclick = function(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
 };
 
+
+/* ═════════ печать, быстрые периоды, свежесть, история ═════════ */
+function printHead(title, sub){
+  $('printHead').innerHTML = '<b>' + esc(title) + '</b><br>' + esc(sub) +
+    '<br>собрано ' + ru(isoToday());
+}
+function doPrint(title, sub){ printHead(title, sub); setTimeout(function(){ window.print(); }, 60); }
+
+$('btnPrint').onclick = function(){
+  if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
+  doPrint('Сверка 20% — ' + REPORT.wh, 'период ' + ru($('dFrom').value) + ' — ' + ru($('dTo').value));
+};
+$('btnPrintC').onclick = function(){
+  if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
+  doPrint('Хронология продукции', 'период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to));
+};
+$('btnPrintH').onclick = function(){ doPrint('История сверок', 'все записи'); };
+
+document.querySelectorAll('.quick button[data-q]').forEach(function(b){
+  b.onclick = function(){
+    var t = this.dataset.t;
+    setPeriod(this.dataset.q, t === 'rep' ? 'dFrom' : 'cFrom', t === 'rep' ? 'dTo' : 'cTo');
+  };
+});
+
+$('btnHistClear').onclick = function(){
+  if (!confirm('Удалить всю историю сверок? Сами данные и отчёты останутся.')) return;
+  DB.hist = []; saveDB(); renderHist();
+};
+
+function showFresh(){
+  var f = dataFreshness();
+  ['freshRep','freshChr'].forEach(function(id){ if ($(id)) $(id).innerHTML = f.html; });
+}
+
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
@@ -2236,6 +2500,7 @@ $('btnChrXlsx').onclick = function(){
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     rep: ['Сверка',''],
     chr: ['Хронология','как продаётся и где теряется'],
+    hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
   };
@@ -2252,6 +2517,8 @@ $('btnChrXlsx').onclick = function(){
     el('side').classList.remove('open');
     el('scrim').classList.remove('on');
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
+    if (p === 'hist' && typeof renderHist === 'function') renderHist();
+    if (typeof showFresh === 'function') showFresh();
     if (p === 'chr'){
       if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;
       if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
