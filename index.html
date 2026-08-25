@@ -2562,16 +2562,23 @@ $('btnChrono').onclick = function(){
     var worst = '', wv = -1;
     Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
     var eco = 0; CHRONO.pair.forEach(function(r){ eco += N(r[11]); });
+    // цены берутся из отчёта по продажам 20%; в старых сохранённых выгрузках суммы нет
+    var noPrice = pos.length > 0 && M < 1e-9;
     $('kpiC').innerHTML =
       '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b></div>' +
       '<div><span>Потери всего</span><b style="color:#b42318">' + Math.round(L) + ' шт</b></div>' +
-      '<div><span>Потери в деньгах</span><b style="color:#b42318">' + fmtT(M) + '</b></div>' +
+      '<div><span>Потери в деньгах</span>' + (noPrice
+        ? '<b style="font-size:15px;color:#71717a">нет цен</b>' +
+          '<span>загрузите «Продажи со скидкой 20%» заново</span>'
+        : '<b style="color:#b42318">' + fmtT(M) + '</b>') + '</div>' +
       '<div><span>Больше всех теряет</span><b style="font-size:15px">' + worst +
         '<span style="font-size:12px;color:#71717a"> · ' + Math.round(wv) + ' шт</span></b></div>' +
       '<div><span>Пар для перемещения</span><b style="color:#067647">' + CHRONO.pair.length +
-        '</b><span>экономия ' + fmtT(eco) + '</span></div>';
-    document.querySelectorAll('#tabsC button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
-    renderChrono('pos');
+        '</b><span>' + (noPrice ? 'экономия — нет цен' : 'экономия ' + fmtT(eco)) + '</span></div>';
+    var keep = CHR_VIEW || 'pos';
+    document.querySelectorAll('#tabsC button').forEach(function(x){
+      x.classList.toggle('on', x.dataset.c === keep); });
+    renderChrono(keep);
     histAdd({ ts: new Date().toISOString(), kind: 'chr', wh: '', from: f, to: t,
               loss: Math.round(L), money: Math.round(M), pairs: CHRONO.pair.length });
     msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.', 'ok');
