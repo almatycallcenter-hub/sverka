@@ -1,0 +1,2918 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сверка 20% скидки и списания — Тәп-Тәтті</title>
+<style>
+  :root{
+    --bg:#f4f4f5;--panel:#fbfbfc;--card:#fff;
+    --bd:#e8e8ec;--bd2:#f1f1f4;
+    --txt:#18181b;--mut:#71717a;--mut2:#a1a1aa;
+    --acc:#1F3864;--acc2:#2E75B6;--accbg:#eef2f9;
+    --okBg:#ecfdf3;--okT:#067647;--okB:#abefc6;
+    --badBg:#fef3f2;--badT:#b42318;--badB:#fecdca;
+    --naBg:#fffaeb;--naT:#b54708;--naB:#fedf89;
+    --row:#fff;--rowHov:#f7f7f8;--head:#fafafa;--soft:#ececef;
+    --mark:#2a78d6;--markSoft:#cde2fb;--grid:#e8e8ec;
+    --sh:0 1px 2px rgba(16,24,40,.05);
+    --shCard:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.04);
+    --shPanel:0 1px 2px rgba(16,24,40,.04),0 8px 24px -12px rgba(16,24,40,.14);
+  }
+  /* тёмная тема — свои шаги от тех же цветов, а не механическая инверсия */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#141413;--panel:#1a1a19;--card:#201f1e;
+      --bd:#33322f;--bd2:#2a2926;
+      --txt:#f2f1ee;--mut:#a3a29b;--mut2:#7a7973;
+      --acc:#8fb3e8;--acc2:#6da7ec;--accbg:#22303f;
+      --okBg:#12291d;--okT:#6ee7a8;--okB:#1f5138;
+      --badBg:#2e1717;--badT:#fca5a5;--badB:#5c2626;
+      --naBg:#2b2210;--naT:#fcd34d;--naB:#5a441a;
+      --row:#201f1e;--rowHov:#282725;--head:#1c1b1a;--soft:#2a2926;
+      --mark:#3987e5;--markSoft:#184f95;--grid:#33322f;
+      --sh:0 1px 2px rgba(0,0,0,.4);
+      --shCard:0 1px 2px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3);
+      --shPanel:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme:dark;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font:14px/1.5 -apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+       color:var(--txt);background:var(--bg);-webkit-font-smoothing:antialiased}
+
+  /* ── каркас ─────────────────────────────── */
+  .app{display:flex;height:100%;min-height:100%}
+  .side{flex:0 0 238px;padding:12px 10px;display:flex;flex-direction:column;min-width:0}
+  .panel{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--card);
+         border:1px solid var(--bd);border-radius:14px;margin:10px 10px 10px 0;overflow:hidden;
+         box-shadow:var(--shPanel)}
+
+  .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 4px}
+  .brand .logo{width:28px;height:28px;border-radius:8px;flex:0 0 28px;display:grid;place-items:center;
+    font-size:15px;background:linear-gradient(140deg,#f7cf6b,#e0912c);box-shadow:var(--sh)}
+  .brand b{font-size:13.5px;font-weight:600;display:block;line-height:1.25}
+  .brand i{font-style:normal;font-size:11.5px;color:var(--mut);display:block;line-height:1.25}
+
+  .nav{margin-top:14px;overflow:auto;flex:1}
+  .navsec{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut2);
+    margin:16px 10px 6px;font-weight:600}
+  .nav a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:8px;margin-bottom:1px;
+    color:var(--txt);font-size:13.5px;text-decoration:none;cursor:pointer;user-select:none;
+    transition:background .12s,color .12s}
+  .nav a .ic{width:17px;text-align:center;font-size:13px;opacity:.75;flex:0 0 17px}
+  .nav a:hover{background:var(--soft)}
+  .nav a.on{background:var(--card);color:var(--txt);font-weight:500;
+    box-shadow:var(--sh),inset 0 0 0 1px var(--bd)}
+  .nav a.on .ic{opacity:1}
+  .nav a .pill{margin-left:auto;font-size:11px;color:var(--mut);background:var(--soft);
+    border-radius:999px;padding:0 7px;line-height:17px}
+  .nav a.on .pill{background:var(--accbg);color:var(--acc)}
+
+  .sidefoot{padding:10px;border-radius:10px;background:var(--soft);font-size:11.5px;color:var(--mut);
+    line-height:1.55;margin-top:10px}
+  .sidefoot b{color:var(--txt);font-weight:600}
+
+  .topbar{flex:0 0 auto;min-height:54px;display:flex;align-items:center;gap:10px;padding:0 18px;
+    border-bottom:1px solid var(--bd);background:var(--card)}
+  .topbar h1{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .topbar .sub{color:var(--mut);font-size:12.5px;margin-left:4px;font-weight:400}
+  .burger{display:none;background:none;border:1px solid var(--bd);color:var(--txt);
+    border-radius:8px;padding:5px 9px;font-size:15px;box-shadow:none}
+  .bodyArea{flex:1;overflow:auto;padding:18px;background:var(--panel)}
+  .page{display:none;max-width:1180px}
+  .page.on{display:block}
+  .page.wide{max-width:none}
+
+  /* ── блоки ──────────────────────────────── */
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+    padding:16px 18px;margin-bottom:14px;box-shadow:var(--shCard)}
+  .card h2{margin:0 0 4px;font-size:14px;font-weight:600;color:var(--txt)}
+  .card .lead{color:var(--mut);font-size:12.5px;margin:0 0 14px}
+  .step{display:none}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px}
+  @media(max-width:820px){.grid{grid-template-columns:1fr}}
+  .f{border:1px solid var(--bd);border-radius:10px;padding:11px 13px;background:var(--panel)}
+  .f label{display:block;font-weight:600;margin-bottom:2px;font-size:13px}
+  .f .h{color:var(--mut);font-size:12px;margin-bottom:8px;line-height:1.45}
+  input[type=file]{width:100%;font-size:12.5px;color:var(--mut)}
+  input[type=file]::file-selector-button{border:1px solid var(--bd);border-radius:7px;background:var(--card);
+    color:var(--txt);padding:5px 11px;margin-right:9px;font:inherit;font-size:12.5px;cursor:pointer;
+    box-shadow:var(--sh)}
+  input[type=file]::file-selector-button:hover{background:var(--rowHov)}
+
+  input[type=date]{width:100%;padding:6px 10px;border-radius:8px;border:1px solid var(--bd);
+    background:var(--card);font:inherit;font-size:13px;color:inherit;box-shadow:var(--sh);min-height:34px;
+    -webkit-appearance:none;appearance:none}
+  input[type=date]:focus{outline:none;border-color:#c7c7cd;box-shadow:0 0 0 3px rgba(24,24,27,.06)}
+  input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.55}
+  input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
+  input[type=text],select,textarea{width:100%;padding:7px 10px;border-radius:8px;
+    border:1px solid var(--bd);background:var(--card);font:inherit;font-size:13px;color:inherit;
+    box-shadow:var(--sh);transition:border-color .12s,box-shadow .12s}
+  input[type=text]:focus,select:focus,textarea:focus{outline:none;border-color:#c7c7cd;
+    box-shadow:0 0 0 3px rgba(24,24,27,.06)}
+  textarea{min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
+  label.lbl{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+
+  button{background:var(--txt);color:var(--card);border:1px solid var(--txt);border-radius:8px;
+    padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;box-shadow:var(--sh);
+    transition:background .12s,border-color .12s}
+  button:hover:not(:disabled){background:#333338;border-color:#333338}
+  button:disabled{background:#d4d4d8;border-color:#d4d4d8;color:#fafafa;cursor:default;box-shadow:none}
+  button.sec{background:var(--card);color:var(--txt);border:1px solid var(--bd)}
+  button.sec:hover:not(:disabled){background:var(--rowHov);border-color:var(--mut2)}
+
+  .row{display:flex;gap:9px;align-items:flex-end;flex-wrap:wrap;margin-top:14px}
+  .row>div{flex:0 0 165px}
+
+  .msg{margin-top:12px;padding:9px 12px;border-radius:9px;font-size:12.5px;display:none;
+    border:1px solid transparent}
+  .msg.ok{background:var(--okBg);color:var(--okT);border-color:var(--okB);display:block}
+  .msg.err{background:var(--badBg);color:var(--badT);border-color:var(--badB);display:block}
+  .msg.wait{background:var(--naBg);color:var(--naT);border-color:var(--naB);display:block}
+
+  .st{font-size:12.5px;line-height:1.85;color:var(--txt)}
+  .st b{color:var(--txt);font-weight:600}
+
+  /* ── плитки итогов ──────────────────────── */
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px;margin-bottom:16px}
+  .kpi div{background:var(--card);border:1px solid var(--bd);border-radius:11px;padding:11px 14px;
+    box-shadow:var(--shCard)}
+  .kpi span{display:block;font-size:11.5px;color:var(--mut);margin-bottom:3px}
+  .kpi b{font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--txt)}
+
+  /* ── вкладки-подчёркивания ──────────────── */
+  .tabs{display:flex;gap:2px;margin:0 0 14px;flex-wrap:wrap;border-bottom:1px solid var(--bd)}
+  .tabs button{background:none;border:0;box-shadow:none;color:var(--mut);font-weight:500;
+    padding:9px 12px;font-size:13px;border-radius:0;border-bottom:2px solid transparent;
+    margin-bottom:-1px}
+  .tabs button:hover:not(.on){background:none;color:var(--txt)}
+  .tabs button.on{background:none;color:var(--txt);border-bottom-color:var(--txt)}
+
+  /* ── панель фильтров ────────────────────── */
+  .fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .fbar input[type=text]{width:230px}
+  .fbar select.flt{max-width:210px;font-size:12.5px;padding:6px 9px}
+  .fbar select.flt.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+  .fbar label{display:inline-flex;gap:7px;align-items:center;cursor:pointer;font-size:12.5px;
+    white-space:nowrap;border:1px solid var(--bd);border-radius:8px;padding:6px 11px;background:var(--card);
+    box-shadow:var(--sh)}
+  .fbar label:hover{background:var(--rowHov)}
+  .fbar input[type=checkbox]{width:auto;margin:0;accent-color:var(--txt)}
+  .cnt{color:var(--mut);font-size:12px;margin-left:auto}
+
+  /* ── таблица ────────────────────────────── */
+  .wrapT{overflow:auto;max-height:66vh;border:1px solid var(--bd);border-radius:12px;background:var(--card);
+    box-shadow:var(--shCard)}
+  table{border-collapse:separate;border-spacing:0;font-size:12.5px;white-space:nowrap;width:100%}
+  th{position:sticky;top:0;z-index:2;background:var(--head);color:var(--mut);font-weight:500;
+    font-size:11.5px;padding:9px 10px;text-align:center;white-space:normal;min-width:76px;
+    border-bottom:1px solid var(--bd);border-right:1px solid var(--bd2)}
+  th.frost{color:var(--acc2);background:var(--accbg)}
+  th.srt{cursor:pointer;user-select:none}
+  th.srt:hover{color:var(--txt);background:var(--rowHov)}
+  td{background:var(--row);padding:8px 10px;text-align:center;color:var(--txt);
+     border-bottom:1px solid var(--bd2);border-right:1px solid var(--bd2)}
+  tbody tr:last-child td{border-bottom:0}
+  td.name,th.name{text-align:left;min-width:220px;white-space:normal}
+  td.name{color:var(--txt);font-weight:500}
+  tbody tr:hover td{background:var(--rowHov)}
+  td.c0,th.c0{position:sticky;left:0;z-index:1;min-width:96px;width:96px}
+  td.c1,th.c1{position:sticky;left:96px;z-index:1;box-shadow:8px 0 10px -10px rgba(16,24,40,.2)}
+  th.c0,th.c1,th.cR{z-index:3;background:var(--head)}
+  td.cR,th.cR{position:sticky;right:0;z-index:1;min-width:210px;
+              box-shadow:-8px 0 10px -10px rgba(16,24,40,.2)}
+  tr.inlist td.c1{box-shadow:inset 3px 0 0 #e0912c,8px 0 10px -10px rgba(16,24,40,.2)}
+  td.chev{cursor:pointer;user-select:none;color:var(--mut2);min-width:30px;padding:8px 4px;
+    font-size:11px}
+  td.chev:hover{color:var(--txt)}
+  tr.det>td{background:var(--head);text-align:left;white-space:normal;padding:0}
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 22px;padding:11px 16px}
+  .dgrid div{font-size:12px;color:var(--txt)}
+  .dgrid b{color:var(--mut);font-weight:500}
+  .dgrid .z{color:#c7c7cd}
+  tr.badrow td:first-child{box-shadow:inset 3px 0 0 #f0a4a0}
+
+  /* ── чипы вердиктов ─────────────────────── */
+  .chip{display:inline-block;padding:1px 9px;border-radius:999px;font-size:11.5px;font-weight:500;
+    line-height:19px;white-space:nowrap}
+  .chip.ok{background:var(--okBg);color:var(--okT);box-shadow:inset 0 0 0 1px var(--okB)}
+  .chip.bad{background:var(--badBg);color:var(--badT);box-shadow:inset 0 0 0 1px var(--badB)}
+  .chip.na{background:var(--naBg);color:var(--naT);box-shadow:inset 0 0 0 1px var(--naB)}
+  .chip.zero{background:#f4f4f5;color:var(--mut);box-shadow:inset 0 0 0 1px var(--bd)}
+
+  .sug{width:100%;padding:4px 7px;font-size:12px}
+  .miniBtn{padding:4px 10px;font-size:12px;border-radius:7px}
+  .hint{color:var(--mut);font-size:12px;margin-top:10px;line-height:1.55}
+  .warn{color:var(--badT);font-weight:600}
+  td.bad{color:var(--badT);font-weight:600}
+  td.good{color:var(--okT);font-weight:600}
+  tr.clk{cursor:pointer}
+  tr.clk:hover>td{background:var(--accbg)}
+  tr.open>td{background:var(--accbg)}
+  .exp{display:inline-block;width:14px;color:var(--mut);font-size:10px}
+  tr.open .exp{transform:rotate(90deg)}
+  .modal{display:none;position:fixed;inset:0;z-index:300;background:rgba(16,24,40,.45);
+    align-items:center;justify-content:center;padding:16px}
+  .modal .mBox{background:var(--card);border:1px solid var(--bd);border-radius:14px;
+    max-width:min(760px,100%);max-height:88vh;display:flex;flex-direction:column;
+    box-shadow:0 24px 60px -20px rgba(16,24,40,.5)}
+  .modal .mHead{display:flex;justify-content:flex-end;padding:8px 10px 0}
+  .modal .mBody{overflow:auto;padding:0 18px 18px}
+  .detWrap{min-width:0}
+  .detT{font-weight:600;font-size:13px;margin-bottom:8px}
+  table.det2{width:auto;font-size:12.5px}
+  table.det2 th,table.det2 td{padding:4px 10px;text-align:right;white-space:nowrap;min-width:0}
+  table.det2 th:first-child,table.det2 td:first-child,
+  table.det2 th:nth-child(2),table.det2 td:nth-child(2){text-align:left}
+  table.det2 tr.stopRow>td{background:var(--badBg)}
+  @media(max-width:560px){
+    .modal{padding:8px}
+    .modal .mBody{padding:0 10px 12px}
+    table.det2{font-size:11.5px}
+    table.det2 th,table.det2 td{padding:3px 5px}
+    table.det2{width:100%}
+    table.det2 .chip{padding:0 6px;font-size:10.5px}
+  }
+
+  .bootWarn{position:fixed;left:10px;right:10px;top:10px;z-index:200;padding:12px 15px;
+    border-radius:11px;background:var(--naBg);color:var(--naT);border:1px solid var(--naB);font-size:13px;
+    line-height:1.5;box-shadow:0 8px 24px -12px rgba(16,24,40,.3)}
+  .bootWarn b{font-weight:600}
+  .bootWarn.err{background:var(--badBg);color:var(--badT);border-color:var(--badB);top:auto;bottom:10px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;word-break:break-word}
+
+  .chartBox{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+    padding:14px 16px 6px;margin-bottom:12px;box-shadow:var(--shCard)}
+  .chartT{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px}
+  .chartScroll{overflow-x:auto}
+  .chartScroll svg{display:block;max-width:100%;height:auto}
+  .bar rect{transition:opacity .12s}
+  .chartScroll g:hover rect{opacity:.82}
+
+  .quick{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px;
+    font-size:12px;color:var(--mut)}
+  .stale{margin-top:12px;padding:10px 14px;border-radius:11px;background:var(--naBg);
+    color:var(--naT);border:1px solid var(--naB);font-size:12.5px;line-height:1.5}
+
+  /* печать: только содержимое отчёта, без меню и кнопок */
+  @media print{
+    @page{ size:A4 landscape; margin:12mm }
+    body{background:#fff;color:#000}
+    .side,.topbar,.noprint,.fbar,.tabs,.quick,.bootWarn,.scrim,#cardRoutes,
+    .stale,td.chev,th.chev,tr.det{display:none!important}
+    .panel{margin:0;border:0;border-radius:0;box-shadow:none}
+    .bodyArea{overflow:visible;padding:0;background:#fff}
+    .page{display:none!important}
+    .page.on{display:block!important;max-width:none}
+    .card{border:0;box-shadow:none;padding:0;margin:0 0 8mm}
+    .card .row,.card .grid,.card .lead{display:none}
+    .card h2{font-size:13pt;margin:0 0 3mm}
+    .msg{display:none!important}
+    .kpi{display:flex;gap:4mm;margin-bottom:5mm;page-break-inside:avoid}
+    .kpi div{flex:1;border:1px solid #ccc;box-shadow:none;padding:3mm 4mm;border-radius:2mm}
+    .kpi b{font-size:16pt}
+    .wrapT{max-height:none!important;overflow:visible;border:1px solid #ccc;box-shadow:none}
+    table{width:100%;font-size:8pt}
+    th{background:#eee!important;color:#000!important;position:static}
+    td,th{border-color:#ddd!important}
+    td{background:#fff!important;color:#000!important}
+    td.c0,td.c1,td.cR,th.c0,th.c1,th.cR{position:static;box-shadow:none}
+    tr{page-break-inside:avoid}
+    thead{display:table-header-group}
+    .chip{border:1px solid #999;background:#fff!important;color:#000!important}
+    .chartBox{border:1px solid #ccc;box-shadow:none;page-break-inside:avoid}
+    .printHead{display:block!important;margin-bottom:5mm;font-size:11pt}
+    .printHead b{font-size:14pt}
+  }
+  .printHead{display:none}
+
+  /* На узком экране широкая таблица не читается: липкие колонки слева и справа
+     съедают всю ширину и перекрывают названия. Показываем строки карточками. */
+  @media(max-width:820px){
+    .wrapT{max-height:none;border:0;background:none;box-shadow:none;overflow:visible}
+    .wrapT table{display:block;width:100%;white-space:normal;border-collapse:collapse}
+    .wrapT thead{display:none}
+    .wrapT tbody{display:block}
+    .wrapT tbody tr{display:block;background:var(--card);border:1px solid var(--bd);
+      border-radius:12px;padding:10px 12px;margin-bottom:8px;box-shadow:var(--shCard)}
+    .wrapT tbody tr:hover td{background:none}
+    .wrapT td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+      position:static!important;width:auto;min-width:0;background:none!important;
+      border:0;border-bottom:1px solid var(--bd2);padding:5px 0;text-align:right;
+      box-shadow:none!important;white-space:normal}
+    .wrapT td:last-child{border-bottom:0}
+    .wrapT td::before{content:attr(data-l);color:var(--mut);font-size:11.5px;text-align:left;
+      flex:1 1 auto;font-weight:400}
+    .wrapT td:empty{display:none}
+    /* название блюда — заголовок карточки */
+    .wrapT td.name:first-of-type,.wrapT td.c1{display:block;text-align:left;
+      font-size:14px;font-weight:600;color:var(--txt);padding:0 0 6px;
+      border-bottom:1px solid var(--bd)}
+    .wrapT td.c1::before{display:none}
+    .wrapT td.c0{border-bottom:1px solid var(--bd2)}
+    .wrapT td.chev{display:none}
+    .wrapT tr.det{display:none}
+    .wrapT tr.badrow td:first-child{box-shadow:none!important}
+    .chartScroll{margin:0 -6px}
+  }
+
+  /* ── мобильный ──────────────────────────── */
+  @media(max-width:900px){
+    .side{position:fixed;z-index:80;left:0;top:0;bottom:0;width:250px;background:var(--bg);
+      border-right:1px solid var(--bd);transform:translateX(-102%);transition:transform .2s;
+      box-shadow:0 0 40px rgba(16,24,40,.16)}
+    .side.open{transform:none}
+    .panel{margin:8px;border-radius:12px}
+    .burger{display:block}
+    .scrim{position:fixed;inset:0;background:rgba(16,24,40,.35);z-index:70;display:none}
+    .scrim.on{display:block}
+    .bodyArea{padding:14px}
+    .card{padding:14px}
+    /* плитки итогов на телефоне — по две в ряд, иначе занимают весь экран */
+    .kpi{grid-template-columns:1fr 1fr;gap:8px}
+    .kpi div{padding:8px 10px}
+    .kpi b{font-size:19px}
+    .kpi span{font-size:11px}
+    .tabs{gap:0;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+    .tabs button{padding:9px 10px;white-space:nowrap}
+    .quick{font-size:11.5px}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<noscript><div class="bootWarn">В этом окне отключён JavaScript. Откройте страницу
+в браузере — Chrome, Safari или Edge.</div></noscript>
+<div class="bootWarn" id="jsWarn">
+  <b>Программа не запустилась.</b> Похоже, файл открыт в окне предпросмотра
+  (в мессенджере, почте или «Файлах»), а там скрипты не работают.<br>
+  Откройте его в браузере — Chrome, Safari или Edge — либо по ссылке вида https://…
+</div>
+<div class="bootWarn err" id="errWarn" style="display:none"></div>
+<div class="scrim" id="scrim"></div>
+<div class="modal" id="dayModal">
+  <div class="mBox">
+    <div class="mHead"><button class="miniBtn" id="dayClose">Закрыть</button></div>
+    <div class="mBody"></div>
+  </div>
+</div>
+<div class="app">
+
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="logo">🥐</div>
+      <div><b>Тәп-Тәтті</b><i>Сверка 20% и списания</i></div>
+    </div>
+
+    <nav class="nav">
+      <div class="navsec">Данные</div>
+      <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
+      <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
+      <div class="navsec">Сверка</div>
+      <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
+      <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
+      <div class="navsec">Аналитика</div>
+      <a data-page="chr" data-tab="pos"><span class="ic">📈</span>Хронология</a>
+      <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
+      <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
+      <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
+      <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
+      <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
+      <div class="navsec">Ещё</div>
+      <a data-page="db"><span class="ic">💾</span>Хранилище</a>
+      <a data-page="help"><span class="ic">❔</span>Как это считается</a>
+    </nav>
+
+    <div class="sidefoot" id="sidefoot">Данные не загружены</div>
+  </aside>
+
+  <div class="panel">
+    <div class="topbar">
+      <button class="burger" id="burger">☰</button>
+      <h1 id="pgTitle">Сверка</h1>
+      <span class="sub" id="pgSub"></span>
+    </div>
+
+    <div class="bodyArea">
+      <div class="printHead" id="printHead"></div>
+
+      <!-- ─── Выгрузки ─────────────────────────────────── -->
+      <section class="page" id="pg-up">
+        <div class="card">
+          <h2>Четыре файла из iiko</h2>
+          <p class="lead">Считаются прямо в браузере, на сервер ничего не уходит.</p>
+          <div class="grid">
+            <div class="f"><label>Товарный отчёт</label>
+              <div class="h">Назначение каждого документа — куда ушла расходная накладная</div>
+              <input type="file" id="fTovarny" accept=".xlsx"></div>
+            <div class="f"><label>Товарная ведомость</label>
+              <div class="h">Построчные движения по всем складам</div>
+              <input type="file" id="fTovarnaya" accept=".xlsx"></div>
+            <div class="f"><label>Продажи со скидкой 20%</label>
+              <div class="h">Отчёт по продажам филиала, тип скидки «Скидка 20%», по учётным дням</div>
+              <input type="file" id="fProd20" accept=".xlsx"></div>
+            <div class="f"><label>Продажи со скидкой 50%</label>
+              <div class="h">С колонкой «В кредит на...» — кто из сотрудников выкупил</div>
+              <input type="file" id="fProd50" accept=".xlsx"></div>
+          </div>
+          <div class="row"><button id="btnLoad">Загрузить</button></div>
+          <div class="msg" id="m1"></div>
+          <div class="hint">Период выгрузок берите на день шире с обеих сторон: для отчёта с 01.08
+            выгружайте движения с 30.07 — два дня назад нужны для прихода партии с 72-часовым сроком,
+            день вперёд для возврата по сроку и списания.</div>
+        </div>
+      </section>
+
+      <!-- ─── Списки филиалов ──────────────────────────── -->
+      <section class="page" id="pg-sp">
+        <div class="card">
+          <h2>Вставьте сообщения из WhatsApp</h2>
+          <p class="lead">Целиком, вместе с датами. Строка вида «Т8 05.08» переключает и филиал,
+            и день — можно вставлять сразу несколько филиалов подряд.</p>
+          <textarea id="spisok" placeholder="Т8 05.08&#10;Шок кап-3&#10;Муравейник-7&#10;Тв б-2&#10;&#10;ТТ4 05.08&#10;Капкейк 2"></textarea>
+          <div class="row">
+            <div><label class="lbl">Год</label><input type="text" id="year"></div>
+            <div style="flex:0 0 210px"><label class="lbl">Филиал (если не указан в тексте)</label>
+              <select id="defBranch"></select></div>
+            <button id="btnSpisok">Разобрать</button>
+            <button class="sec" id="btnClearSpisok">Очистить всё</button>
+          </div>
+          <div class="msg" id="m2"></div>
+          <div class="hint">Разобранное сохраняется в этом браузере. Что не распозналось — поправите
+            на вкладке «Список филиала» в сверке и нажмёте «Запомнить».</div>
+        </div>
+
+        <div class="card">
+          <h2>Или загрузите таблицу</h2>
+          <p class="lead">Если филиалы заполняют общую Google-таблицу — скачайте её
+            (Файл → Скачать → Microsoft Excel .xlsx) и загрузите здесь. Колонки:
+            Дата, Филиал, Блюдо, Кол-во.</p>
+          <div class="f" style="max-width:520px">
+            <label>Таблица со списками</label>
+            <div class="h">Строки за те же дни и филиалы заменяются, остальные остаются</div>
+            <input type="file" id="fListXlsx" accept=".xlsx">
+          </div>
+          <div class="row"><button id="btnListXlsx">Загрузить таблицу</button></div>
+          <div class="msg" id="m2b"></div>
+        </div>
+      </section>
+
+      <!-- ─── Сверка ───────────────────────────────────── -->
+      <section class="page wide on" id="pg-rep">
+        <div class="card noprint">
+          <h2>Параметры</h2>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 240px"><label class="lbl">Филиал</label><select id="branch"></select></div>
+            <div><label class="lbl">с</label><input type="date" id="dFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="dTo"></div>
+            <button id="btnBuild">Собрать</button>
+            <button class="sec" id="btnXlsx">Скачать Excel</button>
+            <button class="sec" id="btnPrint">Печать / PDF</button>
+          </div>
+          <div class="quick">Быстро:
+            <button class="sec miniBtn" data-q="week"      data-t="rep">эта неделя</button>
+            <button class="sec miniBtn" data-q="prevweek"  data-t="rep">прошлая неделя</button>
+            <button class="sec miniBtn" data-q="month"     data-t="rep">этот месяц</button>
+            <button class="sec miniBtn" data-q="prevmonth" data-t="rep">прошлый месяц</button>
+          </div>
+          <div id="freshRep"></div>
+          <div class="msg" id="m3"></div>
+        </div>
+
+        <div id="cardOut" style="display:none">
+          <div class="kpi" id="kpi"></div>
+          <div class="tabs">
+            <button class="on" data-v="rep">Отчёт по дням</button>
+            <button data-v="tot">Итоги по дням</button>
+            <button data-v="list">Список филиала</button>
+            <button data-v="m50">Путь на склад 50%</button>
+          </div>
+          <div class="fbar" id="fbar">
+            <input type="text" id="q" placeholder="Поиск по блюду">
+            <label><input type="checkbox" id="onlyBad"> только расхождения</label>
+            <label><input type="checkbox" id="fullMode"> все колонки</label>
+            <span class="cnt" id="cnt"></span>
+          </div>
+          <div class="wrapT" id="out"></div>
+        </div>
+      </section>
+
+      <!-- ─── Хронология ───────────────────────────────── -->
+      <section class="page wide" id="pg-chr">
+        <div class="card noprint">
+          <h2>Период</h2>
+          <p class="lead">Считается сразу по всем филиалам: скорость продажи, доля потерь,
+            дни выхода в стоп и пары «здесь уценивают — там разбирают».</p>
+          <div class="row" style="margin-top:10px">
+            <div><label class="lbl">с</label><input type="date" id="cFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="cTo"></div>
+            <div style="flex:0 0 150px"><label class="lbl">мин. приход, шт</label>
+              <input type="text" id="cMin" value="10"></div>
+            <button id="btnChrono">Посчитать</button>
+            <button class="sec" id="btnChrXlsx">Скачать Excel</button>
+            <button class="sec" id="btnPrintC">Печать / PDF</button>
+          </div>
+          <div class="quick">Быстро:
+            <button class="sec miniBtn" data-q="week"      data-t="chr">эта неделя</button>
+            <button class="sec miniBtn" data-q="prevweek"  data-t="chr">прошлая неделя</button>
+            <button class="sec miniBtn" data-q="month"     data-t="chr">этот месяц</button>
+            <button class="sec miniBtn" data-q="prevmonth" data-t="chr">прошлый месяц</button>
+          </div>
+          <div id="freshChr"></div>
+          <div class="msg" id="m4"></div>
+        </div>
+
+        <div id="cardChr" style="display:none">
+          <div class="kpi" id="kpiC"></div>
+          <div class="tabs" id="tabsC">
+            <button class="on" data-c="pos">Позиции</button>
+            <button data-c="dyn">Динамика</button>
+            <button data-c="trio">Топ-20: худший / средний / лучший</button>
+            <button data-c="pair">Перемещать вместо уценки</button>
+            <button data-c="route">Маршруты</button>
+          </div>
+          <div class="fbar" id="fbarC">
+            <input type="text" id="qC" placeholder="Поиск по блюду или филиалу">
+            <select id="fRoute" class="flt"><option value="">все маршруты</option></select>
+            <select id="fWh" class="flt"><option value="">все филиалы</option></select>
+            <select id="fCat" class="flt"><option value="">все категории</option></select>
+            <button id="fClear" class="miniBtn">Сбросить</button>
+            <label id="labOnlyRoute"><input type="checkbox" id="onlyRoute"> только пары на одном маршруте</label>
+            <span class="cnt" id="cntC"></span>
+          </div>
+          <div class="wrapT" id="outC"></div>
+        </div>
+
+        <div class="card" id="cardRoutes" style="display:none">
+          <h2>Маршруты развоза</h2>
+          <p class="lead">Пары для перемещения имеют смысл только внутри одного маршрута.
+            Впишите их — по строке на маршрут, филиалы через запятую, в порядке объезда.</p>
+          <textarea id="routes" placeholder="Маршрут 1: ТТ1 Атакент склад, ТТ2 Сарыарка склад, 010-Шугыла склад&#10;Маршрут 2: ТТ4 Ньютон склад, ТТ6 Автодом, 011 Алма-Сити 5"></textarea>
+          <div class="row"><button id="btnRoutes">Сохранить маршруты</button></div>
+          <div class="msg" id="m5"></div>
+          <div class="hint" id="routeHint"></div>
+        </div>
+      </section>
+
+      <!-- ─── История ──────────────────────────────────── -->
+      <section class="page wide" id="pg-hist">
+        <div class="card noprint">
+          <h2>Каждая сборка отчёта записывается сюда</h2>
+          <p class="lead">Чтобы через месяц было видно, стало лучше или хуже — без
+            перезагрузки старых выгрузок.</p>
+          <div class="row">
+            <button class="sec" id="btnPrintH">Печать / PDF</button>
+            <button class="sec" id="btnHistClear">Очистить историю</button>
+          </div>
+        </div>
+        <div id="outH"></div>
+      </section>
+
+      <!-- ─── Хранилище ────────────────────────────────── -->
+      <section class="page" id="pg-db">
+        <div class="card">
+          <h2>Что загружено</h2>
+          <p class="lead">Данные держатся в этом браузере на этом устройстве.</p>
+          <div class="st" id="status">пусто</div>
+          <div class="row">
+            <button class="sec" id="btnSave">Сохранить данные в файл</button>
+            <button class="sec" id="btnRestore">Загрузить данные из файла</button>
+            <input type="file" id="fRestore" accept=".json" style="display:none">
+          </div>
+          <div class="hint">Чтобы передать базу на другой компьютер — сохраните в файл и загрузите
+            там. Этот файл в интернет не выкладывайте: в нём продажи и ФИО покупателей.</div>
+        </div>
+      </section>
+
+      <!-- ─── Справка ──────────────────────────────────── -->
+      <section class="page" id="pg-help">
+        <div class="card">
+          <h2>Проверка продажи</h2>
+          <p class="lead">Продано со скидкой 20% (день T) + перемещение на склад 50% (T) +
+            возврат по сроку (T+1) + списание (T+1) = список филиала (T) → ок.</p>
+          <div class="hint" style="margin-top:0">Возврат по сроку и списание оформляются следующим
+            днём — поэтому T+1. «Нарушение (нет в списке филиала)» значит: движение было,
+            а позицию филиал не заявлял.</div>
+        </div>
+        <div class="card">
+          <h2>Проверка прихода и списания</h2>
+          <p class="lead">Приход по ФИФО ≥ заявленного количества → ок. Приход по ФИФО — это приход
+            за день T − (срок на витрине в сутках − 1), то есть одна из колонок прихода в той же строке.</p>
+          <div class="hint" style="margin-top:0">Пусто — значит проверять нечего: филиал позицию
+            не заявлял или списания не было.</div>
+        </div>
+        <div class="card">
+          <h2>Замороженная продукция</h2>
+          <p class="lead">Приход с «Таугуль торт склад» — бөрек, самса, «Шығыс самсасы», торты.
+            Срок на витрине идёт от разморозки, а её время в учёте не фиксируется.</p>
+          <div class="hint" style="margin-top:0">Поэтому проверки по приходу для таких партий
+            не считаются — ставится «не известна разморозка». Колонки такого прихода помечены голубым.</div>
+        </div>
+        <div class="card">
+          <h2>Потери в деньгах</h2>
+          <p class="lead">Потеря = непроданное (возврат по сроку + склад 50% + списание) по полной цене
+            <b>плюс</b> продажи со скидкой 20% — по размеру скидки, то есть 20% от цены.</p>
+          <div class="hint" style="margin-top:0">«Что делать»: если позиция часто попадает на скидку —
+            «снизить заявку»; если подолгу стоит в стопе с нулевым остатком — «увеличить заявку».
+            Колонка «Последняя продажа» показывает, когда позицию купили в последний раз.</div>
+        </div>
+        <div class="card">
+          <h2>«Снизить на, шт/день»</h2>
+          <p class="lead">Потери делятся на <b>все дни на витрине</b>, а не на дни, когда были потери.
+            33 шт потерь за 19 дней — это минус 2 в день, а не минус 4.
+            Делить на «дни с потерями» нельзя: в остальные дни всё разошлось,
+            и урезка там обернётся упущенной продажей.</p>
+          <div class="hint" style="margin-top:0">Число появляется только если «Дней в стопе» = 0 —
+            то есть филиал ни разу не оставался без товара, и запас точно лишний.
+            Если стоп был, дело не в объёме заявки, а в том, что завоз ложится не на те дни —
+            смотрите колонку «Худший день».<br>
+            Режьте сначала <b>наполовину</b> от подсказки и пересчитайте через неделю:
+            часть потерь могла быть разовым сбоем. Вернуть объём проще, чем вернуть покупателя,
+            который дважды не нашёл свой торт.</div>
+        </div>
+        <div class="card">
+          <h2>Путь на склад 50%</h2>
+          <p class="lead">За каждой расходной накладной на склад 50% ищется продажа со скидкой 50%.
+            Привязка идёт к ближайшей предыдущей накладной на этот же товар, в пределах 14 дней.</p>
+          <div class="hint" style="margin-top:0">Торт режут на 8 кусочков, поэтому «X (кусочек)»
+            считается как 1/8 целого и отдельной строки не имеет.</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+<script>
+/* ═════════ встроенные справочник и синонимы ═════════ */
+window.onerror = function(m, src, ln, col){
+  try{
+    // скрипты явно работают — значит «файл открыт в предпросмотре» здесь неправда
+    var w = document.getElementById('jsWarn');
+    if (w){ w.innerHTML = '<b>Похоже, это старая копия файла.</b> Скачайте свежую ' +
+      'или откройте по ссылке — там всегда последняя версия.'; }
+    var e = document.getElementById('errWarn');
+    if (e){ e.style.display = 'block';
+            e.textContent = 'Ошибка: ' + m + '  (строка ' + ln + ':' + col + ')'; }
+  }catch(_){}
+};
+var DOCCOVER = null;   // насколько товарный отчёт покрыл товарную ведомость
+var EMBED = {"spr":[["\"Шығыс самсасы\" етпен",24.0,"Обе формы",""],["\"Шығыс самсасы\" тауық етімен",24.0,"Обе формы",""],["Ірімшік ж/е картоп қосылған рогалик",24.0,"Витрина",""],["Алмалы бәліш",72.0,"Витрина",""],["Алмалы кекс",72.0,"Витрина",""],["Балды торт",72.0,"Обе формы",""],["Балды торт (кусочек)",72.0,"Витрина",""],["Балхадиша торт (кусочек)",72.0,"Витрина",""],["Балхадиша торты",72.0,"Обе формы",""],["Бананды кіші тарт",72.0,"Витрина",""],["Бананды үлкен тарт",72.0,"Витрина",""],["Бауырсақ",24.0,"Витрина",""],["Берлинер ванильді",48.0,"Витрина",""],["Берлинер пістелі",48.0,"Витрина",""],["Берлинер таңқурайлы",48.0,"Витрина",""],["Берлинер шоколадты",48.0,"Витрина",""],["Бонаква 0,5 л",0,"","Нет"],["Бөрек алмамен",24.0,"Обе формы",""],["Бөрек етпен",24.0,"Обе формы",""],["Бөрек картоппен",24.0,"Обе формы",""],["Бөрек паприка",24.0,"Обе формы",""],["Бөрек тауық етімен",24.0,"Обе формы",""],["Бөрек шпинат брынзамен",24.0,"Обе формы",""],["Вупи пай торт",72.0,"Обе формы",""],["Вупи пай торт (кусочек)",72.0,"Витрина",""],["Вупи пай торт (кіші)",72.0,"Обе формы",""],["Етті бәліш",24.0,"Витрина",""],["Жидекті профитроль",48.0,"Витрина",""],["Испанский чизкейк",72.0,"Обе формы",""],["Испанский чизкейк (кусочек)",72.0,"Витрина",""],["Капкейк",72.0,"Витрина",""],["Карамельді чизкейк (кусочек)",72.0,"Витрина",""],["Картошка пирожное",72.0,"Витрина",""],["Кока-кола 0,5 л",0,"","Нет"],["Корпусты мусс десерті Fista",48.0,"Витрина",""],["Корпусты мусс десерті Kokos",48.0,"Витрина",""],["Корпусты мусс десерті Mango",48.0,"Витрина",""],["Красный бархат торт",72.0,"Обе формы",""],["Красный бархат торт (кусочек)",72.0,"Витрина",""],["Красный бархат торт (кіші)",72.0,"Обе формы",""],["Көкнәр қосылған тоқаш",24.0,"Витрина",""],["Леденец 20 гр",0,"","Нет"],["Леденец 50 гр",0,"","Нет"],["Мадлен (Карамельді)",72.0,"Обе формы",""],["Мадлен (Лимонды)",72.0,"Обе формы",""],["Мадлен (Шоколадты)",72.0,"Обе формы",""],["Мадлен (Құлпынайлы)",72.0,"Обе формы",""],["Макаронс \"Латте\"",72.0,"Обе формы",""],["Макаронс \"Пісте\"",72.0,"Обе формы",""],["Макаронс \"Таңқурай\"",72.0,"Обе формы",""],["Макаронс \"Шоколад\"",72.0,"Обе формы",""],["Макаронс \"Қарақат\"",72.0,"Обе формы",""],["Меренга таңқурай (кусочек)",72.0,"Витрина",""],["Меренга қарақатпен (кусочек)",72.0,"Витрина",""],["Меренгалы рулет (таңқураймен)",72.0,"Обе формы",""],["Меренгалы рулет (қарақатпен)",72.0,"Обе формы",""],["Мини-муравейник пирожное",72.0,"Обе формы",""],["Молочная девочка торт",72.0,"Обе формы",""],["Молочная девочка торт (кусочек)",72.0,"Витрина",""],["Молочная девочка торт (кіші)",72.0,"Обе формы",""],["Морковный торт",72.0,"Обе формы",""],["Морковный торт (кусочек)",72.0,"Витрина",""],["Морковный торт (кіші)",72.0,"Обе формы",""],["Наполеон торт",72.0,"Обе формы",""],["Наполеон торт (кусочек)",72.0,"Витрина",""],["Орама бәліш Етпен",72.0,"Обе формы",""],["Орама бәліш Тауық етімен",72.0,"Обе формы",""],["Париж брест",72.0,"Витрина",""],["Печенье Cookies Дубай",72.0,"Обе формы",""],["Печенье Cookies Карамель",72.0,"Обе формы",""],["Печенье Cookies Таңқурай",72.0,"Обе формы",""],["Печенье Cookies Чизкейк",72.0,"Обе формы",""],["Печенье Cookies Шоколад",72.0,"Обе формы",""],["Печенье Вупи",72.0,"Обе формы",""],["Печенье Жаңғақты в упаковке",720.0,"Витрина",""],["Печенье Жер-жаңғақ в упаковке",720.0,"Витрина",""],["Печенье Күнжіт в упаковке",720.0,"Витрина",""],["Печенье Сүзбелі в упаковке",720.0,"Витрина",""],["Печенье Ун курабие в упаковке",720.0,"Витрина",""],["Печенье Шоколад в упаковке",720.0,"Витрина",""],["Печенье Құрма-жаңғақ в упаковке",720.0,"Витрина",""],["Пико",0,"","Нет"],["Пирожное Шу",72.0,"Витрина",""],["Пирожное сникерс",72.0,"Обе формы",""],["Пирожок с капустой",24.0,"Витрина",""],["Пирожок с картошкой",24.0,"Витрина",""],["Пицца 4 сыра 30см",24.0,"Витрина",""],["Пицца болонезье 30см",24.0,"Витрина",""],["Пицца капричоза 30см",24.0,"Витрина",""],["Пицца маргарита 30см",24.0,"Витрина",""],["Пицца мексиканская 30см",24.0,"Витрина",""],["Пицца пепперони 30см",24.0,"Витрина",""],["Пицца с курицей 30см",24.0,"Витрина",""],["Пицца сырная 30см",24.0,"Витрина",""],["Самал вода 0,5 л",0,"","Нет"],["Самса асқабақпен",24.0,"Обе формы",""],["Самса етпен",24.0,"Обе формы",""],["Самса тауық етімен",24.0,"Обе формы",""],["Свечи в ассортименте",0,"","Нет"],["Свечи д/торта цифра 0",0,"","Нет"],["Свечи д/торта цифра 1",0,"","Нет"],["Свечи д/торта цифра 2",0,"","Нет"],["Свечи д/торта цифра 3",0,"","Нет"],["Свечи д/торта цифра 4",0,"","Нет"],["Свечи д/торта цифра 5",0,"","Нет"],["Свечи д/торта цифра 6",0,"","Нет"],["Свечи д/торта цифра 7",0,"","Нет"],["Свечи д/торта цифра 8",0,"","Нет"],["Свечи д/торта цифра 9",0,"","Нет"],["Синнабон даршынмен",48.0,"Витрина",""],["Синнабон жаңғақпен",48.0,"Витрина",""],["Сникерс торт",72.0,"Обе формы",""],["Сникерс торт (кусочек)",72.0,"Витрина",""],["Сникерс торт (кіші)",72.0,"Обе формы",""],["Сосиска в тесте",24.0,"Витрина",""],["Спрайт 0,5 л",0,"","Нет"],["Сүзбелі бәліш кіші",72.0,"Витрина",""],["Сүзбелі бәліш үлкен",72.0,"Витрина",""],["Сүзбелі кіші тарт малина",72.0,"Витрина",""],["Сүзбелі кіші тарт миндаль",72.0,"Витрина",""],["Сүзбелі құлпынайлы тоқаш",24.0,"Витрина",""],["Сүзбелі-жидекті таңқурай",72.0,"Витрина",""],["Тары қосылған қаймақты бәліш",72.0,"Витрина",""],["Тауық етті бәліші",72.0,"Витрина",""],["Таңқурай нәзіктігі торты",72.0,"Витрина",""],["Таңқурайлы бенто торт",72.0,"Обе формы",""],["Таңқурайлы торт кусочек",72.0,"Витрина",""],["Таңқурайлы шу",72.0,"Витрина",""],["Тирамису торт",72.0,"Обе формы",""],["Тирамису торт (кусочек)",72.0,"Витрина",""],["Тирамису шоколадный торт (кусочек)",72.0,"Витрина",""],["Тирамису шоколадты торт",72.0,"Обе формы",""],["Торт Микс №1",72.0,"Обе формы",""],["Торт Микс №2",72.0,"Обе формы",""],["Трайфл Милка",72.0,"Обе формы",""],["Трайфл Сникерс",72.0,"Обе формы",""],["Трилече торты",72.0,"Обе формы",""],["Трилече торты (кусочек)",72.0,"Витрина",""],["Фанта 0,5 л",0,"","Нет"],["Фин-алма бәліші",72.0,"Обе формы",""],["Фундук тирамису торт",72.0,"Обе формы",""],["Фундук тирамису торт (кусочек)",72.0,"Витрина",""],["Фьюс чай 0,5 л",0,"","Нет"],["Чизкейк Нью-Йорк",72.0,"Витрина",""],["Чизкейк Нью-Йорк (кусочек)",72.0,"Витрина",""],["Шоколадный маффин/Шоколадты маффин",72.0,"Витрина",""],["Шоколадты бенто торт",72.0,"Обе формы",""],["Шоколадты капкейк",72.0,"Витрина",""],["Шпинатный торт",72.0,"Обе формы",""],["Шпинатный торт (кусочек)",72.0,"Витрина",""],["Шпинатный торт (кіші)",72.0,"Обе формы",""],["Шығыс бәліші",72.0,"Витрина",""],["Эклер ванильді",72.0,"Витрина",""],["Эклер шоколадты",72.0,"Витрина",""],["Қаймақты",72.0,"Витрина",""],["Қалталы шұжықпен",24.0,"Витрина",""],["Қарақыз бәліші",72.0,"Витрина",""],["Қатпарлы сүзбелі тоқаш",24.0,"Витрина",""],["Қатпарлы тоқаш алмамен",24.0,"Витрина",""],["Құлпынайлы торт",48.0,"Витрина",""]],"syn":{"алмалы":"Алмалы бәліш","алмалы бәліш":"Алмалы бәліш","алмалы кекс":"Алмалы кекс","балды торт":"Балды торт","банан маленький":"Бананды кіші тарт","бананды үлкен":"Бананды үлкен тарт","берлин ван":"Берлинер ванильді","берлин ванил":"Берлинер ванильді","берлин ваниль":"Берлинер ванильді","берлин мал":"Берлинер таңқурайлы","берлин малина":"Берлинер таңқурайлы","берлин фис":"Берлинер пістелі","берлин фист":"Берлинер пістелі","берлин фиста":"Берлинер пістелі","берлин шок":"Берлинер шоколадты","берлинер ваниль":"Берлинер ванильді","берлинер фисташка":"Берлинер пістелі","берлинер шок":"Берлинер шоколадты","вупи пай":"Вупи пай торт","вупи печенье":"Печенье Вупи","вупи торт":"Вупи пай торт","дубай тарт":"Дубайский тарт","исп":"Испанский чизкейк","испан чизкейк":"Испанский чизкейк","каймакты":"Қаймақты","капкейк":"Капкейк","карамель":"Мадлен (Карамельді)","картошка":"Картошка пирожное","картошка пирожное":"Картошка пирожное","катпарлы тоқаш алмамен":"Қатпарлы тоқаш алмамен","катпарлы тоқаш алмамен до 11":"Қатпарлы тоқаш алмамен","клас шу":"Пирожное Шу","клубника":"Мадлен (Құлпынайлы)","корица":"Синнабон даршынмен","корпус какос":"Корпусты мусс десерті Kokos","корпус манго":"Корпусты мусс десерті Mango","корпус фиста":"Корпусты мусс десерті Fista","кофе":"Корпусты мусс десерті Kofe","красный бархат":"Красный бархат торт","латте":"Макаронс \"Латте\"","лимон":"Мадлен (Лимонды)","мадлен карамель":"Мадлен (Карамельді)","мадлен клуб":"Мадлен (Құлпынайлы)","мадлен лим":"Мадлен (Лимонды)","мадлен шок":"Мадлен (Шоколадты)","макаронс фиста":"Макаронс \"Пісте\"","макаронс шок":"Макаронс \"Шоколад\"","малина":"Макаронс \"Таңқурай\"","маф":"Шоколадный маффин/Шоколадты маффин","маффин":"Шоколадный маффин/Шоколадты маффин","медовый":"Балды торт","миндаль":"Сүзбелі кіші тарт миндаль","мур":"Мини-муравейник пирожное","муравейник":"Мини-муравейник пирожное","наполеон":"Наполеон торт","нью-йорк":"Чизкейк Нью-Йорк","нью-йорк чиз":"Чизкейк Нью-Йорк","париж брест":"Париж брест","пирож сникерс":"Пирожное сникерс","пирожное сникерс":"Пирожное сникерс","син кл":"Синнабон даршынмен","син орех":"Синнабон жаңғақпен","синаб орх":"Синнабон жаңғақпен","синнабон кл":"Синнабон даршынмен","синнабон классик":"Синнабон даршынмен","синнабон ор":"Синнабон жаңғақпен","синнабон орех":"Синнабон жаңғақпен","сметаник":"Қаймақты","сметанник":"Қаймақты","сникерс":"Пирожное сникерс","сүзб жидекті":"Сүзбелі-жидекті таңқурай","сүзбелі кіші":"Сүзбелі бәліш кіші","т шу":"Таңқурайлы шу","т. шу":"Таңқурайлы шу","тарт малина":"Сүзбелі кіші тарт малина","тарт миндаль":"Сүзбелі кіші тарт миндаль","тары":"Тары қосылған қаймақты бәліш","тв б":"Сүзбелі бәліш үлкен","тв большой":"Сүзбелі бәліш үлкен","тв м":"Сүзбелі бәліш кіші","тирамису класск":"Тирамису торт","торт балқадиша":"Балхадиша торты","трайфл милка":"Трайфл Милка","трайфл сникерс":"Трайфл Сникерс","трилече":"Трилече торты","тәтті ұя":"Мини-муравейник пирожное","фиста":"Макаронс \"Пісте\"","чизкейк нью-йорк":"Чизкейк Нью-Йорк","шок":"Макаронс \"Шоколад\"","шок кап":"Шоколадты капкейк","шок капкейк":"Шоколадты капкейк","шок маффин":"Шоколадный маффин/Шоколадты маффин","шпинат половина":"Шпинатный торт","шу":"Пирожное Шу","шу клас":"Пирожное Шу","шу классик":"Пирожное Шу","шу малина":"Таңқурайлы шу","шығыс":"Шығыс бәліші","шығыс бәліш":"Шығыс бәліші","шығыс бәліші":"Шығыс бәліші","э/ш":"Эклер шоколадты","эклер в":"Эклер ванильді","эклер ван":"Эклер ванильді","эклер ваниль":"Эклер ванильді","эклер шок":"Эклер шоколадты","ябл кекс":"Алмалы кекс","ябл пирог":"Алмалы бәліш","яблочный пирог":"Алмалы бәліш","ягод":"Жидекті профитроль","қаймақты":"Қаймақты","қарақыз":"Қарақыз бәліші","құлпынай торт":"Құлпынайлы торт"}};
+
+/* ═════════ zip: читаем .xlsx без библиотек ═════════ */
+async function unzip(buf){
+  var dv = new DataView(buf), u8 = new Uint8Array(buf), n = buf.byteLength;
+  var eocd = -1;
+  for (var i = n - 22; i >= Math.max(0, n - 66000); i--)
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('Это не .xlsx (не нашёл структуру архива).');
+  var cnt = dv.getUint16(eocd + 10, true), off = dv.getUint32(eocd + 16, true);
+  var files = {}, p = off;
+  for (var k = 0; k < cnt; k++){
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    var method = dv.getUint16(p + 10, true);
+    var csize  = dv.getUint32(p + 20, true);
+    var nlen   = dv.getUint16(p + 28, true);
+    var elen   = dv.getUint16(p + 30, true);
+    var clen   = dv.getUint16(p + 32, true);
+    var lho    = dv.getUint32(p + 42, true);
+    var name   = new TextDecoder('utf-8').decode(u8.subarray(p + 46, p + 46 + nlen));
+    files[name] = { method: method, lho: lho, csize: csize };
+    p += 46 + nlen + elen + clen;
+  }
+  return {
+    has: function(nm){ return !!files[nm]; },
+    names: Object.keys(files),
+    read: async function(nm){
+      var f = files[nm]; if (!f) return '';
+      var q = f.lho;
+      if (dv.getUint32(q, true) !== 0x04034b50) throw new Error('Повреждённый архив.');
+      var nl = dv.getUint16(q + 26, true), el = dv.getUint16(q + 28, true);
+      var start = q + 30 + nl + el;
+      var raw = u8.subarray(start, start + f.csize);
+      if (f.method === 0) return new TextDecoder('utf-8').decode(raw);
+      var ds = new DecompressionStream('deflate-raw');
+      var stream = new Blob([raw]).stream().pipeThrough(ds);
+      return await new Response(stream).text();
+    }
+  };
+}
+
+function colIdx(s){ var n = 0; for (var i = 0; i < s.length; i++) n = n*26 + (s.charCodeAt(i) - 64); return n - 1; }
+function unesc(s){
+  return s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'")
+          .replace(/&#x([0-9a-fA-F]+);/g,function(m,h){return String.fromCharCode(parseInt(h,16));})
+          .replace(/&#(\d+);/g,function(m,d){return String.fromCharCode(parseInt(d,10));})
+          .replace(/&amp;/g,'&');
+}
+
+async function readXlsx(file, allSheets){
+  var zip = await unzip(await file.arrayBuffer());
+  var shared = [];
+  if (zip.has('xl/sharedStrings.xml')){
+    var xml = await zip.read('xl/sharedStrings.xml');
+    var siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/g, m;
+    while ((m = siRe.exec(xml))){
+      var t = '', tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/g, tm;
+      while ((tm = tRe.exec(m[1]))) t += tm[1];
+      shared.push(unesc(t));
+    }
+  }
+  var all = zip.names.filter(function(x){ return /^xl\/worksheets\/.*\.xml$/.test(x); })
+    .sort(function(a,b){ return (+(a.match(/(\d+)/)||[0,0])[1]) - (+(b.match(/(\d+)/)||[0,0])[1]); });
+  if (!all.length) throw new Error('В файле нет ни одного листа.');
+  var keys = allSheets ? all
+           : [zip.has('xl/worksheets/sheet1.xml') ? 'xl/worksheets/sheet1.xml' : all[0]];
+  var sheets = [];
+  for (var si = 0; si < keys.length; si++){
+    sheets.push(await readSheet(await zip.read(keys[si]), shared));
+  }
+  return allSheets ? sheets : sheets[0];
+}
+function readSheet(sx, shared){
+  var sd = sx.match(/<sheetData\b[^>]*>([\s\S]*?)<\/sheetData>/);
+  if (!sd) return [];
+  var out = [], rowRe = /<row\b([^>]*)>([\s\S]*?)<\/row>/g, rm;
+  while ((rm = rowRe.exec(sd[1]))){
+    var ra = rm[1].match(/\br="(\d+)"/), rn = ra ? +ra[1] : out.length + 1;
+    var arr = [], cRe = /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g, cm;
+    while ((cm = cRe.exec(rm[2]))){
+      var at = cm[1], inner = cm[2] || '';
+      var ref = at.match(/\br="([A-Z]+)\d+"/), idx = ref ? colIdx(ref[1]) : arr.length;
+      var ty = (at.match(/\bt="([a-zA-Z]+)"/) || [,''])[1], val = '';
+      if (ty === 'inlineStr'){ var im = inner.match(/<t\b[^>]*>([\s\S]*?)<\/t>/); val = im ? unesc(im[1]) : ''; }
+      else {
+        var vm = inner.match(/<v\b[^>]*>([\s\S]*?)<\/v>/); val = vm ? vm[1] : '';
+        if (ty === 's') val = val === '' ? '' : (shared[+val] || '');
+        else if (val) val = unesc(val);
+      }
+      if (idx < 0) idx = arr.length;
+      while (arr.length < idx) arr.push('');
+      arr[idx] = val;
+    }
+    while (out.length < rn - 1) out.push([]);
+    out[rn - 1] = arr;
+  }
+  return out;
+}
+
+/* ═════════ помощники ═════════ */
+function S(v){ return v === null || v === undefined ? '' : String(v).trim(); }
+function N(v){ var t = S(v).replace(/\s/g,'').replace(',','.'); var n = parseFloat(t); return isNaN(n) ? 0 : n; }
+function pad(n){ return (n < 10 ? '0' : '') + n; }
+function nrm(s){
+  return S(s).replace(/ё/g,'е').replace(/Ё/g,'Е').replace(/["«»“”]/g,'')
+             .replace(/\s+/g,' ').trim().toLowerCase();
+}
+function D(v){
+  var s = S(v);
+  if (/^\d{4,6}(\.\d+)?$/.test(s)){ var n = parseFloat(s);
+    if (n > 20000 && n < 60000){ var d = new Date(Math.round((n - 25569) * 86400000));
+      return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); } }
+  var m = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); if (m) return m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]);
+  m = s.match(/(\d{4})-(\d{2})-(\d{2})/);           if (m) return m[1] + '-' + m[2] + '-' + m[3];
+  return '';
+}
+function shift(d, n){ var p = d.split('-'); var t = new Date(+p[0], +p[1]-1, +p[2]); t.setDate(t.getDate()+n);
+  return t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate()); }
+function ru(d){ var p = S(d).split('-'); return p.length === 3 ? p[2]+'.'+p[1]+'.'+p[0] : S(d); }
+/* шапка не всегда в одной и той же строке и не всегда пишется одинаково */
+function col(h, name){
+  if (h[name] !== undefined) return h[name];
+  var k = nrm(name); if (h[k] !== undefined) return h[k];
+  var ks = Object.keys(h);                       // «Кол-во» ≈ «Количество в ед. изм.»
+  for (var i = 0; i < ks.length; i++)
+    if (ks[i].indexOf(k) === 0 || k.indexOf(ks[i]) === 0) return h[ks[i]];
+  return undefined;
+}
+function findHdr(v, need, label){
+  var best = null, bestN = -1;
+  for (var i = 0; i < Math.min(v.length, 60); i++){
+    var h = hdr(v[i]), n = 0;
+    for (var j = 0; j < need.length; j++) if (col(h, need[j]) !== undefined) n++;
+    if (n > bestN){ bestN = n; best = { h: h, row: i, raw: v[i] || [] }; }
+    if (n === need.length) return { h: h, row: i };
+  }
+  var got = (best ? best.raw : []).filter(function(x){ return S(x); }).join(' | ');
+  var miss = need.filter(function(x){ return !best || col(best.h, x) === undefined; });
+  throw new Error('Не нашла шапку в файле «' + label + '».<br>' +
+    'Не хватает колонок: <b>' + miss.join(', ') + '</b>.<br>' +
+    'Больше всего похожа строка ' + ((best ? best.row : 0) + 1) + ': ' + (got || 'пусто') +
+    '<br>Проверьте, что в это поле выбран нужный файл, и что отчёт выгружен из iiko без правок.');
+}
+function hdr(row){
+  var m = {};
+  (row||[]).forEach(function(h,i){
+    var t = S(h); if (!t) return;
+    if (m[t] === undefined) m[t] = i;
+    var k = nrm(t); if (m[k] === undefined) m[k] = i;
+  });
+  return m;
+}
+function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg ' + c; e.innerHTML = t; }
+function $(id){ return document.getElementById(id); }
+
+/* ═════════ хранилище ═════════ */
+var DB = { mov: [], s20: [], s50: [], list: [], syn: {} };
+/* В движениях одни и те же названия складов, блюд и видов повторяются
+   десятками тысяч раз. Храним их словарём, а в строках — номера.
+   В памяти формат прежний, поэтому остальной код не меняется. */
+function packDB(db){
+  var d = {}, list = [];
+  function id(x){ var k = String(x);
+    if (d[k] === undefined){ d[k] = list.length; list.push(k); } return d[k]; }
+  var out = {}; for (var k in db) if (k !== 'mov') out[k] = db[k];
+  out.dict = list;
+  out.movP = (db.mov || []).map(function(r){
+    return [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]]; });
+  out.packed = 1;
+  return out;
+}
+function unpackDB(db){
+  if (!db || !db.packed) return db;
+  var L = db.dict || [];
+  db.mov = (db.movP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]]; });
+  delete db.movP; delete db.dict; delete db.packed;
+  return db;
+}
+function saveDB(){
+  try{
+    var s = JSON.stringify(packDB(DB));
+    localStorage.setItem('sverka20', s);
+    DBSIZE = s.length;
+    return true;
+  }catch(e){
+    // в браузере ~5 МБ на сайт; на большом периоде упираемся
+    var w = document.getElementById('errWarn');
+    if (w){ w.style.display = 'block';
+      w.innerHTML = '<b>Не смогла сохранить данные в браузере — не хватило места.</b><br>' +
+        'Отчёты сейчас соберутся, но после закрытия страницы выгрузки придётся загрузить заново. ' +
+        'Возьмите период короче (месяц вместо двух) или нажмите «Сохранить данные в файл» ' +
+        'в разделе «Хранилище».'; }
+    return false;
+  }
+}
+var DBSIZE = 0;
+function loadDB(){
+  try{ var s = localStorage.getItem('sverka20'); if (s) DB = unpackDB(JSON.parse(s)); }catch(e){}
+  if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
+  ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  if (!DB.routes) DB.routes = {};
+  if (!DB.closed) DB.closed = {};
+  migrateDB();
+}
+
+var DB_V = 3;
+/* Приводим ранее сохранённые данные к текущей форме.
+   Без этого старые записи молча дают пустые цены и сломанные проверки. */
+function migrateDB(){
+  var was = DB.v || 0;
+  if (was >= DB_V) return;
+  // v2: в продажах 20% появилась сумма без скидки (нужна для цены)
+  if (was < 2) DB.s20 = (DB.s20 || []).map(function(r){
+    return r.length >= 5 ? r : [r[0], r[1], r[2], r[3], 0]; });
+  // v3: движения обязаны иметь 5 полей — дата, склад, блюдо, вид, количество
+  if (was < 3) DB.mov = (DB.mov || []).filter(function(r){ return r && r.length >= 5; });
+  DB.v = DB_V;
+  try{ localStorage.setItem('sverka20', JSON.stringify(packDB(DB))); }catch(e){}
+}
+
+/* ═════════ справочник ═════════ */
+var SPR = {};      // норм → {name, srok, forma, skidka}
+EMBED.spr.forEach(function(r){ SPR[nrm(r[0])] = { name: r[0], srok: r[1] || 0, forma: r[2], skidka: r[3] }; });
+
+var KUSOK = 8, kusOf = {}, isKus = {};
+Object.keys(SPR).forEach(function(k){
+  if (k.indexOf('кусоч') < 0) return;
+  var b = k.replace(/\s*\(?кусочек\)?\s*$/, '').trim();
+  if (b && b !== k && SPR[b]){ (kusOf[b] = kusOf[b] || []).push(k); isKus[k] = 1; }
+});
+
+/* ═════════ импорт выгрузок ═════════ */
+var DOCKINDS = {};
+
+function parseTovarny(v){
+  var fh = findHdr(v, ['Номер документа','Наименование','Вид документа','Тип'], 'Товарный отчёт');
+  var h = fh.h, kinds = {};
+  var cNum = col(h,'Номер документа'), cNm = col(h,'Наименование'),
+      cVid = col(h,'Вид документа'),   cTip = col(h,'Тип');
+  for (var r = fh.row + 1; r < v.length; r++){
+    var row = v[r]; if (!row || !S(row[cNum])) continue;
+    var num = S(row[cNum]), nm = S(row[cNm]).toLowerCase(),
+        vid = S(row[cVid]), tip = S(row[cTip]), k;
+    if (vid === 'Приходная накладная')
+      k = nm.indexOf('готовая продукция') >= 0 ? 'prihod_gp'
+        : nm.indexOf('таугуль') >= 0 ? 'prihod_tort' : 'prihod_other';
+    else if (vid === 'Акт реализации') k = 'realiz';
+    else if (vid === 'Акт списания')   k = 'spisanie';
+    else if (vid === 'Расходная накладная')
+      k = nm.indexOf('по срокам') >= 0 ? 'vozvrat_srok'
+        : nm.indexOf('возврат по качеству') >= 0 ? 'vozvrat_kach'
+        : (nm.indexOf('50%') >= 0 || nm.indexOf('50 %') >= 0) ? 'perem_50'
+        : nm.indexOf('доставка') >= 0 ? 'perem_dost' : 'other';
+    else if (vid === 'Акт приготовления') k = tip === 'Приход' ? 'prigotovlenie' : 'ap_rashod';
+    else if (vid === 'Инвентаризация') k = tip === 'Приход' ? 'inv_in' : 'inv_out';
+    else if (vid === 'Внутреннее перемещение')
+      k = nm.indexOf('возврат по качеству') >= 0 ? 'vozvrat_kach'
+        : nm.indexOf('50%') >= 0 ? 'perem_50' : 'other';
+    else k = 'other';
+    kinds[num + '|' + tip] = k;
+    var d = D(row[col(h,'Дата документа')]);
+    if (d){ if (!kinds.__from || d < kinds.__from) kinds.__from = d;
+            if (!kinds.__to   || d > kinds.__to)   kinds.__to   = d; }
+  }
+  return kinds;
+}
+
+/** Склад-кандидат: не цех и не служебный. Торговые точки отбираются позже —
+    по наличию Акта реализации (только с них продают). */
+function isBranchWh(w){
+  var s = w.toLowerCase();
+  if (!s) return false;
+  if (/цех|таугуль|хозтовар|по срокам|возврат по качеству|инвентарн|офис|сырье|суточн|мороз/.test(s)) return false;
+  return true;
+}
+
+function parseTovarnaya(v, kinds){
+  var fh = findHdr(v, ['Номенклатура','Тип','Количество в ед. изм.'], 'Товарная ведомость');
+  var h = fh.h;
+  var iD = col(h,'Дата документа'), iNum = col(h,'Номер документа'), iVid = col(h,'Вид документа'),
+      iTip = col(h,'Тип'), iNm = col(h,'Номенклатура'), iQ = col(h,'Количество в ед. изм.'),
+      iWo = col(h,'Склад расхода'), iWi = col(h,'Склад прихода');
+  if (iNm === undefined || iWi === undefined)
+    throw new Error('Не нашёл колонки «Номенклатура» / «Склад прихода» в товарной ведомости.');
+  var out = [], seen = 0, missed = 0;
+  for (var r = fh.row + 1; r < v.length; r++){
+    var row = v[r]; if (!row || !S(row[iNm])) continue;
+    var wo = S(row[iWo]), wi = S(row[iWi]);
+    var wh = isBranchWh(wi) ? wi : (isBranchWh(wo) ? wo : '');
+    if (!wh) continue;
+    var tip = S(row[iTip]), num = S(row[iNum]), vid = S(row[iVid]);
+    var k = kinds[num + '|' + tip];
+    // у актов реализации, списания и инвентаризации назначение и так однозначно;
+    // важно оно только для накладных и перемещений
+    // считаем только витринную продукцию: перчатки и дезсредство на проверки не влияют
+    var matters = (vid === 'Приходная накладная' || vid === 'Расходная накладная' ||
+                   vid === 'Внутреннее перемещение') && !!SPR[nrm(row[iNm])];
+    if (matters) seen++;
+    if (!k){
+      if (matters) missed++;
+      k = vid === 'Приходная накладная' ? 'prihod_other'
+        : vid === 'Акт реализации' ? 'realiz'
+        : vid === 'Акт списания' ? 'spisanie'
+        : vid === 'Акт приготовления' ? (tip === 'Приход' ? 'prigotovlenie' : 'ap_rashod')
+        : vid === 'Инвентаризация' ? (tip === 'Приход' ? 'inv_in' : 'inv_out') : 'other';
+    }
+    if (k.indexOf('prihod') === 0 && wi !== wh) k = 'other';
+    out.push([D(row[iD]), wh, S(row[iNm]), k, N(row[iQ])]);
+  }
+  DOCCOVER = { seen: seen, missed: missed };
+  return out;
+}
+
+function parseProdazhi(v, hasCredit, onlyTip){
+  var fh = findHdr(v, ['Блюдо','Тип скидки','Количество блюд'], 'Отчёт по продажам');
+  var h = fh.h;
+  var iDay = col(h,'Учетный день') !== undefined ? col(h,'Учетный день') : 0;
+  var iC = col(h,'Концепция'), iCat = col(h,'Категория блюда'), iDish = col(h,'Блюдо'),
+      iTip = col(h,'Тип скидки'), iCr = col(h,'В кредит на...'), iQ = col(h,'Количество блюд');
+  var iS0 = col(h,'Сумма без скидки, тенге');
+  if (iQ === undefined) iQ = hasCredit ? 6 : 5;
+  var out = [], day = '', conc = '', dish = '', tipCur = '';
+  for (var r = fh.row + 1; r < v.length; r++){
+    var row = v[r]; if (!row) continue;
+    var c0 = S(row[iDay]);
+    if (c0){ if (c0 === 'Итого') break; day = D(row[iDay]); conc = ''; dish = ''; tipCur = ''; }
+    var c1 = S(row[iC]); if (c1){ if (/всего$/.test(c1)) continue; conc = c1; tipCur = ''; }
+    var c2 = S(row[iCat]); if (c2 && /всего$/.test(c2)) continue;
+    var c3 = S(row[iDish]); if (c3){ dish = c3; tipCur = ''; }
+    var tp = S(row[iTip]);
+    if (/всего$/.test(tp)) continue;
+    if (tp) tipCur = tp; else tp = tipCur;   // ниже идут строки только с ФИО покупателя
+    if (!tp) continue;
+    if (onlyTip && tp.toLowerCase().indexOf(onlyTip) < 0) continue;
+    if (!dish) continue;
+    var q = N(row[iQ]); if (!q) continue;
+    var s0 = iS0 === undefined ? 0 : N(row[iS0]);
+    out.push(hasCredit ? [day, conc, dish, q, S(row[iCr])] : [day, conc, dish, q, s0]);
+  }
+  return out;
+}
+
+function mergeRows(key, rows){
+  var dates = {}; rows.forEach(function(r){ dates[r[0]] = 1; });
+  DB[key] = DB[key].filter(function(r){ return !dates[r[0]]; }).concat(rows);
+}
+
+$('btnLoad').onclick = async function(){
+  var b = this; b.disabled = true;
+  var done = [], problems = [];
+  try{
+    var f;
+    f = $('fTovarny').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
+      DOCKINDS = parseTovarny(await readXlsx(f));
+      var nd = Object.keys(DOCKINDS).filter(function(k){ return k.indexOf('__') !== 0; }).length;
+      if (!nd) throw new Error('В файле «' + f.name + '» не нашлось ни одного документа. ' +
+        'Похоже, это не товарный отчёт — проверьте, тот ли файл выбран.');
+      done.push('товарный отчёт: ' + nd + ' документов' +
+        (DOCKINDS.__from ? ', ' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) : '')); }
+
+    f = $('fTovarnaya').files[0];
+    if (f){
+      if (!Object.keys(DOCKINDS).length)
+        throw new Error('Сначала выберите «Товарный отчёт» — без него непонятно, куда ушла каждая расходная накладная.');
+      msg('m1','Читаю «'+f.name+'»…','wait');
+      var rows = parseTovarnaya(await readXlsx(f), DOCKINDS);
+      mergeRows('mov', rows); done.push('движения: ' + rows.length + ' строк');
+    }
+    // продажи не критичны для сверки движений — если сломаются, скажем и пойдём дальше
+    f = $('fProd20').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
+      try{
+        var r20 = parseProdazhi(await readXlsx(f), false, 'скидка 20%');
+        if (!r20.length) problems.push('В «' + f.name + '» нет ни одной продажи со скидкой 20%. ' +
+          'Проверьте, что при выгрузке выбран тип скидки «Скидка 20%».');
+        else { mergeRows('s20', r20); done.push('продажи 20%: ' + r20.length + ' строк'); }
+      }catch(e){ problems.push('Продажи 20%: ' + (e.message || e)); }
+    }
+
+    f = $('fProd50').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
+      try{
+        var r50 = parseProdazhi(await readXlsx(f), true, 'скидка 50%');
+        if (!r50.length) problems.push('В «' + f.name + '» нет ни одной продажи со скидкой 50%.');
+        else { mergeRows('s50', r50); done.push('продажи 50%: ' + r50.length + ' строк'); }
+      }catch(e){ problems.push('Продажи 50%: ' + (e.message || e)); }
+    }
+
+    problems = problems.concat(checkCoverage());
+
+    if (!done.length && !problems.length) msg('m1','Ни один файл не выбран.','err');
+    else {
+      saveDB();
+      msg('m1', (done.length ? 'Готово.<br>' + done.join('<br>') : '') +
+        (problems.length ? '<br><br><b>На что обратить внимание:</b><br>• ' +
+          problems.join('<br>• ') : ''),
+        problems.length ? 'wait' : 'ok');
+    }
+  } catch(e){ msg('m1','Ошибка: ' + (e.message || e), 'err'); }
+  b.disabled = false; refresh();
+};
+
+/* ═════════ разбор списка филиала ═════════ */
+function branchFromLine(s){
+  var m = S(s).match(/(?:^|\s)(?:т|тт|tt)\s*[-–]?\s*(\d{1,2})/i);
+  return m ? 'TT' + m[1] : '';
+}
+function matchBranch(code){
+  if (!code) return '';
+  var ws = branches();
+  for (var i = 0; i < ws.length; i++){
+    var d = (ws[i].match(/\d+/) || [])[0];
+    if (d && ('TT' + (+d)) === code) return ws[i];
+  }
+  return '';
+}
+
+function sprIndex(){
+  var m = {}; Object.keys(SPR).forEach(function(k){ m[k] = SPR[k].name; }); return m;
+}
+/* «как написал филиал» → позиция справочника */
+function resolveName(nameRaw, sprByName){
+  sprByName = sprByName || sprIndex();
+  var key = nrm(nameRaw);
+  if (DB.syn[key])     return { target: DB.syn[key],     note: '' };
+  if (sprByName[key])  return { target: sprByName[key],  note: '' };
+  var hits = [];
+  Object.keys(sprByName).forEach(function(nk){
+    if (nk.indexOf(key) === 0 || key.indexOf(nk) === 0) hits.push(sprByName[nk]);
+  });
+  if (hits.length === 1) return { target: hits[0], note: 'подобрано по совпадению — проверьте' };
+  return { target: '', note: 'НЕ РАСПОЗНАНО' };
+}
+
+/* ═════════ список филиала из таблицы (Google Sheets → .xlsx) ═════════ */
+$('btnListXlsx').onclick = async function(){
+  var f = $('fListXlsx').files[0];
+  if (!f) return msg('m2b','Выберите файл таблицы.','err');
+  var btn = this; btn.disabled = true;
+  msg('m2b','Читаю таблицу…','wait');
+  try{
+    var sheets = await readXlsx(f, true), sprByName = sprIndex();
+    var out = [], unknown = [], used = null;
+    for (var si = 0; si < sheets.length && !used; si++){
+      var rows = sheets[si];
+      for (var hi = 0; hi < Math.min(rows.length, 20); hi++){
+        var H = hdr(rows[hi]);
+        var iD = H['Дата'], iB = H['Филиал'], iN = H['Блюдо'], iQ = H['Кол-во'];
+        if (iD === undefined || iN === undefined) continue;
+        used = { rows: rows, from: hi + 1, iD: iD, iB: iB, iN: iN, iQ: iQ };
+        break;
+      }
+    }
+    if (!used) throw new Error('Не нашла шапку с колонками «Дата» и «Блюдо». ' +
+      'Скачивайте таблицу как Microsoft Excel (.xlsx), лист «Заполнять» не переименовывайте.');
+
+    var bs = branches(), byNrm = {};
+    bs.forEach(function(b){ byNrm[nrm(b)] = b; });
+    for (var r = used.from; r < used.rows.length; r++){
+      var row = used.rows[r] || [];
+      var day = D(row[used.iD]);
+      var nameRaw = S(row[used.iN]);
+      if (!day || !nameRaw) continue;
+      var braw = used.iB === undefined ? '' : S(row[used.iB]);
+      var br = byNrm[nrm(braw)] || matchBranch(braw) || $('defBranch').value;
+      var qv = used.iQ === undefined ? '' : S(row[used.iQ]);
+      var qty = qv === '' ? '' : N(qv);
+      var rz = resolveName(nameRaw, sprByName), note = rz.note;
+      if (!rz.target) unknown.push(nameRaw);
+      if (qty === '') note = (note ? note + '; ' : '') + 'кол-во не указано';
+      out.push([day, br, nameRaw, qty === '' ? '' : qty, rz.target, note]);
+    }
+    if (!out.length) throw new Error('В таблице нет ни одной заполненной строки.');
+
+    var keys = {}; out.forEach(function(r){ keys[r[0] + '|' + r[1]] = 1; });
+    DB.list = DB.list.filter(function(r){ return !keys[r[0] + '|' + r[1]]; }).concat(out);
+    saveDB();
+    var dd = {}; out.forEach(function(r){ dd[r[0]] = 1; });
+    var txt = 'Загружено строк: ' + out.length + ' за ' + Object.keys(dd).length + ' дн.';
+    if (unknown.length){
+      var uq = unknown.filter(function(v,i,a){ return a.indexOf(v) === i; });
+      txt += ' <b>Не распознано: ' + uq.length + '</b> — поправьте на вкладке «Список филиала».';
+    }
+    msg('m2b', txt, unknown.length ? 'wait' : 'ok');
+    refresh();
+  } catch(e){ msg('m2b','Ошибка: ' + (e.message || e),'err'); }
+  btn.disabled = false;
+};
+
+$('btnSpisok').onclick = function(){
+  var text = $('spisok').value;
+  if (!text.trim()) return msg('m2','Вставьте текст списка.','err');
+  var year = +$('year').value || new Date().getFullYear();
+  var defB = $('defBranch').value;
+  var sprByName = {}; Object.keys(SPR).forEach(function(k){ sprByName[k] = SPR[k].name; });
+
+  var lines = text.split(/\r?\n/), day = '', br = defB, out = [], unknown = [];
+  lines.forEach(function(raw0){
+    var raw = S(raw0); if (!raw) return;
+    var bc = branchFromLine(raw);
+    var dm = raw.match(/(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?\s*\.?\s*$/);
+    if (dm){
+      var digits = raw.replace(dm[0], '').replace(/[^\d]/g, '');
+      if (digits.length <= 2){
+        var y = dm[3] ? (dm[3].length === 2 ? 2000 + (+dm[3]) : +dm[3]) : year;
+        day = y + '-' + pad(+dm[2]) + '-' + pad(+dm[1]);
+        if (bc) br = matchBranch(bc) || br;
+        return;
+      }
+    }
+    if (bc && !/\d/.test(raw.replace(/^[^\d]*\d{1,2}/, ''))){ br = matchBranch(bc) || br; return; }
+    if (!day) return;
+
+    var m = raw.match(/^(.*?)[\s\-–—]*(\d+(?:[.,]\d+)?)\s*$/), nameRaw, qty;
+    if (m && S(m[1])){ nameRaw = S(m[1]); qty = N(m[2]); }
+    else { nameRaw = raw; qty = ''; }
+    nameRaw = nameRaw.replace(/[\-–—:]+$/, '').trim();
+    if (!nameRaw) return;
+
+    var rz = resolveName(nameRaw, sprByName), target = rz.target, note = rz.note;
+    if (!target) unknown.push(nameRaw);
+    if (qty === '') note = (note ? note + '; ' : '') + 'кол-во не указано';
+    out.push([day, br, nameRaw, qty === '' ? '' : qty, target, note]);
+  });
+
+  var dates = {}; out.forEach(function(r){ dates[r[0] + '|' + r[1]] = 1; });
+  DB.list = DB.list.filter(function(r){ return !dates[r[0] + '|' + r[1]]; }).concat(out);
+  saveDB();
+  var s = 'Разобрано строк: ' + out.length + '.';
+  if (unknown.length){
+    var uniq = unknown.filter(function(v,i,a){ return a.indexOf(v) === i; });
+    s += ' <span class="warn">Не распознано: ' + uniq.length + '</span> — ' + uniq.join(', ') +
+         '.<br>Откройте вкладку «Список филиала», впишите правильную позицию — она запомнится.';
+  }
+  msg('m2', s, unknown.length ? 'wait' : 'ok');
+  refresh();
+};
+
+$('btnClearSpisok').onclick = function(){
+  if (!confirm('Удалить все разобранные списки филиалов?')) return;
+  DB.list = []; saveDB(); refresh(); msg('m2','Списки очищены.','ok');
+};
+
+/* ═════════ расчёт ═════════ */
+/** Филиал — склад, с которого идёт Акт реализации: только торговые точки продают. */
+function branches(){
+  var sell = {};
+  DB.mov.forEach(function(r){ if (r[3] === 'realiz' && r[1]) sell[r[1]] = 1; });
+  DB.list.forEach(function(r){ if (r[1]) sell[r[1]] = 1; });
+  var all = Object.keys(sell);
+  if (!all.length) DB.mov.forEach(function(r){ if (r[1]) sell[r[1]] = 1; });
+  return Object.keys(sell).sort(function(a,b){
+    var na = +((a.match(/\d+/) || [999])[0]), nb = +((b.match(/\d+/) || [999])[0]);
+    return na - nb || (a < b ? -1 : 1);
+  });
+}
+
+var REPORT = null;
+
+function build(wh, dFrom, dTo){
+  var mov = {}, movD = {};
+  DB.mov.forEach(function(r){
+    if (r[1] !== wh) return;
+    var k = nrm(r[2]);
+    mov[k + '|' + r[0] + '|' + r[3]] = (mov[k + '|' + r[0] + '|' + r[3]] || 0) + N(r[4]);
+    movD[r[0]] = 1;
+  });
+  var movDays = Object.keys(movD).sort();
+  var movFirst = movDays[0] || dFrom, movLast = movDays[movDays.length - 1] || dTo;
+
+  function raw(k,d,t){ return mov[k+'|'+d+'|'+t] || 0; }
+  function mv(k,d,t){ var v = raw(k,d,t);
+    (kusOf[k]||[]).forEach(function(x){ v += raw(x,d,t)/KUSOK; }); return v; }
+  function pGp(k,d){ return mv(k,d,'prihod_gp') + mv(k,d,'prihod_other'); }
+  function pTt(k,d){ return mv(k,d,'prihod_tort'); }
+
+  var s20 = {}, s20D = {};
+  DB.s20.forEach(function(r){
+    if (!sameBranch(r[1], wh)) return;
+    var k = nrm(r[2]); s20[k+'|'+r[0]] = (s20[k+'|'+r[0]] || 0) + N(r[3]); s20D[r[0]] = 1;
+  });
+  var sd = Object.keys(s20D).sort(), posLast = sd[sd.length-1] || dTo;
+  function sk(k,d){ var v = s20[k+'|'+d] || 0;
+    (kusOf[k]||[]).forEach(function(x){ v += (s20[x+'|'+d] || 0)/KUSOK; }); return v; }
+
+  var s50 = {};
+  DB.s50.forEach(function(r){
+    var k = nrm(r[2]), who = S(r[4]); if (!who) return;
+    (s50[k+'|'+r[0]] = s50[k+'|'+r[0]] || {})[who] = 1;
+  });
+  function who50(k,d){ return (MATCH50 && MATCH50.byMove[wh + '|' + d + '|' + k]) || ''; }
+
+  var list = {}, noQty = {};
+  DB.list.forEach(function(r){
+    if (r[1] !== wh) return;
+    var t = nrm(r[4]); if (!t) return;
+    var base = isKus[t] ? t.replace(/\s*\(?кусочек\)?\s*$/,'').trim() : t;
+    var f = isKus[t] ? 1/KUSOK : 1, key = base + '|' + r[0];
+    if (S(r[3]) === ''){ noQty[key] = 1; if (list[key] === undefined) list[key] = 0; }
+    else list[key] = (list[key] || 0) + N(r[3]) * f;
+  });
+
+  function srokD(k){ var s = SPR[k] && SPR[k].srok; return s ? Math.max(1, Math.round(s/24)) : 0; }
+  function prihodDate(k,d){ var dd = srokD(k); if (!dd) return ''; var p = shift(d, -(dd-1));
+    return p >= movFirst ? p : ''; }
+
+  MATCH50 = match50();
+  var rep = [], tot = [], day = dFrom, kpi = { list:0, ok:0, bad:0, noList:0 };
+  while (day <= dTo){
+    var T = day, T1 = shift(T,-1), T2 = shift(T,-2), T3 = shift(T,1), keys = {};
+    Object.keys(list).forEach(function(kd){ var p = kd.split('|'); if (p[1] === T) keys[p[0]] = 1; });
+    Object.keys(SPR).forEach(function(k){
+      if (isKus[k]) return; var sp = SPR[k];
+      if (!sp.srok || sp.skidka === 'Нет') return;
+      // списание в день отчёта тоже должно попадать в таблицу — иначе проверка
+      // прихода списания никогда не сработает по незаявленной позиции
+      if (sk(k,T) || mv(k,T,'perem_50') || mv(k,T,'spisanie') ||
+          mv(k,T3,'spisanie') || mv(k,T3,'vozvrat_srok')) keys[k] = 1;
+    });
+    var inL = 0, ok = 0, bad = 0, noL = 0;
+    Object.keys(keys).sort().forEach(function(k){
+      var sp = SPR[k] || { name:k, forma:'' }, lk = k + '|' + T;
+      var vList = list[lk] !== undefined, nq = !!noQty[lk], c = vList ? list[lk] : 0;
+      var dSp = mv(k,T3,'spisanie'), h = sk(k,T), vz = mv(k,T3,'vozvrat_srok'), p50 = mv(k,T,'perem_50');
+      var dSp0 = mv(k,T,'spisanie');   // списание, оформленное в сам день отчёта
+      // ── проверка продажи 20% ──────────────────────────────
+      var sum20 = h + p50 + dSp + vz, L;
+      if (nq)               L = 'нет данных';
+      else if (T > posLast) L = 'нет данных';
+      else if (c > 0)       L = Math.abs(sum20 - c) < 1e-6 ? 'ок'
+                              : (sum20 > c ? 'продажа больше списка' : 'продажа меньше списка');
+      else                  L = sum20 < 1e-9 ? 'ок' : 'нарушение (нет в списке филиала)';
+
+      // ── приход по ФИФО на дату «срок минус сутки» ─────────
+      var P = prihodDate(k,T), pf = null, frozen = frozenByName(sp.name);
+      if (P){ var g = pGp(k,P), t = pTt(k,P); if (t > 0) frozen = true; pf = (g+t) || null; }
+
+      // ── проверка прихода 20% ──────────────────────────────
+      var M;
+      if (c <= 0)               M = '';
+      else if (frozen)          M = 'невозможно отследить';
+      else if (!pf)             M = 'нету прихода по сроку';
+      else if (pf >= c - 1e-9)  M = 'ок';
+      else                      M = 'приход меньше скидки';
+
+      // ── проверка прихода списания: за сам день отчёта ─────
+      var Nn;
+      if (dSp0 <= 0)                Nn = '';
+      else if (isPizza(sp.name))    Nn = mv(k,T1,'prigotovlenie') > 1e-9
+                                       ? 'ок' : 'нету акта приготовления';
+      else if (frozen)              Nn = 'невозможно отследить';
+      else if (!pf)                 Nn = 'нету прихода по сроку';
+      else if (pf >= dSp0 - 1e-9)   Nn = 'ок';
+      else                          Nn = 'приход меньше списания';
+
+      rep.push({ day: T, name: sp.name, inList: vList,
+        v: [ru(T), sp.name, nq ? '' : (c || ''),
+             h||'', p50||'', p50 > 0 ? who50(k,T) : '', vz||'', dSp0||'', dSp||'',
+             pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
+             pGp(k,T)||'',  pTt(k,T)||'',
+             L, M, Nn] });
+      if (vList){ inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++; }
+      else if (L.indexOf('нарушение (нет') === 0) noL++;
+    });
+    tot.push([ru(T), inL, ok, bad, noL]);
+    kpi.list += inL; kpi.ok += ok; kpi.bad += bad; kpi.noList += noL;
+    day = shift(day, 1);
+  }
+  return { rep: rep, tot: tot, kpi: kpi, movLast: movLast, posLast: posLast, wh: wh };
+}
+
+/** Концепция в продажах («TT8 Qaratau») и склад («TT8 Qaratau склад») — одно и то же. */
+function sameBranch(conc, wh){
+  if (!conc) return true;
+  var a = nrm(conc).replace(/склад/g,'').trim(), b = nrm(wh).replace(/склад/g,'').trim();
+  return a === b || b.indexOf(a) === 0 || a.indexOf(b) === 0;
+}
+
+/* ═════════ путь продукции на склад 50% → покупатель ═════════ *
+ * Филиал делает расходную накладную на «Склад 50%», а выкупает продукцию
+ * сотрудник — уже в цехе и часто на следующий день. Связываем по позиции и
+ * количеству: продажа привязывается к ближайшему более раннему перемещению
+ * (или в тот же день), в пределах MATCH50_WINDOW дней.                        */
+
+var MATCH50_WINDOW = 14;
+
+function baseOf(k){
+  if (isKus[k]) return { k: k.replace(/\s*\(?кусочек\)?\s*$/, '').trim(), f: 1 / KUSOK };
+  return { k: k, f: 1 };
+}
+function daysBetween(a, b){
+  var pa = a.split('-'), pb = b.split('-');
+  return Math.round((new Date(+pb[0], +pb[1]-1, +pb[2]) - new Date(+pa[0], +pa[1]-1, +pa[2])) / 86400000);
+}
+
+var MATCH50 = null;
+function match50(){
+  var moves = [], sales = [];
+  DB.mov.forEach(function(r){
+    if (r[3] !== 'perem_50') return;
+    var b = baseOf(nrm(r[2])), q = N(r[4]) * b.f;
+    if (q > 0) moves.push({ d: r[0], wh: r[1], k: b.k, name: S(r[2]), q: q, left: q, buyers: [] });
+  });
+  DB.s50.forEach(function(r){
+    var b = baseOf(nrm(r[2])), q = N(r[3]) * b.f, who = S(r[4]);
+    if (q > 0 && who) sales.push({ d: r[0], k: b.k, name: S(r[2]), q: q, left: q, who: who });
+  });
+  var byDate = function(a, b){ return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; };
+  moves.sort(byDate); sales.sort(byDate);
+
+  sales.forEach(function(sl){
+    for (var i = moves.length - 1; i >= 0 && sl.left > 1e-9; i--){   // от поздних к ранним
+      var m = moves[i];
+      if (m.k !== sl.k || m.left <= 1e-9) continue;
+      if (sl.d < m.d) continue;
+      if (daysBetween(m.d, sl.d) > MATCH50_WINDOW) continue;
+      var t = Math.min(m.left, sl.left);
+      m.left -= t; sl.left -= t;
+      m.buyers.push({ who: sl.who, d: sl.d, q: t });
+    }
+  });
+
+  var byMove = {}, rows = [], keyed = [];
+  moves.forEach(function(m){
+    var txt = m.buyers.map(function(b){
+      return b.who + ' (' + ru(b.d) + (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') + ')';
+    }).join('; ');
+    byMove[m.wh + '|' + m.d + '|' + m.k] = txt;
+    if (m.buyers.length)
+      m.buyers.forEach(function(b){
+        keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q), '']]);
+      });
+    if (m.left > 1e-9)
+      keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
+                 'покупатель не найден']]);
+  });
+  sales.forEach(function(sl){
+    if (sl.left > 1e-9)
+      keyed.push([sl.d, ['—', '—', sl.name, '—', sl.who, ru(sl.d), round3(sl.left),
+                 'продажа со скидкой 50% без расходной накладной на склад 50%']]);
+  });
+  keyed.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
+  rows = keyed.map(function(x){ return x[1]; });
+  return { byMove: byMove, rows: rows };
+}
+function round3(x){ return Math.round(x * 1000) / 1000; }
+
+/* ═════════ вывод ═════════ */
+var REP_HEAD = ['День','Блюдо','Продукция с ожидаемой 20% скидкой (в день отчёта)',
+  'Продано со скидкой 20%','Перемещ склад 50%','Имя сотрудника',
+  'Возврат по сроку (на след. день)',
+  'Списание (в день отчёта)','Списание (на след. день)',
+  'Приход Цех ГП (за 2 дня до)','Приход Таугуль торт (за 2 дня до)',
+  'Приход Цех ГП (за день до)','Приход Таугуль торт (за день до)',
+  'Приход Цех ГП (в день отчёта)','Приход Таугуль торт (в день отчёта)',
+  'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания'];
+var FROST = [10,12,14];        // колонки заморозки
+var CHK0  = 15;                // с какой колонки идут проверки
+var COMPACT = [0,1,2,3,6,7,8]; // что видно в компактном режиме (плюс проверка продажи справа)
+var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
+var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
+var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
+                'Покупатель','Дата покупки','Кол-во выкуплено','Замечание'];
+
+/* бөрек, самса, шығыс самсасы — время разморозки в учёте не фиксируется */
+function frozenByName(n){
+  return /(^|\s)(б[өo]рек|борек|самса)/i.test(S(n)) || /шығыс самсасы/i.test(S(n));
+}
+function isPizza(n){ return /пицц/i.test(S(n)); }
+
+/* ═════════ сортировка по клику на заголовок ═════════ */
+var SORT = { rep:{i:-1,d:1}, tot:{i:-1,d:1}, list:{i:-1,d:1}, m50:{i:-1,d:1} };
+var DMY = /^(\d{2})\.(\d{2})\.(\d{4})$/;
+function sortKey(v){
+  v = S(v);
+  var m = v.match(DMY); if (m) return m[3]+m[2]+m[1];
+  if (v === '' || v === '—') return null;
+  var n = parseFloat(v.replace(/\s/g,'').replace(',','.'));
+  return isNaN(n) ? v.toLowerCase() : n;
+}
+function cmpVal(a, b){
+  var x = sortKey(a), y = sortKey(b);
+  if (x === null && y === null) return 0;
+  if (x === null) return 1;          // пустые всегда внизу
+  if (y === null) return -1;
+  if (typeof x === 'number' && typeof y === 'number') return x - y;
+  x = String(x); y = String(y);
+  return x < y ? -1 : x > y ? 1 : 0;
+}
+function applySort(arr, st, get){
+  if (st.i < 0) return arr;
+  var c = arr.slice();
+  c.sort(function(a, b){ return cmpVal(get(a, st.i), get(b, st.i)) * st.d; });
+  return c;
+}
+function arrow(st, i){ return st.i === i ? (st.d > 0 ? ' ▲' : ' ▼') : ''; }
+function byIdx(r, i){ return r[i]; }
+
+function cls(v){
+  v = S(v); if (!v) return '';
+  if (v === 'ок') return 'ok';
+  if (v.indexOf('нет данных') === 0 || v.indexOf('не известна') === 0
+      || v.indexOf('невозможно отследить') === 0) return 'na';
+  return 'bad';
+}
+var CHIP_SHORT = {
+  'нарушение (нет в списке филиала)': 'нет в списке филиала',
+  'продажа со скидкой 50% без расходной накладной на склад 50%': 'нет расходной накладной'
+};
+function chipHtml(v){
+  v = S(v); if (!v) return '';
+  return '<span class="chip ' + cls(v) + '" title="' + esc(v) + '">' + esc(CHIP_SHORT[v] || v) + '</span>';
+}
+
+
+var VIEW = 'rep';
+
+/** Похожесть строк: общие 3-граммы + бонус за общее начало. */
+function sim(a, b){
+  a = nrm(a); b = nrm(b);
+  if (!a || !b) return 0;
+  if (b.indexOf(a) === 0 || a.indexOf(b) === 0) return 1000 - Math.abs(a.length - b.length);
+  var g = {}, n = 0;
+  for (var i = 0; i < a.length - 2; i++) g[a.substr(i,3)] = 1;
+  for (var j = 0; j < b.length - 2; j++) if (g[b.substr(j,3)]) n++;
+  return n * 10 - Math.abs(a.length - b.length);
+}
+var SPR_NAMES = Object.keys(SPR).map(function(k){ return SPR[k].name; }).sort();
+function suggest(raw, cur){
+  var arr = SPR_NAMES.map(function(n){ return { n: n, s: sim(raw, n) }; })
+                     .sort(function(x,y){ return y.s - x.s; });
+  var top = arr.slice(0, 10).map(function(x){ return x.n; });
+  if (cur && top.indexOf(cur) < 0) top.unshift(cur);
+  return top;
+}
+
+function rowsFiltered(){
+  var q = nrm($('q').value), bad = $('onlyBad').checked;
+  return REPORT.rep.filter(function(r){
+    if (q && nrm(r.name).indexOf(q) < 0) return false;
+    if (bad){
+      var v = r.v;
+      if (!(String(v[CHK0]).indexOf('нарушение') === 0 ||
+            String(v[CHK0+1]) === 'нарушение' || String(v[CHK0+2]) === 'нарушение')) return false;
+    }
+    return true;
+  });
+}
+
+function detailHtml(v){
+  function cell(t, val, warn){
+    var empty = (val === '' || val === undefined || val === null);
+    return '<div><b>' + t + ':</b> <span class="' + (empty ? 'z' : '') + '">' +
+           (empty ? '—' : val) + '</span></div>';
+  }
+  return '<div class="dgrid">' +
+    cell(REP_HEAD[4],  v[4]) + cell(REP_HEAD[5], v[5]) + cell(REP_HEAD[7], v[7]) +
+    cell(REP_HEAD[9],  v[9]) + cell(REP_HEAD[10], v[10]) +
+    cell(REP_HEAD[11], v[11]) + cell(REP_HEAD[12], v[12]) +
+    cell(REP_HEAD[13], v[13]) + cell(REP_HEAD[14], v[14]) +
+    cell(REP_HEAD[CHK0+1], v[CHK0+1]) + cell(REP_HEAD[CHK0+2], v[CHK0+2]) +
+    '</div>';
+}
+
+function render(view){
+  VIEW = view || VIEW;
+  view = VIEW;
+  var h = '', o = $('out');
+  $('fbar').style.display = (view === 'rep') ? '' : 'none';
+  if (!REPORT){ o.innerHTML = ''; return; }
+
+  if (view === 'rep'){
+    var full = $('fullMode').checked;
+    var rows = applySort(rowsFiltered(), SORT.rep, function(r, i){ return r.v[i]; });
+    var cols = full ? REP_HEAD.map(function(_, i){ return i; }) : COMPACT;
+    h = '<table><thead><tr>' + (full ? '' : '<th class="chev"></th>') +
+        cols.map(function(i){
+          return '<th data-s="' + i + '" class="srt ' + (i===0?'c0':i===1?'c1':'') +
+                 (FROST.indexOf(i)>=0?' frost':'') + '">' + REP_HEAD[i] +
+                 arrow(SORT.rep, i) + '</th>'; }).join('') +
+        (full ? '' : '<th class="cR srt" data-s="' + CHK0 + '">' + REP_HEAD[CHK0] +
+                     arrow(SORT.rep, CHK0) + '</th>') + '</tr></thead><tbody>';
+    rows.forEach(function(r, ri){
+      var v = r.v;
+      h += '<tr class="' + (r.inList ? 'inlist' : '') + '" data-r="' + ri + '">' +
+        (full ? '' : '<td class="chev" data-x="' + ri + '">▸</td>') +
+        cols.map(function(i){
+          var c = '';
+          if (i === 0) c = 'c0'; if (i === 1) c = 'c1 name';
+          var val = (v[i] === '' || v[i] == null) ? '' : (i >= CHK0 ? chipHtml(v[i]) : v[i]);
+          return '<td class="' + c.trim() + '" data-l="' + esc(REP_HEAD[i]) + '">' + val + '</td>';
+        }).join('') +
+        (full ? '' : '<td class="cR" data-l="' + esc(REP_HEAD[CHK0]) + '">' +
+                     chipHtml(v[CHK0]) + '</td>') + '</tr>';
+      if (!full)
+        h += '<tr class="det" id="det' + ri + '" style="display:none"><td colspan="' +
+             (cols.length + 2) + '">' + detailHtml(v) + '</td></tr>';
+    });
+    h += '</tbody></table>';
+    $('cnt').textContent = 'строк: ' + rows.length + ' из ' + REPORT.rep.length;
+
+  } else if (view === 'tot'){
+    h = '<table><thead><tr>' + TOT_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.tot,i)+'</th>'; }).join('') +
+        '</tr></thead><tbody>';
+    applySort(REPORT.tot, SORT.tot, byIdx).forEach(function(r){
+      h += '<tr>' + r.map(function(v,i){
+        var c = i === 2 && v ? 'ok' : i === 3 && v ? 'bad' : i === 4 && v ? 'na' : '';
+        return '<td data-l="' + esc(TOT_HEAD[i]) + '">' +
+               (c ? '<span class="chip '+c+'">'+v+'</span>' : v) + '</td>'; }).join('') + '</tr>'; });
+    h += '</tbody></table>';
+
+  } else if (view === 'm50'){
+    var m = MATCH50 || match50();
+    h = '<table><thead><tr>' + M50_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.m50,i)+'</th>'; }).join('') +
+        '</tr></thead><tbody>';
+    applySort(m.rows, SORT.m50, byIdx).forEach(function(r){
+      var warn = !!r[7];
+      h += '<tr' + (warn ? ' class="badrow"' : '') + '>' + r.map(function(v, i){
+        var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : v);
+        return '<td class="' + (i===2||i===4||i===7 ? 'name' : '') +
+               '" data-l="' + esc(M50_HEAD[i]) + '">' + val + '</td>'; }).join('') + '</tr>';
+    });
+    h += '</tbody></table>';
+    $('cnt').textContent = '';
+
+  } else {
+    var sorted = DB.list.slice().sort(function(a,b){
+      return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[2] < b[2] ? -1 : 1); });
+    if (SORT.list.i >= 0) sorted = applySort(sorted, SORT.list, byIdx);
+    h = '<table><thead><tr>' + LIST_HEAD.map(function(t, i){
+          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.list,i)+'</th>'; }).join('') +
+        '<th>Запомнить</th></tr></thead><tbody>';
+    sorted.forEach(function(r, i){
+      var unknown = S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0;
+      var opts = suggest(r[2], S(r[4])).map(function(n){
+        return '<option' + (n === S(r[4]) ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+      h += '<tr' + (unknown ? ' class="badrow"' : '') + '>' +
+           '<td>'+ru(r[0])+'</td><td>'+r[1]+'</td><td class="name">'+r[2]+'</td>'+
+           '<td>'+(r[3] === '' ? '' : r[3])+'</td>'+
+           '<td class="name"><select class="sug" data-i="'+i+'">' +
+             (S(r[4]) ? '' : '<option value="">— выберите —</option>') + opts + '</select></td>'+
+           '<td class="name">'+(S(r[5]) ? (unknown ? '<span class="chip bad">'+S(r[5])+'</span>'
+                                             : '<span class="chip zero">'+S(r[5])+'</span>') : '')+'</td>'+
+           '<td><button class="miniBtn" data-rem="'+i+'">Запомнить</button></td></tr>';
+    });
+    h += '</tbody></table>';
+  }
+  o.innerHTML = h;
+
+  o.querySelectorAll('th.srt').forEach(function(th){
+    th.onclick = function(){
+      var st = SORT[view] || SORT.rep, i = +this.dataset.s;
+      if (st.i === i) st.d = -st.d; else { st.i = i; st.d = 1; }
+      render(view);
+    };
+  });
+
+  if (view === 'rep' && !$('fullMode').checked){
+    o.querySelectorAll('td.chev').forEach(function(td){
+      td.onclick = function(){
+        var d = $('det' + this.dataset.x);
+        var open = d.style.display !== 'none';
+        d.style.display = open ? 'none' : '';
+        this.textContent = open ? '▸' : '▾';
+      };
+    });
+  }
+  if (view === 'list'){
+    var sorted2 = applySort(DB.list.slice(), SORT.list, byIdx);
+    if (SORT.list.i < 0) sorted2 = DB.list.slice().sort(function(a,b){
+      return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[2] < b[2] ? -1 : 1); });
+    o.querySelectorAll('select.sug').forEach(function(sel){
+      sel.onchange = function(){
+        var row = sorted2[+this.dataset.i];
+        row[4] = S(this.value);
+        if (row[4]) row[5] = S(row[5]).replace('НЕ РАСПОЗНАНО', 'исправлено вручную');
+        saveDB(); refresh();
+      };
+    });
+    o.querySelectorAll('button[data-rem]').forEach(function(b){
+      b.onclick = function(){
+        var row = sorted2[+this.dataset.rem];
+        var sel = o.querySelector('select.sug[data-i="' + this.dataset.rem + '"]');
+        var val = S(sel.value);
+        if (!val) return alert('Сначала выберите позицию справочника.');
+        row[4] = val;
+        DB.syn[nrm(row[2])] = val;
+        var n = 0;
+        DB.list.forEach(function(x){
+          if (nrm(x[2]) === nrm(row[2]) && S(x[4]) !== val){ x[4] = val; n++; }
+        });
+        DB.list.forEach(function(x){
+          if (nrm(x[2]) === nrm(row[2])) x[5] = S(x[5]).replace('НЕ РАСПОЗНАНО','из словаря');
+        });
+        saveDB(); render('list'); refresh();
+        this.textContent = 'Запомнил';
+        alert('Запомнил: «' + row[2] + '» → ' + val +
+              (n ? '\nОбновлено других строк: ' + n : ''));
+      };
+    });
+  }
+}
+
+['q','onlyBad','fullMode'].forEach(function(id){
+  $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', function(){
+    if (REPORT) render('rep');
+  });
+});
+
+document.querySelectorAll('.tabs button').forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll('.tabs button').forEach(function(x){ x.classList.remove('on'); });
+    this.classList.add('on'); render(this.dataset.v);
+  };
+});
+
+$('btnBuild').onclick = function(){
+  var wh = $('branch').value;
+  var f = D($('dFrom').value), t = D($('dTo').value);
+  if (!wh) return msg('m3','Сначала загрузите товарную ведомость — из неё берутся филиалы.','err');
+  if (!f || !t) return msg('m3','Укажите период в формате дд.мм.гггг','err');
+  try{
+    REPORT = build(wh, f, t);
+    $('cardOut').style.display = '';
+    var k = REPORT.kpi, pct = k.list ? Math.round(k.ok / k.list * 100) : 0;
+    $('kpi').innerHTML =
+      '<div><span>Заявлено позиций филиалом</span><b>' + k.list + '</b></div>' +
+      '<div><span>Совпало позиций</span><b style="color:#067647">' + k.ok + '</b></div>' +
+      '<div><span>Расхождений</span><b style="color:#b42318">' + k.bad + '</b></div>' +
+      '<div><span>Скидка без заявки</span><b style="color:#b54708">' + k.noList + '</b></div>' +
+      '<div><span>Доля совпавших</span><b>' + pct + '%</b></div>';
+    document.querySelectorAll('.tabs button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
+    render('rep');
+    histAdd({ ts: new Date().toISOString(), kind: 'rep', wh: REPORT.wh, from: f, to: t,
+              list: k.list, ok: k.ok, bad: k.bad, noList: k.noList, pct: pct });
+    msg('m3','Готово: ' + REPORT.rep.length + ' строк. Движения в выгрузке по ' + ru(REPORT.movLast) +
+        ', продажи по ' + ru(REPORT.posLast) + '.', 'ok');
+  } catch(e){ msg('m3','Ошибка: ' + (e.message || e), 'err'); }
+};
+
+/* ═════════ выгрузка в .xlsx (zip без сжатия) ═════════ */
+var CRC = (function(){ var t = []; for (var n = 0; n < 256; n++){ var c = n;
+  for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ var c = 0xFFFFFFFF;
+  for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0; }
+function esc(s){ return S(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function sheetXml(headRow, rows, styleFn){
+  var x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  function cell(col, row, val, st){
+    var ref = String.fromCharCode(65 + (col % 26 ? 0 : 0)) ; // заменится ниже
+    return '';
+  }
+  function colName(i){ var s = ''; i++; while (i > 0){ var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = (i - m - 1) / 26; } return s; }
+  function row(arr, r, stFn){
+    var c = '<row r="' + r + '">';
+    arr.forEach(function(v, i){
+      var st = stFn ? stFn(v, i) : 0;
+      var ref = colName(i) + r;
+      if (v === '' || v === null || v === undefined){ if (st) c += '<c r="'+ref+'" s="'+st+'"/>'; return; }
+      if (typeof v === 'number') c += '<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';
+      else c += '<c r="'+ref+'" t="inlineStr" s="'+st+'"><is><t xml:space="preserve">'+esc(v)+'</t></is></c>';
+    });
+    return c + '</row>';
+  }
+  x += row(headRow, 1, function(){ return 1; });
+  rows.forEach(function(r, i){ x += row(r, i + 2, styleFn); });
+  return x + '</sheetData></worksheet>';
+}
+
+function stylesXml(){
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><color rgb="FFFFFFFF"/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+    '<fills count="6"><fill><patternFill patternType="none"/></fill>' +
+    '<fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1F3864"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFC6EFCE"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/></patternFill></fill></fills>' +
+    '<borders count="1"><border/></borders>' +
+    '<cellStyleXfs count="1"><xf/></cellStyleXfs>' +
+    '<cellXfs count="5">' +
+    '<xf xfId="0"/>' +
+    '<xf xfId="0" fontId="1" fillId="2" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center" horizontal="center"/></xf>' +
+    '<xf xfId="0" fillId="3" applyFill="1"/>' +
+    '<xf xfId="0" fillId="4" applyFill="1"/>' +
+    '<xf xfId="0" fillId="5" applyFill="1"/>' +
+    '</cellXfs></styleSheet>';
+}
+
+function makeXlsx(sheets){
+  var enc = new TextEncoder();
+  var files = [];
+  function add(name, text){ files.push({ name: name, data: enc.encode(text) }); }
+
+  var sheetTags = sheets.map(function(s,i){
+    return '<sheet name="' + esc(s.name) + '" sheetId="' + (i+1) + '" r:id="rId' + (i+1) + '"/>'; }).join('');
+  var relTags = sheets.map(function(s,i){
+    return '<Relationship Id="rId' + (i+1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i+1) + '.xml"/>'; }).join('');
+  var ovr = sheets.map(function(s,i){
+    return '<Override PartName="/xl/worksheets/sheet' + (i+1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('');
+
+  add('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>' +
+    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + ovr + '</Types>');
+  add('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+  add('xl/workbook.xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" ' +
+    'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + sheetTags + '</sheets></workbook>');
+  add('xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + relTags +
+    '<Relationship Id="rId' + (sheets.length+1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  add('xl/styles.xml', stylesXml());
+  sheets.forEach(function(s,i){ add('xl/worksheets/sheet' + (i+1) + '.xml', sheetXml(s.head, s.rows, s.style)); });
+
+  var chunks = [], central = [], off = 0;
+  files.forEach(function(f){
+    var nameB = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    var lh = new Uint8Array(30 + nameB.length), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0x0800, true);
+    dv.setUint16(8, 0, true); dv.setUint32(14, crc, true);
+    dv.setUint32(18, sz, true); dv.setUint32(22, sz, true);
+    dv.setUint16(26, nameB.length, true);
+    lh.set(nameB, 30);
+    chunks.push(lh, f.data);
+    var ch = new Uint8Array(46 + nameB.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0x0800, true); cv.setUint16(10, 0, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, sz, true); cv.setUint32(24, sz, true);
+    cv.setUint16(28, nameB.length, true); cv.setUint32(42, off, true);
+    ch.set(nameB, 46);
+    central.push(ch);
+    off += lh.length + sz;
+  });
+  var cdSize = central.reduce(function(a,b){ return a + b.length; }, 0);
+  var eocd = new Uint8Array(22), ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, off, true);
+  return new Blob(chunks.concat(central, [eocd]),
+    { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+$('btnXlsx').onclick = function(){
+  if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
+  function stRep(v, i){
+    if (i < CHK0) return 0;
+    var c = cls(v); return c === 'ok' ? 2 : c === 'bad' ? 3 : c === 'na' ? 4 : 0;
+  }
+  var repRows = REPORT.rep.map(function(r){ return r.v; });
+  var listRows = DB.list.filter(function(r){ return r[1] === REPORT.wh; })
+    .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; })
+    .map(function(r){ return [ru(r[0]), r[1], r[2], r[3] === '' ? '' : r[3], r[4], r[5]]; });
+  var blob = makeXlsx([
+    { name: 'Отчёт', head: REP_HEAD, rows: repRows, style: stRep },
+    { name: 'Итоги по дням', head: TOT_HEAD, rows: REPORT.tot },
+    { name: 'Список филиала', head: LIST_HEAD, rows: listRows },
+    { name: 'Путь на склад 50%', head: M50_HEAD, rows: (MATCH50 || match50()).rows,
+      style: function(v, i){ return i === 7 && S(v) ? 3 : 0; } }
+  ]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Сверка 20% ' + REPORT.wh.replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  a.style.display = 'none';
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+};
+
+/* ═════════ сохранение данных файлом ═════════ */
+$('btnSave').onclick = function(){
+  var blob = new Blob([JSON.stringify(DB)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'сверка20-данные.json'; a.click();
+};
+$('btnRestore').onclick = function(){ $('fRestore').click(); };
+$('fRestore').onchange = async function(){
+  var f = this.files[0]; if (!f) return;
+  try { DB = JSON.parse(await f.text()); saveDB(); refresh();
+        msg('m1','Данные загружены из файла.','ok'); }
+  catch(e){ msg('m1','Не удалось прочитать файл: ' + e.message,'err'); }
+};
+
+/* ═════════ статус ═════════ */
+function span(rows){
+  var mn = '', mx = '';
+  rows.forEach(function(r){ var d = r[0]; if (!d) return;
+    if (!mn || d < mn) mn = d; if (!mx || d > mx) mx = d; });
+  return rows.length ? rows.length + ' строк, ' + ru(mn) + ' — ' + ru(mx) : 'пусто';
+}
+/* филиал общий для списка и сверки — выбрали в одном месте, встал везде */
+function syncBranch(v){
+  ['branch','defBranch'].forEach(function(id){
+    var el = $(id); if (!el || el.value === v) return;
+    for (var i = 0; i < el.options.length; i++)
+      if (el.options[i].value === v){ el.value = v; break; }
+  });
+  try{ localStorage.setItem('sverka20_branch', v); }catch(e){}
+}
+function minMaxDay(rows){
+  var mn = '', mx = '';
+  (rows||[]).forEach(function(r){ var d = r[0]; if (!d) return;
+    if (!mn || d < mn) mn = d; if (!mx || d > mx) mx = d; });
+  return [mn, mx];
+}
+function shiftDay(d, n){
+  if (!d) return '';
+  var p = d.split('-'), t = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.getUTCFullYear() + '-' + pad(t.getUTCMonth()+1) + '-' + pad(t.getUTCDate());
+}
+/* границы календаря по загруженным данным + подстановка периода при первом заходе */
+function setDateRange(){
+  var mv = minMaxDay(DB.mov);
+  if (!mv[0]) return;
+  var lo = mv[0], hi = mv[1];
+  ['dFrom','dTo'].forEach(function(id){ var el = $(id); el.min = lo; el.max = hi; });
+  // выгрузку берут на день шире с обеих сторон — значит отчётный период на день уже
+  var defF = shiftDay(lo, 1), defT = shiftDay(hi, -1);
+  var sl = minMaxDay(DB.s20);
+  if (sl[0]){ defF = sl[0]; defT = sl[1]; }
+  if (defF < lo) defF = lo; if (defT > hi) defT = hi;
+  if (!$('dFrom').value) $('dFrom').value = defF;
+  if (!$('dTo').value)   $('dTo').value   = defT;
+}
+/* сходятся ли периоды и хватает ли товарного отчёта на всю ведомость */
+function checkCoverage(){
+  var out = [];
+  if (DOCCOVER && DOCCOVER.seen){
+    var pct = Math.round(DOCCOVER.missed / DOCCOVER.seen * 100);
+    if (pct > 5)
+      out.push('Назначение документа не определилось у <b>' + pct + '%</b> строк ведомости (' +
+        DOCCOVER.missed + ' из ' + DOCCOVER.seen + '). Товарный отчёт покрывает не все ' +
+        'накладные — возврат по сроку, склад 50% и разделение прихода будут неполными.');
+  }
+  var mf = '', mt = '';
+  DB.mov.forEach(function(r){ if (!r[0]) return;
+    if (!mf || r[0] < mf) mf = r[0]; if (!mt || r[0] > mt) mt = r[0]; });
+  if (mf && DOCKINDS && DOCKINDS.__from){
+    if (DOCKINDS.__from > mf || DOCKINDS.__to < mt)
+      out.push('Товарный отчёт выгружен за <b>' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) +
+        '</b>, а ведомость за <b>' + ru(mf) + ' — ' + ru(mt) + '</b>. ' +
+        'Выгрузите товарный отчёт за тот же период.');
+  }
+  var s20f = '', s20t = '';
+  DB.s20.forEach(function(r){ if (!r[0]) return;
+    if (!s20f || r[0] < s20f) s20f = r[0]; if (!s20t || r[0] > s20t) s20t = r[0]; });
+  if (s20f && mf && (s20f > mt || s20t < mf))
+    out.push('Продажи со скидкой 20% (' + ru(s20f) + ' — ' + ru(s20t) +
+      ') не пересекаются с движениями (' + ru(mf) + ' — ' + ru(mt) + ').');
+  return out;
+}
+
+/* по каким видам движений что распозналось — сразу видно, если товарный отчёт не подхватился */
+function movKinds(){
+  var c = {}, n = 0;
+  DB.mov.forEach(function(r){ c[r[3]] = (c[r[3]] || 0) + 1; n++; });
+  if (!n) return '';
+  var NAMES = { prihod_gp:'приход Цех ГП', prihod_tort:'приход Таугуль торт',
+    prihod_other:'приход прочий', realiz:'реализация', spisanie:'списание',
+    vozvrat_srok:'возврат по сроку', vozvrat_kach:'возврат по качеству',
+    perem_50:'перемещение на склад 50%', perem_dost:'перемещение на доставку',
+    prigotovlenie:'акт приготовления', inv_in:'инвентаризация приход',
+    inv_out:'инвентаризация расход', other:'не распознано' };
+  var out = [], warn = '';
+  Object.keys(NAMES).forEach(function(k){
+    if (c[k]) out.push((NAMES[k] || k) + ': ' + c[k]); });
+  var miss = DOCCOVER ? DOCCOVER.missed : 0, tot = DOCCOVER ? DOCCOVER.seen : n;
+  var share = tot ? miss / tot : 0;
+  if (share > 0.05 || !c['perem_50'] || !c['vozvrat_srok'])
+    warn = '<br><span class="warn">Назначение документа не определилось у ' +
+      Math.round(share * 100) + '% строк (' + miss + ' из ' + tot + ').</span> ' +
+      'Это значит, что товарный отчёт покрывает не все накладные из товарной ведомости. ' +
+      'Выгрузите товарный отчёт <b>за тот же период и без фильтров</b>, что и ведомость, ' +
+      'и загрузите оба файла заново. Пока этого нет, возврат по сроку, перемещение на склад 50% ' +
+      'и разделение прихода на Цех ГП / Таугуль торт будут неполными.';
+  return '<b>Виды движений:</b> ' + out.join(' · ') + warn;
+}
+/* значения по умолчанию: объявляем до первого refresh() — иначе applyDefaults()
+   получит undefined (var поднимается, присваивание — нет) */
+var DEFAULT_ROUTES = { 2:'Маршрут 1', 10:'Маршрут 1', 11:'Маршрут 1',
+                       8:'Маршрут 2',  6:'Маршрут 2',  1:'Маршрут 2',
+                       3:'Маршрут 3',  4:'Маршрут 3',  9:'Маршрут 3' };
+var DEFAULT_CLOSED = [/магазин\s*tt?5/i];      // Магазин TT5 Taugul закрыт
+var ROUTES_V = 2;      // подняли версию — старые сохранённые маршруты перезапишутся
+
+function refresh(){
+  var bs = branches();
+  var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
+  ['branch','defBranch'].forEach(function(id){
+    var el = $(id), cur = el.value || saved;
+    el.innerHTML = bs.map(function(b){ return '<option>' + b + '</option>'; }).join('');
+    if (bs.indexOf(cur) >= 0) el.value = cur;
+  });
+  if (typeof applyDefaults === 'function') applyDefaults();
+  setDateRange();
+  var unk = DB.list.filter(function(r){ return S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0; }).length;
+  $('status').innerHTML =
+    '<b>Справочник:</b> ' + Object.keys(SPR).length + ' позиций · <b>Синонимы:</b> ' +
+      Object.keys(DB.syn).length + '<br>' +
+    '<b>Филиалы:</b> ' + (bs.length ? bs.join(', ') : 'нет — загрузите товарную ведомость') + '<br>' +
+    '<b>Движения:</b> ' + span(DB.mov) + '<br>' +
+    '<b>Продажи 20%:</b> ' + span(DB.s20) + '<br>' +
+    '<b>Продажи 50%:</b> ' + span(DB.s50) + '<br>' +
+    '<b>Список филиалов:</b> ' + span(DB.list) + '<br>' +
+    '<b>Занято в браузере:</b> ' + (DBSIZE/1048576).toFixed(1) + ' МБ из ~5 МБ' +
+      (DBSIZE > 4*1048576 ? ' <span class="warn">— близко к пределу</span>' : '') + '<br>' +
+    movKinds() +
+    (unk ? '<br><span class="warn">Не распознано позиций: ' + unk + '</span>' : '');
+  if (window.NAVBADGES) window.NAVBADGES();
+}
+
+loadDB();
+$('year').value = new Date().getFullYear();
+$('branch').onchange    = function(){ syncBranch(this.value); };
+$('defBranch').onchange = function(){ syncBranch(this.value); };
+refresh();
+if (!window.DecompressionStream)
+  msg('m1','Ваш браузер слишком старый: не умеет распаковывать .xlsx. Откройте в Chrome или Edge.','err');
+
+
+/* ═════════ хронология продукции и маршруты ═════════ */
+var CHRONO = null, CHR_VIEW = 'pos';
+SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1}; SORT.trio = {i:-1,d:1};
+
+var P_WH=0, P_DISH=1, P_CAT=2, P_SROK=3, P_PRIH=4, P_SOLD=5, P_LOSS=6, P_SHARE=7,
+    P_D20=8, P_DSH=9, P_VOZ=10, P_F50=11, P_SPIS=12, P_DLOSS=13, P_ONSHELF=14,
+    P_STOP=15, P_STOPD=16, P_LAST=17, P_BAL=18, P_SPEED=19, P_WDAY=20, P_PRICE=21,
+    P_MONEY=22, P_TODO=23, P_CUT=24, P_DOST=25;
+var POS_HEAD = ['Филиал','Блюдо','Категория','Срок, ч','Приход','Продано всего',
+  'Не продано, шт','Доля не проданного','из них со скидкой 20%','Доля дней со скидкой',
+  'Возврат по сроку','Склад 50%','Списание','Дней с потерями','Дней на витрине',
+  'Дней в стопе','Дни стопа','Последняя продажа','Остаток на конец','Скорость, шт/день',
+  'Худший день','Цена, ₸','Потери всего, ₸','Что делать','Снизить на, шт/день',
+  'Ушло на доставку'];
+/* «Доставка ТТ5 склад» — не витрина: филиалы свозят туда, дальше товар уходит в доставку.
+   Перемещение на неё — продажа по полной цене, а не потеря. */
+function isDelivery(w){ return /достав/i.test(S(w)); }
+/* Возить между филиалами имеет смысл только то, что живёт дольше суток.
+   Выпечка со сроком 24 ч приедет уже к концу срока — смысла нет. */
+function movable(k){ var sp = SPR[k]; return !!sp && sp.srok >= 48; }
+/* перемещать между филиалами имеет смысл только то, что живёт дольше суток */
+var MOVE_CATS = { 'торт':1, 'пирог':1, 'пирожное':1 };
+function catOf(n){
+  var s = S(n).toLowerCase();
+  if (/торт|чизкейк|наполеон|медовик|тирамису|балхадиша|шпинатны/.test(s)) return 'торт';
+  if (/бәліш|балиш|бэлиш|пирог|орама/.test(s))                              return 'пирог';
+  if (/тарт|пирожное|эклер|капкейк|маффин|макаронс|мадлен|берлинер|шу|брест|мусс|меренга|трайфл|трилече|кекс|синнабон|печенье|cookies|вупи|профитроль|круассан/.test(s))
+    return 'пирожное';
+  if (/бөрек|борек|самса|бауырсақ|сосиска|булочка|тоқаш|қалталы|пицца|рогалик|самса/.test(s))
+    return 'выпечка';
+  return 'прочее';
+}
+/* Маршруты развоза — постоянные. Заданы номерами складов, чтобы не ломались
+   от переименований. Их можно переопределить на вкладке «Маршруты». */
+function applyDefaults(){
+  var bs = branches(); if (!bs.length) return;
+  var stale = (DB.routesV || 0) < ROUTES_V;
+  if (stale){ DB.routes = {}; DB.closed = {}; DB.routesV = ROUTES_V; }
+  if (!DB.routes || !Object.keys(DB.routes).length){
+    DB.routes = {};
+    bs.forEach(function(b){
+      if (isDelivery(b)) return;
+      var n = whNum(b), r = DEFAULT_ROUTES[n];
+      if (r) DB.routes[b] = r;
+    });
+  }
+  if (!DB.closed || !Object.keys(DB.closed).length){
+    DB.closed = {};
+    bs.forEach(function(b){
+      DEFAULT_CLOSED.forEach(function(re){ if (re.test(b)) DB.closed[b] = 1; }); });
+  }
+  if (stale) saveDB();
+}
+function isClosed(w){ return !!(DB.closed && DB.closed[w]); }
+/* последний день, когда филиал что-то продал */
+function lastSale(w){
+  var d = '';
+  DB.mov.forEach(function(r){
+    if (r[1] === w && r[3] === 'realiz' && r[0] > d) d = r[0]; });
+  return d;
+}
+var PAIR_HEAD = ['Маршрут','Блюдо','Точка А','Потери А','Доля А','Дней с потерями А',
+  'Точка Б','Продано Б','Дней в стопе Б','Скорость Б','Можно перевезти, шт',
+  'Экономия на скидке, ₸','Выручка вместо потерь, ₸'];
+var DOW = ['пн','вт','ср','чт','пт','сб','вс'];
+
+function dowOf(d){ var p = S(d).split('-'); return (new Date(+p[0], +p[1]-1, +p[2])).getDay(); }
+
+/* цена позиции — из отчёта по продажам со скидкой 20% */
+function priceMap(){
+  var q = {}, sum = {};
+  DB.s20.forEach(function(r){
+    var k = nrm(r[2]), s0 = N(r[4]);
+    if (!s0) return;
+    q[k] = (q[k] || 0) + N(r[3]); sum[k] = (sum[k] || 0) + s0;
+  });
+  var p = {};
+  Object.keys(q).forEach(function(k){ if (q[k] > 0) p[k] = sum[k] / q[k]; });
+  return p;
+}
+
+function chrono(dFrom, dTo){
+  var PR = priceMap(), acc = {};
+  SERIES = {};
+  // продажи со скидкой 20% по филиалу и дню — это тоже потеря, но в цене
+  var S20 = {};
+  DB.s20.forEach(function(r){
+    var d = r[0]; if (!d || d < dFrom || d > dTo) return;
+    var k = nrm(r[2]); if (!SPR[k]) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    var f = isKus[k] ? 1 / KUSOK : 1;
+    branches().forEach(function(w){
+      if (!sameBranch(r[1], w)) return;
+      var key = w + '|' + base + '|' + d;
+      S20[key] = (S20[key] || 0) + N(r[3]) * f;
+    });
+  });
+  DB.mov.forEach(function(r){
+    var d = r[0]; if (d < dFrom || d > dTo) return;
+    var wh = r[1], k = nrm(r[2]), kind = r[3], q = N(r[4]);
+    if (!SPR[k] || isClosed(wh)) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    var f = isKus[k] ? 1 / KUSOK : 1;
+    if (!SPR[base]) return;
+    var key = wh + '|' + base;
+    var a = acc[key] || (acc[key] = { wh: wh, k: base, days: {} });
+    var dd = a.days[d] || (a.days[d] = { p:0, s:0, l:0, v:0, f50:0, sp:0 });
+    if (kind === 'perem_dost'){ dd.dost = (dd.dost || 0) + q * f; return; }
+    if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other') dd.p += q * f;
+    else if (kind === 'realiz')       dd.s  += q * f;
+    else if (kind === 'vozvrat_srok'){ dd.v += q * f; dd.l += q * f; }
+    else if (kind === 'perem_50')    { dd.f50 += q * f; dd.l += q * f; }
+    else if (kind === 'spisanie')    { dd.sp += q * f; dd.l += q * f; }
+  });
+
+  var days = [], d = dFrom;
+  while (d <= dTo){ days.push(d); d = shift(d, 1); }
+
+  var byDay = {}, byWh = {};
+  days.forEach(function(d){ byDay[d] = { d: d, loss: 0, money: 0, sold: 0 }; });
+  var rows = [];
+  Object.keys(acc).forEach(function(key){
+    var a = acc[key], sp = SPR[a.k];
+    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0;
+    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0, D20 = 0, dDisc = 0, lastS = '';
+    var bal = 0, minCum = 0, cum = 0, series = [];
+    days.forEach(function(dd){
+      var x = a.days[dd] || { p:0, s:0, l:0, v:0, f50:0, sp:0 };
+      P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp; DS += (x.dost || 0);
+      if (x.l > 1e-9) dLoss++;
+      if (x.p > 1e-9) dArr++;
+      if (x.s > 1e-9) lastS = dd;
+      var q20 = S20[a.wh + '|' + a.k + '|' + dd] || 0;
+      if (q20 > 1e-9){ D20 += q20; dDisc++; }
+      cum += x.p - x.s - x.l;
+      if (cum < minCum) minCum = cum;
+      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s });
+    });
+    if (P < 1e-9 && S_ < 1e-9) return;
+    var open = Math.max(0, -minCum), prev = 0, stopDays = [];
+    series.forEach(function(x, i){
+      bal = open + x.cum;
+      x.bal = r3(bal);
+      if (bal > 1e-9) x.st = 0, onShelf++;
+      else if (x.p > 1e-9 || prev > 1e-9){ x.st = 1; stop++; stopDays.push(x.d); }
+      else x.st = 0;
+      prev = x.p;
+    });
+    var dl = {}, best = -1, bestD = '';
+    series.forEach(function(x){ if (x.l > 1e-9){ var w = dowOf(x.d);
+      dl[w] = (dl[w] || 0) + x.l; if (dl[w] > best){ best = dl[w]; bestD = DOW[w]; } } });
+    var price = PR[a.k] || 0;
+    var endBal = r3(open + cum);
+    // деньги: непроданное теряем целиком, уценённое — на размер скидки
+    var money = price ? L * price + D20 * price * 0.2 : 0;
+    var discShare = onShelf ? dDisc / onShelf : 0;
+    var stopShare = onShelf ? stop / days.length : 0;
+    var lossShare = P > 1e-9 ? L / P : 0, todo = '';
+    if (P > 1e-9 && S_ < 1e-9)                      todo = 'не продаётся — перевезти';
+    else if (stop >= 3 && discShare < 0.15 && L < 1e-9) todo = 'увеличить заявку';
+    else if (discShare >= 0.3 || lossShare >= 0.15) todo = 'снизить заявку';
+    else if (discShare >= 0.15)                     todo = 'часто на скидке — проверить';
+    else if (lossShare >= 0.08)                     todo = 'много списаний — проверить';
+    /* на сколько резать заявку: потери делим на ВСЕ дни на витрине, а не на дни с потерями.
+       Показываем только если филиал ни разу не уходил в стоп — иначе резать нечего. */
+    var cut = (stop < 1 && onShelf > 0) ? Math.round(L / onShelf) : 0;
+    if (!isDelivery(a.wh)){
+      series.forEach(function(x){
+        if (!byDay[x.d]) return;
+        var q = S20[a.wh + '|' + a.k + '|' + x.d] || 0;
+        byDay[x.d].loss += x.l; byDay[x.d].sold += x.s;
+        byDay[x.d].money += x.l * price + q * price * 0.2;
+      });
+      var w = byWh[a.wh] || (byWh[a.wh] = { loss:0, prih:0, money:0, sold:0, disc:0 });
+      w.loss += L; w.prih += P; w.money += money; w.sold += S_; w.disc += D20;
+    }
+    var sKey = a.wh + '|' + sp.name;
+    SERIES[sKey] = series.map(function(x){
+      return { d: x.d, p: r3(x.p), s: r3(x.s), l: r3(x.l), bal: x.bal, st: x.st,
+               q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0) };
+    });
+    rows.push([a.wh, sp.name, catOf(sp.name), sp.srok || '', r3(P), r3(S_),
+      r3(L), P > 1e-9 ? r3(L / P) : '', r3(D20), r3(discShare),
+      r3(V), r3(F), r3(SP), dLoss, onShelf, stop, daysText(stopDays),
+      lastS ? ru(lastS) : '', endBal, onShelf ? r3(S_ / onShelf) : 0, bestD,
+      price ? Math.round(price) : '', money ? Math.round(money) : '',
+      todo, cut || '', r3(DS) || '']);
+  });
+  CHRONO_DAYS = days.map(function(d){ return byDay[d]; });
+  CHRONO_WH = byWh;
+  return rows;
+}
+var CHRONO_DAYS = null, CHRONO_WH = null, SERIES = {};
+
+/* «2026-08-05, 2026-08-12, 2026-08-13, 2026-08-14» → «05.08, 12–14.08» */
+function daysText(list){
+  if (!list || !list.length) return '';
+  var out = [], i = 0;
+  var dd = function(d){ return S(d).slice(8, 10); }, mm = function(d){ return S(d).slice(5, 7); };
+  while (i < list.length){
+    var j = i;
+    while (j + 1 < list.length && shift(list[j], 1) === list[j + 1]) j++;
+    if (j === i) out.push(dd(list[i]) + '.' + mm(list[i]));
+    else if (mm(list[i]) === mm(list[j])) out.push(dd(list[i]) + '–' + dd(list[j]) + '.' + mm(list[j]));
+    else out.push(dd(list[i]) + '.' + mm(list[i]) + '–' + dd(list[j]) + '.' + mm(list[j]));
+    i = j + 1;
+  }
+  return out.join(', ');
+}
+function r3(x){ return Math.round(x * 1000) / 1000; }
+
+/* пары «точка А теряет — точка Б разбирает».
+   Возить можно только внутри маршрута, поэтому пары ищем в каждом маршруте отдельно. */
+function pairsOf(rows, minPrih){
+  var byDish = {};
+  rows.forEach(function(r){
+    if (N(r[P_PRIH]) < minPrih) return;
+    if (r[P_SHARE] === '') return;
+    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;   // выпечка (24 ч) — возить нет смысла
+    if (isDelivery(r[P_WH])) return;     // склад доставки — не точка на маршруте
+    (byDish[r[P_DISH]] = byDish[r[P_DISH]] || []).push(r);
+  });
+  var routes = {}, hasRoutes = false;
+  Object.keys(DB.routes || {}).forEach(function(b){ routes[DB.routes[b]] = 1; hasRoutes = true; });
+  var groups = hasRoutes ? Object.keys(routes).concat(['— вне маршрутов —']) : ['*'];
+
+  var out = [];
+  Object.keys(byDish).forEach(function(dish){
+    groups.forEach(function(gr){
+      var g = byDish[dish].filter(function(r){
+        if (gr === '*') return true;
+        var rt = DB.routes[r[P_WH]] || '';
+        return gr === '— вне маршрутов —' ? !rt : rt === gr;
+      });
+      if (g.length < 2) return;
+      var A = g[0]; g.forEach(function(r){ if (r[P_SHARE] > A[P_SHARE]) A = r; });
+      if (A[P_SHARE] < 0.10 || A[P_DLOSS] < 3) return;   // разовый случай — не системная проблема
+      // точка Б должна не просто «не терять», а реально продавать объём
+      var good = g.filter(function(r){
+        return r !== A && r[P_SHARE] <= 0.02 && N(r[P_SOLD]) >= Math.max(minPrih, 10); });
+      if (!good.length) return;
+      var B = good[0]; good.forEach(function(r){ if (N(r[P_SOLD]) > N(B[P_SOLD])) B = r; });
+      // не грузим Б больше чем на половину его же спроса
+      var move = Math.min(N(A[P_LOSS]), N(B[P_SOLD]) / 2), price = N(A[P_PRICE]);
+      if (move < 1) return;
+      out.push([ gr === '*' ? '' : gr, dish, A[P_WH], A[P_LOSS], A[P_SHARE], A[P_DLOSS],
+        B[P_WH], B[P_SOLD], B[P_STOP], B[P_SPEED], r3(move),
+        price ? Math.round(move * price * 0.2) : '', price ? Math.round(move * price) : '' ]);
+    });
+  });
+  return out;
+}
+
+
+
+/* ═════════ ТОП-20: где теряем — кто продаёт ═════════
+   Для каждой позиции внутри маршрута три строки: худший филиал, средний и лучший.
+   Лучший может подсказать худшему, как он это продаёт, либо забрать остаток к себе.
+   Только торты / пироги / пирожные: у выпечки срок 24 ч, возить смысла нет. */
+var TRIO_HEAD = ['Маршрут','Блюдо','Категория','Место','Филиал','Приход','Продано всего',
+  'Не продано, шт','Доля потерь','из них со скидкой 20%','Доля дней со скидкой',
+  'Дней в стопе','Дни стопа','Последняя продажа','Остаток','Скорость, шт/день','Потери, ₸','Что делать',
+  'Снизить на, шт/день'];
+
+function trioOf(rows, topN){
+  topN = topN || 20;
+  var byRoute = {};
+  rows.forEach(function(r){
+    if (isDelivery(r[P_WH])) return;
+    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;
+    if (r[P_SHARE] === '' && !N(r[P_D20])) return;
+    var rt = DB.routes[r[P_WH]] || '— вне маршрутов —';
+    var g = byRoute[rt] || (byRoute[rt] = {});
+    (g[r[P_DISH]] = g[r[P_DISH]] || []).push(r);
+  });
+
+  var out = [];
+  Object.keys(byRoute).sort().forEach(function(rt){
+    var g = byRoute[rt];
+    // топ позиций маршрута по деньгам: непроданное + уценка
+    var dishes = Object.keys(g).filter(function(d){ return g[d].length >= 2; });
+    dishes.sort(function(a, b){
+      return sumBy(g[b], P_MONEY) - sumBy(g[a], P_MONEY); });
+    dishes.slice(0, topN).forEach(function(dish){
+      var list = g[dish].slice();
+      // «плохо» = доля потерь + доля дней со скидкой: и списали, и уценили — обе потери
+      list.sort(function(a, b){
+        return (badness(b) - badness(a)) || (N(a[P_SOLD]) - N(b[P_SOLD])); });
+      var mid = list[Math.floor((list.length - 1) / 2)];
+      var picks = [['1. Худший', list[0]], ['2. Средний', mid],
+                   ['3. Лучший', list[list.length - 1]]];
+      var seen = {};
+      picks.forEach(function(pk){
+        var r = pk[1];
+        if (!r || seen[r[P_WH]]) return;
+        seen[r[P_WH]] = 1;
+        out.push([rt, dish, r[P_CAT], pk[0], r[P_WH], r[P_PRIH], r[P_SOLD],
+          r[P_LOSS], r[P_SHARE], r[P_D20], r[P_DSH], r[P_STOP],
+          r[P_STOPD], r[P_LAST], r[P_BAL], r[P_SPEED], r[P_MONEY], r[P_TODO], r[P_CUT]]);
+      });
+    });
+  });
+  return out;
+}
+function sumBy(arr, i){ var t = 0; arr.forEach(function(r){ t += N(r[i]); }); return t; }
+function badness(r){ return N(r[P_SHARE]) + N(r[P_DSH]) * 0.5; }
+
+/* ═════════ история сверок ═════════ */
+var HIST_MAX = 300;
+function histAdd(rec){
+  if (!DB.hist) DB.hist = [];
+  var key = rec.wh + '|' + rec.from + '|' + rec.to + '|' + rec.kind;
+  DB.hist = DB.hist.filter(function(x){
+    return (x.wh + '|' + x.from + '|' + x.to + '|' + x.kind) !== key; });
+  DB.hist.push(rec);
+  if (DB.hist.length > HIST_MAX) DB.hist = DB.hist.slice(-HIST_MAX);
+  saveDB();
+}
+var HIST_HEAD = ['Когда собрали','Что','Филиал','Период','Заявлено','Совпало',
+                 'Расхождений','Доля совпавших','Потери, шт','Потери, ₸'];
+function renderHist(){
+  var o = $('outH'), h = DB.hist || [];
+  if (!h.length){
+    o.innerHTML = '<div class="hint" style="padding:14px">Пока пусто. Каждый раз, когда вы ' +
+      'нажимаете «Собрать» или «Посчитать», сюда записывается строка с итогами — ' +
+      'чтобы через месяц было с чем сравнить.</div>';
+    return;
+  }
+  var rows = h.slice().reverse();
+  var t = '<table><thead><tr>' + HIST_HEAD.map(function(x){ return '<th>' + x + '</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    t += '<tr>' +
+      '<td>' + ru(r.ts.slice(0,10)) + ' ' + r.ts.slice(11,16) + '</td>' +
+      '<td>' + (r.kind === 'chr' ? 'хронология' : 'сверка') + '</td>' +
+      '<td class="name">' + esc(r.wh || 'все филиалы') + '</td>' +
+      '<td>' + ru(r.from) + ' — ' + ru(r.to) + '</td>' +
+      '<td>' + (r.list !== undefined ? r.list : '') + '</td>' +
+      '<td>' + (r.ok !== undefined ? r.ok : '') + '</td>' +
+      '<td>' + (r.bad !== undefined ? r.bad : '') + '</td>' +
+      '<td>' + (r.pct !== undefined ? '<span class="chip ' + (r.pct >= 80 ? 'ok' :
+                 r.pct >= 50 ? 'na' : 'bad') + '">' + r.pct + '%</span>' : '') + '</td>' +
+      '<td>' + (r.loss !== undefined ? fmtNum(r.loss) : '') + '</td>' +
+      '<td>' + (r.money ? fmtNum(r.money) : '') + '</td>' +
+      '</tr>';
+  });
+  t += '</tbody></table>';
+
+  var sv = h.filter(function(x){ return x.kind === 'rep' && x.pct !== undefined; });
+  var chart = '';
+  if (sv.length > 1){
+    var pts = sv.slice(-30).map(function(x){ return { d: x.to, v: x.pct }; });
+    chart = chartDays(pts, 'Доля совпавших позиций от сверки к сверке, %', '%');
+  }
+  o.innerHTML = chart + '<div class="wrapT" style="max-height:none">' + t + '</div>';
+}
+
+/* ═════════ быстрые периоды ═════════ */
+function isoToday(){
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+function setPeriod(kind, idFrom, idTo){
+  var t = isoToday(), p = t.split('-'), y = +p[0], m = +p[1], dd = +p[2];
+  var f, to;
+  if (kind === 'week' || kind === 'prevweek'){
+    var back = kind === 'week' ? 0 : 7;
+    var dt = new Date(Date.UTC(y, m-1, dd));
+    var wd = (dt.getUTCDay() + 6) % 7;             // понедельник = 0
+    dt.setUTCDate(dt.getUTCDate() - wd - back);
+    f = dt.toISOString().slice(0,10);
+    dt.setUTCDate(dt.getUTCDate() + 6);
+    to = dt.toISOString().slice(0,10);
+  } else {
+    var mm = m, yy = y;
+    if (kind === 'prevmonth'){ mm--; if (mm < 1){ mm = 12; yy--; } }
+    f = yy + '-' + pad(mm) + '-01';
+    var last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+    to = yy + '-' + pad(mm) + '-' + pad(last);
+  }
+  // не выходим за пределы загруженных данных
+  var lo = $(idFrom).min, hi = $(idFrom).max;
+  if (lo && f < lo) f = lo;
+  if (hi && to > hi) to = hi;
+  $(idFrom).value = f; $(idTo).value = to;
+}
+
+/* ═════════ свежесть выгрузок ═════════ */
+function dataFreshness(){
+  var last = '';
+  DB.mov.forEach(function(r){ if (r[0] > last) last = r[0]; });
+  if (!last) return { html: '', stale: 0 };
+  var days = daysBetween(last, isoToday());
+  if (days <= 2) return { html: '', stale: days };
+  return { stale: days, html: '<div class="stale">Выгрузки заканчиваются <b>' + ru(last) +
+    '</b> — это ' + days + ' дн. назад. Обновите четыре файла из iiko, иначе последние дни ' +
+    'в отчёте будут выглядеть пустыми.</div>' };
+}
+
+/* ═════════ графики: свой SVG, без библиотек и без интернета ═════════ */
+function esc2(t){ return S(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function fmtNum(n){
+  n = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/* Столбики по дням: одна серия, поэтому легенда не нужна — её называет заголовок. */
+function chartDays(days, title, unit){
+  if (!days.length) return '<div class="hint">Нет данных за период.</div>';
+  var H = 210, R = 14, T = 26, B = 34;
+  var max = 0; days.forEach(function(d){ if (d.v > max) max = d.v; });
+  if (max <= 0) max = 1;
+  // ширина под подписи оси — иначе крупные суммы обрезаются слева
+  var L = 16 + fmtNum(max).length * 7;
+  var W = Math.max(560, days.length * 34 + L + R);
+  var iw = W - L - R, ih = H - T - B;
+  var step = iw / days.length, bw = Math.min(26, step - 6);
+  var g = '', ticks = 4, maxI = 0;
+  days.forEach(function(d, i){ if (d.v > days[maxI].v) maxI = i; });
+  for (var t = 0; t <= ticks; t++){
+    var y = T + ih - ih * t / ticks, val = max * t / ticks;
+    g += '<line x1="' + L + '" y1="' + y.toFixed(1) + '" x2="' + (W - R) + '" y2="' + y.toFixed(1) +
+         '" stroke="var(--grid)" stroke-width="1"/>' +
+         '<text x="' + (L - 8) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" ' +
+         'font-size="10" fill="var(--mut)">' + fmtNum(val) + '</text>';
+  }
+  days.forEach(function(d, i){
+    var h = ih * d.v / max, x = L + i * step + (step - bw) / 2, y = T + ih - h;
+    g += '<g class="bar"><title>' + esc2(ru(d.d)) + ' — ' + fmtNum(d.v) + ' ' + unit + '</title>' +
+      '<rect x="' + x.toFixed(1) + '" y="' + (T).toFixed(1) + '" width="' + bw.toFixed(1) +
+        '" height="' + ih.toFixed(1) + '" fill="transparent"/>' +
+      (d.v > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
+        '" height="' + Math.max(h, 2).toFixed(1) + '" rx="4" fill="var(--mark)"/>' : '') +
+      '</g>';
+    if (days.length <= 24 || i % 2 === 0)
+      g += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (H - 12) + '" text-anchor="middle" ' +
+           'font-size="10" fill="var(--mut)">' + ru(d.d).slice(0, 5) + '</text>';
+    if (i === maxI && d.v > 0)
+      g += '<text x="' + (x + bw / 2).toFixed(1) + '" y="' + (y - 6).toFixed(1) +
+           '" text-anchor="middle" font-size="11" font-weight="600" fill="var(--txt)">' +
+           fmtNum(d.v) + '</text>';
+  });
+  return '<div class="chartBox"><div class="chartT">' + esc2(title) + '</div>' +
+    '<div class="chartScroll"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" role="img" aria-label="' + esc2(title) + '">' + g + '</svg></div></div>';
+}
+
+/* Горизонтальные полосы: сравнение филиалов, отсортировано, подпись у каждой */
+function chartBars(rows, title, unit){
+  if (!rows.length) return '<div class="hint">Нет данных за период.</div>';
+  var L = 190, T = 24, bh = 26, gap = 8;
+  var lab = 0;
+  rows.forEach(function(r){ var t = (r.label || fmtNum(r.v)).length; if (t > lab) lab = t; });
+  var R = 20 + lab * 7;                 // место под подпись справа от полосы
+  var W = 660 + R, H = T + rows.length * (bh + gap) + 10, iw = W - L - R;
+  var max = 0; rows.forEach(function(r){ if (r.v > max) max = r.v; });
+  if (max <= 0) max = 1;
+  var g = '';
+  rows.forEach(function(r, i){
+    var y = T + i * (bh + gap), w = iw * r.v / max;
+    g += '<g><title>' + esc2(r.k) + ' — ' + esc2(r.label || (fmtNum(r.v) + ' ' + unit)) + '</title>' +
+      '<text x="' + (L - 10) + '" y="' + (y + bh / 2 + 4) + '" text-anchor="end" font-size="12" ' +
+        'fill="var(--txt)">' + esc2(r.k.length > 24 ? r.k.slice(0, 23) + '…' : r.k) + '</text>' +
+      '<rect x="' + L + '" y="' + y + '" width="' + iw + '" height="' + bh + '" rx="4" ' +
+        'fill="var(--markSoft)" opacity=".28"/>' +
+      '<rect x="' + L + '" y="' + y + '" width="' + Math.max(w, 2).toFixed(1) + '" height="' + bh +
+        '" rx="4" fill="var(--mark)"/>' +
+      '<text x="' + (L + Math.max(w, 2) + 10).toFixed(1) + '" y="' + (y + bh / 2 + 4) +
+        '" font-size="12" font-weight="600" fill="var(--txt)">' +
+        esc2(r.label || fmtNum(r.v)) + '</text></g>';
+  });
+  return '<div class="chartBox"><div class="chartT">' + esc2(title) + '</div>' +
+    '<div class="chartScroll"><svg viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H +
+    '" role="img" aria-label="' + esc2(title) + '">' + g + '</svg></div></div>';
+}
+
+function renderDyn(){
+  var o = $('outC');
+  if (!CHRONO || !CHRONO.days){ o.innerHTML = ''; return; }
+  var unitMoney = CHRONO.days.some(function(d){ return d.money > 0; });
+  var h = chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.loss }; }),
+                    'Потери по дням, шт', 'шт');
+  if (unitMoney)
+    h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.money }; }),
+                   'Потери по дням, ₸', '₸');
+  var bs = Object.keys(CHRONO.byWh).map(function(w){
+    var x = CHRONO.byWh[w];
+    return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0,
+             label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 1000) / 10) : 0) + '%  ·  ' +
+                    fmtNum(x.loss) + ' шт' };
+  }).sort(function(a, b){ return b.v - a.v; });
+  h += chartBars(bs, 'Доля потерь по филиалам — сколько из пришедшего не продали', '');
+  var money = Object.keys(CHRONO.byWh).map(function(w){
+    return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸' };
+  }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
+  if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам', '₸');
+  h += '<div class="hint" style="padding:0 4px 6px">Те же числа таблицей — на вкладке ' +
+       '«Позиции». Наведите на столбик, чтобы увидеть точное значение.</div>';
+  o.innerHTML = h;
+  $('cntC').textContent = '';
+}
+
+function routeOf(wh){ return (DB.routes && DB.routes[wh]) || '— вне маршрутов —'; }
+
+/* списки в фильтрах строим по тем строкам, что реально есть в отчёте,
+   и только по тому, что не отсечено двумя другими фильтрами */
+function fillFilters(view){
+  var all = view === 'trio' ? (CHRONO.trio || []) : (CHRONO.pos || []);
+  var get = view === 'trio'
+    ? { rt: function(r){ return r[0]; }, wh: function(r){ return r[4]; }, cat: function(r){ return r[2]; } }
+    : { rt: function(r){ return routeOf(r[P_WH]); }, wh: function(r){ return r[P_WH]; },
+        cat: function(r){ return r[P_CAT]; } };
+  var cur = { fRoute: $('fRoute').value, fWh: $('fWh').value, fCat: $('fCat').value };
+  var opt = { fRoute: {}, fWh: {}, fCat: {} };
+  all.forEach(function(r){
+    var rt = get.rt(r), wh = get.wh(r), cat = get.cat(r);
+    if ((!cur.fWh || wh === cur.fWh) && (!cur.fCat || cat === cur.fCat)) opt.fRoute[rt] = 1;
+    if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fCat || cat === cur.fCat)) opt.fWh[wh] = 1;
+    if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fWh || wh === cur.fWh)) opt.fCat[cat] = 1;
+  });
+  var label = { fRoute: 'все маршруты', fWh: 'все филиалы', fCat: 'все категории' };
+  Object.keys(opt).forEach(function(id){
+    var vals = Object.keys(opt[id]).filter(Boolean).sort();
+    // выбранное значение оставляем в списке, даже если другие фильтры его сузили
+    if (cur[id] && vals.indexOf(cur[id]) < 0) vals.push(cur[id]);
+    var el = $(id);
+    el.innerHTML = '<option value="">' + label[id] + '</option>' +
+      vals.map(function(v){ return '<option' + (v === cur[id] ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+    el.value = cur[id];
+    el.classList.toggle('on', !!cur[id]);
+  });
+}
+
+/* по клику на строку показываем, что происходило с позицией по дням:
+   когда был приход, сколько продали, сколько осталось и в какие дни был стоп */
+function bindExpand(o, cols){
+  o.querySelectorAll('tr.clk').forEach(function(tr){
+    tr.onclick = function(){ openDays(this.dataset.k); };
+  });
+}
+/* показываем отдельной панелью, а не строкой внутри таблицы:
+   вложенная таблица растягивает колонки основной, да и на телефоне строк нет — карточки */
+function openDays(key){
+  var m = $('dayModal');
+  m.querySelector('.mBody').innerHTML = dayTable(key);
+  m.style.display = 'flex';
+}
+function closeDays(){ $('dayModal').style.display = 'none'; }
+function dayTable(key){
+  var ser = SERIES[key] || [];
+  if (!ser.length) return '<div class="hint">Нет данных по дням.</div>';
+  // колонку скидки показываем, только если скидка вообще была — иначе она съедает ширину
+  var has20 = ser.some(function(x){ return x.q20 > 1e-9; });
+  var head = ['Дата','День','Приход','Продано'].concat(has20 ? ['со скидкой'] : [])
+    .concat(['Потери','Остаток','']);
+  var h = '<div class="detWrap"><div class="detT">' + esc(key.replace('|', ' · ')) +
+    ' — по дням</div><table class="det2"><thead><tr>' +
+    head.map(function(t){ return '<th>' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
+  ser.forEach(function(x){
+    h += '<tr' + (x.st ? ' class="stopRow"' : '') + '>' +
+      '<td>' + S(x.d).slice(8, 10) + '.' + S(x.d).slice(5, 7) + '</td>' +
+      '<td>' + DOW[dowOf(x.d)] + '</td>' +
+      '<td>' + (x.p || '') + '</td>' +
+      '<td>' + (x.s || '') + '</td>' +
+      (has20 ? '<td>' + (x.q20 || '') + '</td>' : '') +
+      '<td>' + (x.l || '') + '</td>' +
+      '<td>' + x.bal + '</td>' +
+      '<td>' + (x.st ? '<span class="chip bad">стоп</span>'
+                     : (x.l > 1e-9 ? '<span class="chip na">потери</span>' : '')) + '</td></tr>';
+  });
+  h += '</tbody></table><div class="hint" style="margin:8px 2px 0">Время выхода в стоп ' +
+    'по этим выгрузкам не определить: в акте реализации у всех продаж стоит 23:00 — ' +
+    'iiko проводит их одним документом в конце дня. День — максимум, что можно сказать точно.</div></div>';
+  return h;
+}
+
+function renderChrono(view){
+  if (view) CHR_VIEW = view; view = CHR_VIEW;
+  var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
+  $('cardRoutes').style.display = view === 'route' ? '' : 'none';
+  $('fbarC').style.display = (view === 'route' || view === 'dyn') ? 'none' : '';
+  $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
+  var hasFlt = view === 'trio' || view === 'pos';
+  ['fRoute','fWh','fCat','fClear'].forEach(function(id){
+    $(id).style.display = hasFlt ? '' : 'none'; });
+  if (hasFlt) fillFilters(view);
+  if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
+  if (view === 'dyn'){ renderDyn(); return; }
+
+  var q = nrm($('qC').value), head, rows, st;
+  var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value;
+  if (view === 'trio'){
+    head = TRIO_HEAD; st = SORT.trio;
+    rows = (CHRONO.trio || []).filter(function(r){
+      if (fR && r[0] !== fR) return false;
+      if (fW && r[4] !== fW) return false;
+      if (fC && r[2] !== fC) return false;
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0; });
+  } else if (view === 'pos'){
+    head = POS_HEAD; st = SORT.pos;
+    rows = CHRONO.pos.filter(function(r){
+      if (fR && routeOf(r[P_WH]) !== fR) return false;
+      if (fW && r[P_WH] !== fW) return false;
+      if (fC && r[P_CAT] !== fC) return false;
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
+  } else {
+    head = PAIR_HEAD; st = SORT.pair;
+    rows = CHRONO.pair.filter(function(r){
+      if ($('onlyRoute').checked && (!r[0] || r[0] === '— вне маршрутов —')) return false;
+      return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
+  }
+  rows = applySort(rows, st, byIdx);
+  var pct = view === 'pos' ? [P_SHARE, P_DSH] : (view === 'trio' ? [8, 10] : [4]);
+  var h = '';
+  if (view === 'trio')
+    h += '<div class="hint" style="padding:0 4px 8px">Топ-20 позиций каждого маршрута по потерям ' +
+         'в деньгах. На каждую позицию три филиала: <b>худший</b>, средний и <b>лучший</b> — ' +
+         'лучший может подсказать худшему, как он это продаёт, или забрать остаток к себе. ' +
+         'Только торты, пироги и пирожные: у выпечки срок 24 ч, возить нет смысла. ' +
+         '<b>«Продано всего»</b> — это полная цена и скидка вместе; колонка ' +
+         '«из них со скидкой 20%» показывает, сколько из них ушло по уценке.</div>';
+  h += '<table><thead><tr>' + head.map(function(t, i){
+      return '<th class="srt" data-s="'+i+'">'+t+arrow(st,i)+'</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  var kOf = view === 'trio' ? function(r){ return r[4] + '|' + r[1]; }
+          : view === 'pos'  ? function(r){ return r[P_WH] + '|' + r[P_DISH]; } : null;
+  rows.forEach(function(r){
+    var sk = kOf && SERIES[kOf(r)] ? kOf(r) : '';
+    h += '<tr' + (sk ? ' class="clk" data-k="' + esc(sk) + '"' : '') + '>' + r.map(function(v, i){
+      var cell = v;
+      if (pct.indexOf(i) >= 0 && v !== '') cell = Math.round(v * 1000) / 10 + '%';
+      if (v === '' || v === null || v === undefined) cell = '';
+      var cl = (i === 1 || (view === 'pos' && (i === P_WH || i === P_TODO))
+             || (view === 'trio' && (i === 3 || i === 4 || i === 17))
+             || (view === 'pair' && (i === 2 || i === 6)))
+             ? 'name' : '';
+      if (pct.indexOf(i) >= 0 && v !== '' && v >= 0.15) cl += ' bad';
+      if (view === 'trio'){
+        if (i === 3) cl += (String(v).charAt(0) === '1' ? ' bad'
+                          : String(v).charAt(0) === '3' ? ' good' : '');
+        if (i === 17 && v) cl += (/снизить|списан|перевезти/.test(v) ? ' bad' : ' good');
+        if (i === 18 && v) cl += ' bad';
+      }
+      if (sk && i === 1) cell = '<span class="exp">▸</span>' + cell;
+      return '<td class="' + cl.trim() + '" data-l="' + esc(head[i]) + '">' + cell + '</td>';
+    }).join('') + '</tr>';
+  });
+  h += '</tbody></table>';
+  o.innerHTML = h;
+  $('cntC').textContent = 'строк: ' + rows.length;
+  bindExpand(o, head.length);
+  o.querySelectorAll('th.srt').forEach(function(th){
+    th.onclick = function(){
+      var i = +this.dataset.s;
+      if (st.i === i) st.d = -st.d; else { st.i = i; st.d = 1; }
+      renderChrono();
+    };
+  });
+}
+
+function routeHint(){
+  var bs = branches();
+  var dlv = bs.filter(isDelivery), cl = bs.filter(isClosed);
+  var no = bs.filter(function(b){ return !DB.routes[b] && !isDelivery(b) && !isClosed(b); });
+  var last = '';
+  DB.mov.forEach(function(r){ if (r[0] > last) last = r[0]; });
+  var quiet = no.filter(function(b){
+    var d = lastSale(b); return d && last && daysBetween(d, last) > 10; })
+    .map(function(b){ return b + ' (последняя продажа ' + ru(lastSale(b)) + ')'; });
+  $('routeHint').innerHTML =
+    (no.length ? 'Без маршрута пока: <b>' + no.join(', ') + '</b>.<br>'
+               : 'Все филиалы разнесены по маршрутам.<br>') +
+    (quiet.length ? '<span class="warn">Похоже, уже не работают: ' + quiet.join(', ') +
+      '</span> — допишите строкой «Закрыто: тт5», и они уйдут из расчёта.<br>' : '') +
+    (cl.length ? 'Закрыты и не считаются: <b>' + cl.join(', ') + '</b>.<br>' : '') +
+    (dlv.length ? 'Склад доставки (' + dlv.join(', ') + ') в маршруты не входит и в пары ' +
+      'не попадает: филиалы свозят туда сами, и перемещение на него считается продажей, ' +
+      'а не потерей.' : '');
+  var byR = {};
+  Object.keys(DB.routes).forEach(function(b){ (byR[DB.routes[b]] = byR[DB.routes[b]] || []).push(b); });
+  var lines = Object.keys(byR).sort().map(function(r){ return r + ': ' + byR[r].join(', '); });
+  Object.keys(DB.closed || {}).forEach(function(b){ lines.push('Закрыто: ' + b); });
+  if (lines.length && document.activeElement !== $('routes'))
+    $('routes').value = lines.join('\n');
+}
+
+/* номер филиала из названия склада: «010-Шугыла склад» → 10, «TT8 Qaratau» → 8 */
+function whNum(w){ var m = S(w).match(/\d+/); return m ? +m[0] : null; }
+/* все склады с этим номером — ТТ5 их два (доставка и магазин) */
+function branchesByNum(n, wantDelivery){
+  var all = branches().filter(function(b){ return whNum(b) === n; });
+  var shops = all.filter(function(b){ return !isDelivery(b); });
+  if (wantDelivery) return all;
+  return shops.length ? shops : all;     // «тт5» — это магазин, доставка отдельно
+}
+$('btnRoutes').onclick = function(){
+  var map = {}, bad = [], closed = {}, k = 0;
+  S($('routes').value).split(/\r?\n/).forEach(function(line){
+    line = S(line); if (!line) return;
+    var p = line.split(':');
+    var name = p.length > 1 ? S(p.shift()) : '';
+    var rest = p.length ? p.join(':') : line;
+    var shut = /закрыт|не работает|закрыл/i.test(name) || /закрыт|не работает|закрыл/i.test(line);
+    if (!shut){ k++; if (!name) name = 'Маршрут ' + k; }
+    // ловим «тт2», «TT-10», «т 8», а также голые «010»
+    var re = /(?:^|[^0-9a-zA-Zа-яёА-ЯЁ])(?:тт|тt|тт|т|tt|t)?\s*[-–—]?\s*(\d{1,3})/g, m, found = 0;
+    while ((m = re.exec(' ' + rest))){
+      var n = +m[1], hits = branchesByNum(n, /достав/i.test(rest));
+      if (!hits.length){ bad.push('ТТ' + n); continue; }
+      hits.forEach(function(b){ if (shut) closed[b] = 1; else map[b] = name; });
+      found++;
+    }
+    if (!found) bad.push(line);
+  });
+  DB.routes = map; DB.closed = closed; saveDB(); routeHint(); refresh();
+  var byR = {};
+  Object.keys(map).forEach(function(b){ (byR[map[b]] = byR[map[b]] || []).push(b); });
+  var txt = Object.keys(byR).map(function(r){
+    return '<b>' + r + ':</b> ' + byR[r].join(', '); }).join('<br>');
+  var cl = Object.keys(closed);
+  if (cl.length) txt += '<br><b>Закрыты:</b> ' + cl.join(', ') + ' — в расчёт не идут';
+  msg('m5', 'Сохранено.<br>' + txt +
+      (bad.length ? '<br><b>Не узнала:</b> ' + bad.join(', ') : ''), bad.length ? 'wait' : 'ok');
+  if (CHRONO && $('cFrom').value){
+    var pos = chrono(D($('cFrom').value), D($('cTo').value));
+    CHRONO.pos = pos; CHRONO.pair = pairsOf(pos, CHRONO.min);
+    CHRONO.trio = trioOf(pos); renderChrono();
+  }
+};
+
+$('btnChrono').onclick = function(){
+  var f = D($('cFrom').value), t = D($('cTo').value);
+  if (!DB.mov.length) return msg('m4','Сначала загрузите выгрузки iiko.','err');
+  if (!f || !t) return msg('m4','Укажите период.','err');
+  msg('m4','Считаю…','wait');
+  try{
+    var minP = N($('cMin').value) || 0;
+    var pos = chrono(f, t);
+    CHRONO = { pos: pos, pair: pairsOf(pos, minP), trio: trioOf(pos),
+               min: minP, from: f, to: t,
+               days: CHRONO_DAYS, byWh: CHRONO_WH };
+    $('cardChr').style.display = '';
+    var L = 0, M = 0, whL = {};
+    pos.forEach(function(r){ L += N(r[P_LOSS]); M += N(r[P_MONEY]); whL[r[P_WH]] = (whL[r[P_WH]]||0) + N(r[P_LOSS]); });
+    var worst = '', wv = -1;
+    Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
+    var eco = 0; CHRONO.pair.forEach(function(r){ eco += N(r[11]); });
+    // цены берутся из отчёта по продажам 20%; в старых сохранённых выгрузках суммы нет
+    var noPrice = pos.length > 0 && M < 1e-9;
+    $('kpiC').innerHTML =
+      '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b></div>' +
+      '<div><span>Потери всего</span><b style="color:#b42318">' + Math.round(L) + ' шт</b></div>' +
+      '<div><span>Потери в деньгах</span>' + (noPrice
+        ? '<b style="font-size:15px;color:#71717a">нет цен</b>' +
+          '<span>загрузите «Продажи со скидкой 20%» заново</span>'
+        : '<b style="color:#b42318">' + fmtT(M) + '</b>') + '</div>' +
+      '<div><span>Больше всех теряет</span><b style="font-size:15px">' + worst +
+        '<span style="font-size:12px;color:#71717a"> · ' + Math.round(wv) + ' шт</span></b></div>' +
+      '<div><span>Пар для перемещения</span><b style="color:#067647">' + CHRONO.pair.length +
+        '</b><span>' + (noPrice ? 'экономия — нет цен' : 'экономия ' + fmtT(eco)) + '</span></div>';
+    var keep = CHR_VIEW || 'pos';
+    document.querySelectorAll('#tabsC button').forEach(function(x){
+      x.classList.toggle('on', x.dataset.c === keep); });
+    renderChrono(keep);
+    histAdd({ ts: new Date().toISOString(), kind: 'chr', wh: '', from: f, to: t,
+              loss: Math.round(L), money: Math.round(M), pairs: CHRONO.pair.length });
+    msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.', 'ok');
+  } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
+};
+function fmtT(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₸'; }
+
+/* маршруты и закрытые филиалы применяем здесь: к этому месту всё уже объявлено */
+applyDefaults(); refresh();
+
+document.querySelectorAll('#tabsC button').forEach(function(b){
+  b.onclick = function(){
+    document.querySelectorAll('#tabsC button').forEach(function(x){ x.classList.remove('on'); });
+    this.classList.add('on'); renderChrono(this.dataset.c);
+  };
+});
+$('qC').oninput = function(){ renderChrono(); };
+$('dayClose').onclick = closeDays;
+$('dayModal').onclick = function(e){ if (e.target === this) closeDays(); };
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDays(); });
+['fRoute','fWh','fCat'].forEach(function(id){
+  $(id).onchange = function(){ renderChrono(); }; });
+$('fClear').onclick = function(){
+  $('fRoute').value = ''; $('fWh').value = ''; $('fCat').value = ''; $('qC').value = '';
+  renderChrono();
+};
+$('onlyRoute').onchange = function(){ renderChrono(); };
+
+$('btnChrXlsx').onclick = function(){
+  if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
+  var blob = makeXlsx([
+    { name: 'Позиции', head: POS_HEAD, rows: CHRONO.pos },
+    { name: 'Топ-20 худший-средний-лучший', head: TRIO_HEAD, rows: CHRONO.trio || [] },
+    { name: 'Перемещать вместо уценки', head: PAIR_HEAD, rows: CHRONO.pair }
+  ]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'Хронология ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+};
+
+
+/* ═════════ печать, быстрые периоды, свежесть, история ═════════ */
+function printHead(title, sub){
+  $('printHead').innerHTML = '<b>' + esc(title) + '</b><br>' + esc(sub) +
+    '<br>собрано ' + ru(isoToday());
+}
+function doPrint(title, sub){ printHead(title, sub); setTimeout(function(){ window.print(); }, 60); }
+
+$('btnPrint').onclick = function(){
+  if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
+  doPrint('Сверка 20% — ' + REPORT.wh, 'период ' + ru($('dFrom').value) + ' — ' + ru($('dTo').value));
+};
+$('btnPrintC').onclick = function(){
+  if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
+  doPrint('Хронология продукции', 'период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to));
+};
+$('btnPrintH').onclick = function(){ doPrint('История сверок', 'все записи'); };
+
+document.querySelectorAll('.quick button[data-q]').forEach(function(b){
+  b.onclick = function(){
+    var t = this.dataset.t;
+    setPeriod(this.dataset.q, t === 'rep' ? 'dFrom' : 'cFrom', t === 'rep' ? 'dTo' : 'cTo');
+  };
+});
+
+$('btnHistClear').onclick = function(){
+  if (!confirm('Удалить всю историю сверок? Сами данные и отчёты останутся.')) return;
+  DB.hist = []; saveDB(); renderHist();
+};
+
+function showFresh(){
+  var f = dataFreshness();
+  ['freshRep','freshChr'].forEach(function(id){ if ($(id)) $(id).innerHTML = f.html; });
+}
+
+/* ═════════ навигация по разделам ═════════ */
+(function(){
+  var TITLES = {
+    up:  ['Выгрузки iiko','четыре файла из iiko'],
+    sp:  ['Списки филиалов','что филиал заявил на уценку'],
+    rep: ['Сверка',''],
+    chr: ['Аналитика','как продаётся и где теряется'],
+    hist:['История сверок','что было в прошлые разы'],
+    db:  ['Хранилище','данные этого браузера'],
+    help:['Как это считается','']
+  };
+  function el(id){ return document.getElementById(id); }
+  function fmtN(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,' '); }
+  function go(p, tab, srcA){
+    var pgs = document.querySelectorAll('.page');
+    for (var i=0;i<pgs.length;i++) pgs[i].classList.toggle('on', pgs[i].id === 'pg'+'-'+p);
+    var as = document.querySelectorAll('.nav a');
+    for (var j=0;j<as.length;j++){
+      var on = srcA ? (as[j] === srcA)
+                    : (as[j].getAttribute('data-page') === p && !as[j].getAttribute('data-tab'));
+      as[j].classList.toggle('on', on);
+    }
+    if (!srcA && !tab){   // переход не из меню — подсветим первый пункт этой страницы
+      for (var j2=0;j2<as.length;j2++)
+        if (as[j2].getAttribute('data-page') === p){ as[j2].classList.add('on'); break; }
+    }
+    var t = TITLES[p] || ['',''];
+    el('pgTitle').textContent = t[0];
+    el('pgSub').textContent = t[1];
+    el('side').classList.remove('open');
+    el('scrim').classList.remove('on');
+    var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
+    if (p === 'hist' && typeof renderHist === 'function') renderHist();
+    if (typeof showFresh === 'function') showFresh();
+    if (p === 'chr'){
+      if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;
+      if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
+      if (typeof routeHint === 'function') routeHint();
+    }
+    if (tab) openTab(p, tab);
+  }
+  /* нажатие на пункт меню сразу открывает нужную вкладку внутри страницы */
+  function openTab(p, tab){
+    var sel = p === 'chr' ? '#tabsC button' : '.tabs button[data-v]';
+    var bs = document.querySelectorAll(sel), hit = null;
+    for (var i=0;i<bs.length;i++){
+      var v = bs[i].getAttribute('data-c') || bs[i].getAttribute('data-v');
+      if (v === tab) hit = bs[i];
+    }
+    if (hit) hit.click();
+  }
+  function badges(){
+    try{
+      var mov = (DB.mov||[]).length, lst = (DB.list||[]).length;
+      el('pUp').textContent = mov ? fmtN(mov) : '';
+      el('pSp').textContent = lst ? fmtN(lst) : '';
+      el('pUp').style.display = mov ? '' : 'none';
+      el('pSp').style.display = lst ? '' : 'none';
+      el('sidefoot').innerHTML = mov
+        ? 'Движений: <b>'+fmtN(mov)+'</b><br>Строк списка: <b>'+fmtN(lst)+'</b>'
+        : 'Данные не загружены';
+    }catch(e){}
+  }
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    while (t && t !== document){
+      if (t.id === 'burger'){
+        el('side').classList.toggle('open'); el('scrim').classList.toggle('on'); return; }
+      if (t.id === 'scrim'){
+        el('side').classList.remove('open'); el('scrim').classList.remove('on'); return; }
+      if (t.getAttribute && t.getAttribute('data-page')){
+        go(t.getAttribute('data-page'), t.getAttribute('data-tab'), t); return; }
+      t = t.parentNode;
+    }
+  }, false);
+  window.NAVGO = go; window.NAVBADGES = badges;
+  badges();
+  go((DB.mov && DB.mov.length) ? 'rep' : 'up');
+  var w = el('jsWarn'); if (w) w.style.display = 'none';
+})();
+</script>
+</body>
+</html>
