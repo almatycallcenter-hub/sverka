@@ -597,6 +597,10 @@
 /* ═════════ встроенные справочник и синонимы ═════════ */
 window.onerror = function(m, src, ln, col){
   try{
+    // скрипты явно работают — значит «файл открыт в предпросмотре» здесь неправда
+    var w = document.getElementById('jsWarn');
+    if (w){ w.innerHTML = '<b>Похоже, это старая копия файла.</b> Скачайте свежую ' +
+      'или откройте по ссылке — там всегда последняя версия.'; }
     var e = document.getElementById('errWarn');
     if (e){ e.style.display = 'block';
             e.textContent = 'Ошибка: ' + m + '  (строка ' + ln + ':' + col + ')'; }
