@@ -503,6 +503,7 @@
           </div>
           <div class="fbar" id="fbar">
             <input type="text" id="q" placeholder="Поиск по блюду">
+            <select id="fChk" class="flt"><option value="">все пометки</option></select>
             <label><input type="checkbox" id="onlyBad"> только расхождения</label>
             <label id="labOnlyList"><input type="checkbox" id="onlyList">
               только из списка филиала</label>
@@ -552,6 +553,7 @@
             <select id="fRoute" class="flt"><option value="">все маршруты</option></select>
             <select id="fWh" class="flt"><option value="">все филиалы</option></select>
             <select id="fCat" class="flt"><option value="">все категории</option></select>
+            <select id="fTodo" class="flt"><option value="">все пометки</option></select>
             <label id="labMove"><input type="checkbox" id="onlyMove" checked>
               только торты, пироги, пирожные</label>
             <button id="fClear" class="miniBtn">Сбросить</button>
@@ -1642,10 +1644,29 @@ function suggest(raw, cur){
   return top;
 }
 
+/* Список пометок для фильтра строим по тем строкам, что реально есть в отчёте:
+   выбирать «нету акта приготовления», когда пиццы в периоде не было, незачем. */
+function fillChkFilter(){
+  var el = $('fChk'), cur = el.value, est = {};
+  (REPORT ? REPORT.rep : []).forEach(function(r){
+    for (var i = CHK0; i < CHK0 + 3; i++){ var v = S(r.v[i]); if (v) est[v] = 1; }
+  });
+  var vals = Object.keys(est).sort();
+  if (cur && vals.indexOf(cur) < 0) vals.push(cur);
+  el.innerHTML = '<option value="">все пометки</option>' +
+    vals.map(function(v){
+      return '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+  el.value = cur;
+  el.classList.toggle('on', !!cur);
+}
+
 function rowsFiltered(){
   var q = nrm($('q').value), bad = $('onlyBad').checked, vList = $('onlyList').checked;
+  var chk = $('fChk').value;
   return REPORT.rep.filter(function(r){
     if (q && nrm(r.name).indexOf(q) < 0) return false;
+    // пометка ищется в любой из трёх проверок — так строка находится, где бы она ни стояла
+    if (chk && S(r.v[CHK0]) !== chk && S(r.v[CHK0+1]) !== chk && S(r.v[CHK0+2]) !== chk) return false;
     // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
     // Колонка 2 — «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
     if (vList && S(r.v[2]) === '') return false;
@@ -1678,6 +1699,7 @@ function render(view){
   view = VIEW;
   var h = '', o = $('out');
   $('fbar').style.display = (view === 'rep') ? '' : 'none';
+  if (view === 'rep') fillChkFilter();
   if (!REPORT){ o.innerHTML = ''; return; }
 
   if (view === 'rep'){
@@ -1814,7 +1836,7 @@ function render(view){
   }
 }
 
-['q','onlyBad','onlyList','fullMode'].forEach(function(id){
+['q','onlyBad','onlyList','fullMode','fChk'].forEach(function(id){
   $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', function(){
     if (REPORT) render('rep');
   });
@@ -2769,6 +2791,7 @@ function fillFilters(view){
     ? { rt: function(r){ return r[0]; }, wh: function(r){ return r[4]; }, cat: function(r){ return r[2]; } }
     : { rt: function(r){ return routeOf(r[P_WH]); }, wh: function(r){ return r[P_WH]; },
         cat: function(r){ return r[P_CAT]; } };
+  var iTodo = view === 'trio' ? 17 : P_TODO;
   var cur = { fRoute: $('fRoute').value, fWh: $('fWh').value, fCat: $('fCat').value };
   var opt = { fRoute: {}, fWh: {}, fCat: {} };
   all.forEach(function(r){
@@ -2777,6 +2800,17 @@ function fillFilters(view){
     if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fCat || cat === cur.fCat)) opt.fWh[wh] = 1;
     if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fWh || wh === cur.fWh)) opt.fCat[cat] = 1;
   });
+  // пометки «Что делать» — отдельным списком, он не зависит от трёх других фильтров
+  var todoCur = $('fTodo').value, todoSet = {};
+  all.forEach(function(r){ var v = S(r[iTodo]); if (v) todoSet[v] = 1; });
+  var todoVals = Object.keys(todoSet).sort();
+  if (todoCur && todoVals.indexOf(todoCur) < 0) todoVals.push(todoCur);
+  $('fTodo').innerHTML = '<option value="">все пометки</option>' +
+    todoVals.map(function(v){
+      return '<option' + (v === todoCur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+  $('fTodo').value = todoCur;
+  $('fTodo').classList.toggle('on', !!todoCur);
+
   var label = { fRoute: 'все маршруты', fWh: 'все филиалы', fCat: 'все категории' };
   Object.keys(opt).forEach(function(id){
     var vals = Object.keys(opt[id]).filter(Boolean).sort();
@@ -2846,7 +2880,7 @@ function renderChrono(view){
   $('cardRoutes').style.display = view === 'route' ? '' : 'none';
   $('fbarC').style.display = view === 'route' ? 'none' : '';
   // на «Динамике» из фильтров нужна только галочка — поиск и списки прячем
-  ['qC', 'fRoute', 'fWh', 'fCat', 'fClear'].forEach(function(id){
+  ['qC', 'fRoute', 'fWh', 'fCat', 'fTodo', 'fClear'].forEach(function(id){
     $(id).style.display = view === 'dyn' ? 'none' : ''; });
   $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
   $('labMove').style.display =
@@ -2854,12 +2888,12 @@ function renderChrono(view){
   var hasFlt = view === 'trio' || view === 'pos';
   if (hasFlt) fillFilters(view);
   else if (view !== 'dyn')
-    ['fRoute','fWh','fCat','fClear'].forEach(function(id){ $(id).style.display = 'none'; });
+    ['fRoute','fWh','fCat','fTodo','fClear'].forEach(function(id){ $(id).style.display = 'none'; });
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
-  var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value;
+  var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
   // выпечку возить между филиалами смысла нет — срок 24 ч; по умолчанию прячем
   var dvizh = $('onlyMove').checked;
   if (view === 'trio'){
@@ -2868,6 +2902,7 @@ function renderChrono(view){
       if (fR && r[0] !== fR) return false;
       if (fW && r[4] !== fW) return false;
       if (fC && r[2] !== fC) return false;
+      if (fT && S(r[17]) !== fT) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0; });
   } else if (view === 'pos'){
     head = POS_HEAD; st = SORT.pos;
@@ -2876,6 +2911,7 @@ function renderChrono(view){
       if (fR && routeOf(r[P_WH]) !== fR) return false;
       if (fW && r[P_WH] !== fW) return false;
       if (fC && r[P_CAT] !== fC) return false;
+      if (fT && S(r[P_TODO]) !== fT) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
   } else {
     head = PAIR_HEAD; st = SORT.pair;
@@ -3056,11 +3092,12 @@ $('qC').oninput = function(){ renderChrono(); };
 $('dayClose').onclick = closeDays;
 $('dayModal').onclick = function(e){ if (e.target === this) closeDays(); };
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDays(); });
-['fRoute','fWh','fCat'].forEach(function(id){
+['fRoute','fWh','fCat','fTodo'].forEach(function(id){
   $(id).onchange = function(){ renderChrono(); }; });
 $('onlyMove').onchange = function(){ renderChrono(); };
 $('fClear').onclick = function(){
-  $('fRoute').value = ''; $('fWh').value = ''; $('fCat').value = ''; $('qC').value = '';
+  $('fRoute').value = ''; $('fWh').value = ''; $('fCat').value = '';
+  $('fTodo').value = ''; $('qC').value = '';
   renderChrono();
 };
 $('onlyRoute').onchange = function(){ renderChrono(); };
