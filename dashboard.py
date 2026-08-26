@@ -75,6 +75,25 @@ POTERI_SKIDKA   = ["скидка_20"]
 # ─────────────────────────────────────────────────────────────────────────────
 SHABLON_FILIALA = r"(?:тт\s*\d|tt\s*\d|^\d{3}[\s\-–])"
 
+# Склад доставки — не витрина, а канал продаж: оттуда продукция уезжает
+# покупателю. Списание на нём — часть доставки, а не потеря филиала,
+# поэтому он исключается из отчёта целиком.
+SHABLON_DOSTAVKI = r"достав"
+
+# Категории, которых не должно быть в отчёте о потерях выпечки.
+# Свечу нельзя списать по сроку, а сок живёт годами.
+# В товарной ведомости и в справочнике категории пишутся чуть по-разному
+# («Кусочки тортов» против «Кусочки тортов, пирогов»), поэтому перечислены оба.
+NE_TOVAR = {"свечи", "конфеты/леденцы", "напитки/соки", "напитки", "леденцы",
+            "кофе", "чай", "лимонады", "доптовары", "упакп", "сырье", "завтраки"}
+
+# Перемещать между филиалами имеет смысл только то, что живёт дольше суток.
+# У выпечки и пиццы срок 24 ч — до другой точки они не доедут.
+PEREMESHCHAEMYE = {"торттар", "кіші торттар",                       # торты
+                   "кусочки тортов", "кусочки тортов, пирогов",
+                   "бәліш", "балиш",                                # пироги
+                   "пирожные", "десерты", "печенье", "рулеттер"}    # пирожные
+
 
 def nastroit_shrifty():
     """Кириллица и казахские буквы (ә, қ, ң, ө, ұ, ү, і) есть в DejaVu Sans.
@@ -225,6 +244,39 @@ def vybrat_period(poteri: pd.DataFrame):
     return ryad, obrezano, "по дням", "%d.%m"
 
 
+def ubrat_dostavku(df: pd.DataFrame) -> pd.DataFrame:
+    """Выбрасывает склад доставки: там ничего не пропадает, там продаётся."""
+    est = df["филиал"].str.contains(SHABLON_DOSTAVKI, case=False, regex=True, na=False)
+    if est.any():
+        print(f"Склад доставки исключён — это канал продаж, а не витрина "
+              f"({est.sum()} строк).")
+    return df[~est].copy()
+
+
+def ubrat_ne_tovar(df: pd.DataFrame, tolko_peremeshchaemye: bool) -> pd.DataFrame:
+    """Убирает свечи, леденцы и напитки, а по желанию — и выпечку.
+
+    Выпечка исключается не потому, что её не жалко, а потому что при сроке 24 ч
+    решение по ней всегда одно — менять заявку на месте. Перевозить нечего.
+    """
+    kategoriya = df["категория"].astype(str).str.strip().str.lower()
+
+    ne_tovar = kategoriya.isin(NE_TOVAR)
+    if ne_tovar.any():
+        print(f"Свечи, леденцы, напитки исключены ({ne_tovar.sum()} строк).")
+    df = df[~ne_tovar].copy()
+
+    if tolko_peremeshchaemye:
+        kategoriya = df["категория"].astype(str).str.strip().str.lower()
+        podhodit = kategoriya.isin(PEREMESHCHAEMYE)
+        ostalos = sorted(df.loc[~podhodit, "категория"].unique())
+        if ostalos:
+            print(f"Оставлены только торты, пироги и пирожные. "
+                  f"Исключено: {', '.join(ostalos)}")
+        df = df[podhodit].copy()
+    return df
+
+
 def tolko_vitrinnoe(df: pd.DataFrame, put) -> pd.DataFrame:
     """Оставляет только позиции из справочника витринной продукции.
 
@@ -244,6 +296,8 @@ def tolko_vitrinnoe(df: pd.DataFrame, put) -> pd.DataFrame:
 
     stolbec = next((c for c in tablica.columns if "наименование" in str(c).lower()),
                    tablica.columns[0])
+    st_kat = next((c for c in tablica.columns if "категор" in str(c).lower()), None)
+
     razresheno = {normalizovat_nazvanie(v) for v in tablica[stolbec].dropna()}
     if not razresheno:
         sys.exit(f"В справочнике «{put.name}» не нашла ни одного названия.")
@@ -252,7 +306,21 @@ def tolko_vitrinnoe(df: pd.DataFrame, put) -> pd.DataFrame:
     print(f"Справочник: {len(razresheno)} позиций, отсеяно строк: {(~est).sum()}")
     if not est.any():
         sys.exit("Ни одно блюдо не совпало со справочником — проверьте, тот ли файл.")
-    return df[est].copy()
+    df = df[est].copy()
+
+    # Категорию берём из справочника, а не из накладной. В накладной у полутора
+    # тысяч строк стоит «Без категории», и торт там неотличим от булки.
+    if st_kat is not None:
+        po_blyudu = {normalizovat_nazvanie(n): str(k).strip()
+                     for n, k in zip(tablica[stolbec], tablica[st_kat])
+                     if pd.notna(n) and pd.notna(k)}
+        bylo_bez = (df["категория"].astype(str).str.lower()
+                    .str.contains("без категории", na=False)).sum()
+        df["категория"] = (df["блюдо"].map(normalizovat_nazvanie).map(po_blyudu)
+                           .fillna(df["категория"]))
+        if bylo_bez:
+            print(f"Категория взята из справочника (было «без категории»: {bylo_bez} строк).")
+    return df
 
 
 def normalizovat_nazvanie(v) -> str:
@@ -569,6 +637,11 @@ def main():
     razbor.add_argument("csv", nargs="?", type=Path, help="CSV от prepare_csv.py")
     razbor.add_argument("--demo", action="store_true", help="Выдуманные данные для примера")
     razbor.add_argument("--shtuki", action="store_true", help="Считать в штуках, а не в тенге")
+    razbor.add_argument("--vse-kategorii", action="store_true",
+                        help="Не убирать выпечку и пиццу (по умолчанию остаются "
+                             "только торты, пироги и пирожные)")
+    razbor.add_argument("--s-dostavkoy", action="store_true",
+                        help="Считать склад доставки как филиал (по умолчанию исключён)")
     razbor.add_argument("--spravochnik", type=Path,
                         help="Справочник витринной продукции (.xlsx/.csv). "
                              "Без него в потери попадут хозтовары и сырьё.")
@@ -588,9 +661,15 @@ def main():
     if args.demo:
         df["дата"] = pd.to_datetime(df["дата"])
 
+    if not args.s_dostavkoy:
+        df = ubrat_dostavku(df)
     df = tolko_filialy(df, args.filialy)
     df = svesti_imena_filialov(df)
     df = tolko_vitrinnoe(df, args.spravochnik)
+    df = ubrat_ne_tovar(df, not args.vse_kategorii)
+    if df.empty:
+        sys.exit("После фильтров не осталось данных — ослабьте условия "
+                 "(--vse-kategorii, --s-dostavkoy).")
 
     edinica = "штук" if args.shtuki else "тенге"
     poteri = summa_poter(df, args.shtuki)
