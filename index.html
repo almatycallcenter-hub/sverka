@@ -1338,17 +1338,33 @@ var REPORT = null;
 var LIST_ROWS = [];   // строки «Списка филиала» в том порядке, в каком они на экране
 
 function build(wh, dFrom, dTo){
-  var mov = {}, movD = {}, rawName = {};
+  var mov = {}, movD = {}, rawName = {}, hasGp = {}, hasTt = {};
   DB.mov.forEach(function(r){
     if (r[1] !== wh) return;
     var k = nrm(r[2]);
     mov[k + '|' + r[0] + '|' + r[3]] = (mov[k + '|' + r[0] + '|' + r[3]] || 0) + N(r[4]);
     movD[r[0]] = 1;
+    if (r[3] === 'prihod_gp')   hasGp[k] = 1;
+    if (r[3] === 'prihod_tort') hasTt[k] = 1;
     // как позиция называется в iiko — пригодится тем, кого нет в справочнике
     if (!rawName[k]) rawName[k] = S(r[2]);
   });
   var movDays = Object.keys(movD).sort();
   var movFirst = movDays[0] || dFrom, movLast = movDays[movDays.length - 1] || dTo;
+
+  /* Позиция, которая в этот филиал вообще никогда не приезжает из Цеха ГП,
+     а только с тортового склада, приходит замороженной всегда. Срок на витрине
+     считается от разморозки, а её время нигде не фиксируется — значит приход по
+     ФИФО по такой позиции не проверяется в принципе, даже если в конкретный день
+     поставки не было. Раньше смотрели только срок до отчёта, и позиция с редкой
+     поставкой (Трилече, Трайфл Сникерс) зря получала «нету прихода по сроку». */
+  var _fz = {};
+  function alwaysFrozen(k){
+    if (_fz[k] !== undefined) return _fz[k];
+    var gp = hasGp[k], tt = hasTt[k];
+    (kusOf[k] || []).forEach(function(x){ if (hasGp[x]) gp = 1; if (hasTt[x]) tt = 1; });
+    return (_fz[k] = !!tt && !gp);
+  }
 
   function raw(k,d,t){ return mov[k+'|'+d+'|'+t] || 0; }
   function mv(k,d,t){ var v = raw(k,d,t);
@@ -1425,6 +1441,7 @@ function build(wh, dFrom, dTo){
       var srokDn = srokD(k);
       if (srokDn) for (var bb = 0; bb < srokDn; bb++)
         if (pTt(k, shift(T, -bb)) > 0){ frozen = true; break; }
+      if (!frozen && alwaysFrozen(k)) frozen = true;
 
       // позиции нет в справочнике — срок неизвестен, и ФИФО посчитать не из чего
       var neSpr = !SPR[k];
@@ -1432,6 +1449,7 @@ function build(wh, dFrom, dTo){
       // ── проверка прихода 20% ──────────────────────────────
       var M;
       if (c <= 0)               M = '';
+      else if (isPizza(sp.name))M = '';   // пиццу пекут на месте — приход по ФИФО не про неё
       else if (neSpr)           M = 'нет в справочнике';
       else if (frozen)          M = 'невозможно отследить (заморозка)';
       else if (!pf)             M = 'нету прихода по сроку';
@@ -1441,8 +1459,10 @@ function build(wh, dFrom, dTo){
       // ── проверка прихода списания: за сам день отчёта ─────
       var Nn;
       if (dSp0 <= 0)                Nn = '';
-      else if (isPizza(sp.name))    Nn = mv(k,T1,'prigotovlenie') > 1e-9
-                                       ? 'ок' : 'нету акта приготовления';
+      /* Пиццу собирают в филиале из полуфабрикатов, прихода готовой пиццы со
+         склада не бывает вовсе. Проверять по ней ФИФО и акт приготовления
+         бессмысленно — раньше это давало ложные «нету акта приготовления». */
+      else if (isPizza(sp.name))    Nn = '';
       else if (neSpr)               Nn = 'нет в справочнике';
       else if (frozen)              Nn = 'невозможно отследить (заморозка)';
       else if (!pf)                 Nn = 'нету прихода по сроку';
