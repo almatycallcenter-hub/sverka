@@ -2192,6 +2192,23 @@ function refresh(){
 }
 
 loadDB();
+/* Справочник пополняется, а списки филиалов уже лежат разобранными. Позиция,
+   которую вчера не удалось опознать, сегодня может в справочнике появиться —
+   прогоняем такие строки заново, чтобы не заставлять руками жать «Запомнить». */
+function reresolveList(){
+  var idx = sprIndex(), n = 0;
+  DB.list.forEach(function(r){
+    if (S(r[4])) return;                       // уже опознана
+    var rz = resolveName(r[2], idx);
+    if (!rz.target || rz.note) return;         // берём только точное совпадение
+    r[4] = rz.target;
+    r[5] = S(r[5]).split('; ').filter(function(x){ return x && x !== 'НЕ РАСПОЗНАНО'; }).join('; ');
+    n++;
+  });
+  if (n) saveDB();
+  return n;
+}
+reresolveList();
 $('year').value = new Date().getFullYear();
 $('branch').onchange    = function(){ syncBranch(this.value); };
 $('defBranch').onchange = function(){ syncBranch(this.value); };
