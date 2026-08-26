@@ -420,12 +420,10 @@
             <div class="f"><label>Товарная ведомость</label>
               <div class="h">Построчные движения по всем складам</div>
               <input type="file" id="fTovarnaya" accept=".xlsx"></div>
-            <div class="f"><label>Продажи со скидкой 20%</label>
-              <div class="h">Отчёт по продажам филиала, тип скидки «Скидка 20%», по учётным дням</div>
-              <input type="file" id="fProd20" accept=".xlsx"></div>
             <div class="f"><label>Продажи по чекам (со временем)</label>
-              <div class="h">Отчёт по продажам филиала с колонкой «Время закрытия» —
-                нужен, чтобы знать час выхода в стоп. Тип скидки при выгрузке не выбирайте.</div>
+              <div class="h">Отчёт по продажам филиала с колонкой «Время закрытия».
+                Даёт и час выхода в стоп, и продажи со скидкой 20% — отдельный файл 20% больше не нужен.
+                <b>Тип скидки при выгрузке не фильтруйте</b>, нужны все.</div>
               <input type="file" id="fCheki" accept=".xlsx"></div>
             <div class="f"><label>Продажи со скидкой 50%</label>
               <div class="h">С колонкой «В кредит на...» — кто из сотрудников выкупил</div>
@@ -1073,7 +1071,8 @@ function parseCheki(v){
   if (iT === undefined) throw new Error(
     'В файле нет колонки «Время закрытия» — это обычный отчёт по учётным дням, а не по чекам.');
 
-  var poz = {}, day = '', tm = '', conc = '';
+  var iTip = col(h,'Тип скидки'), iS0 = col(h,'Сумма без скидки, тенге');
+  var poz = {}, s20 = [], day = '', tm = '', conc = '';
   for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row) continue;
     var c0 = S(row[iT]);
@@ -1088,13 +1087,21 @@ function parseCheki(v){
     var dish = S(row[iDish]);
     if (!dish || /всего$/.test(dish)) continue;
     if (!day || !conc || !tm) continue;
-    if (!N(row[iQ])) continue;
+    var q = N(row[iQ]); if (!q) continue;
 
     var k = day + '|' + conc + '|' + dish;
     if (!poz[k] || tm > poz[k]) poz[k] = tm;     // час последней продажи за день
+
+    /* Здесь же вынимаем продажи со скидкой 20% — отдельный файл больше не нужен.
+       Тип скидки бывает составным: «Бонусы (MXM), Скидка 20%», поэтому ищем
+       подстроку, а не сравниваем целиком. */
+    var tip = iTip === undefined ? '' : S(row[iTip]).toLowerCase();
+    if (tip.indexOf('скидка 20%') >= 0)
+      s20.push([day, conc, dish, q, iS0 === undefined ? 0 : N(row[iS0])]);
   }
-  return Object.keys(poz).map(function(k){
+  var times = Object.keys(poz).map(function(k){
     var p = k.split('|'); return [p[0], p[1], p[2], poz[k]]; });
+  return { times: times, s20: s20 };
 }
 
 function mergeRows(key, rows){
@@ -1125,23 +1132,17 @@ $('btnLoad').onclick = async function(){
       mergeRows('mov', rows); done.push('движения: ' + rows.length + ' строк');
     }
     // продажи не критичны для сверки движений — если сломаются, скажем и пойдём дальше
-    f = $('fProd20').files[0];
-    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
-      try{
-        var r20 = parseProdazhi(await readXlsx(f), false, 'скидка 20%');
-        if (!r20.length) problems.push('В «' + f.name + '» нет ни одной продажи со скидкой 20%. ' +
-          'Проверьте, что при выгрузке выбран тип скидки «Скидка 20%».');
-        else { mergeRows('s20', r20); done.push('продажи 20%: ' + r20.length + ' строк'); }
-      }catch(e){ problems.push('Продажи 20%: ' + (e.message || e)); }
-    }
-
     f = $('fCheki').files[0];
     if (f){ msg('m1','Читаю «'+f.name+'» — файл большой, это займёт время…','wait');
       try{
         var rch = parseCheki(await readXlsx(f));
-        if (!rch.length) problems.push('В «' + f.name + '» не нашлось продаж со временем.');
-        else { mergeRows('cheki', rch);
-               done.push('продажи по чекам: ' + rch.length + ' позиций со временем'); }
+        if (!rch.times.length) problems.push('В «' + f.name + '» не нашлось продаж со временем.');
+        else { mergeRows('cheki', rch.times);
+               done.push('продажи по чекам: ' + rch.times.length + ' позиций со временем'); }
+        if (rch.s20.length){ mergeRows('s20', rch.s20);
+          done.push('продажи 20%: ' + rch.s20.length + ' строк (из этого же файла)'); }
+        else problems.push('В «' + f.name + '» нет продаж со скидкой 20%. ' +
+          'При выгрузке не отфильтровывайте тип скидки — нужны все.');
       }catch(e){ problems.push('Продажи по чекам: ' + (e.message || e)); }
     }
 
@@ -1326,12 +1327,14 @@ function branches(){
 var REPORT = null;
 
 function build(wh, dFrom, dTo){
-  var mov = {}, movD = {};
+  var mov = {}, movD = {}, rawName = {};
   DB.mov.forEach(function(r){
     if (r[1] !== wh) return;
     var k = nrm(r[2]);
     mov[k + '|' + r[0] + '|' + r[3]] = (mov[k + '|' + r[0] + '|' + r[3]] || 0) + N(r[4]);
     movD[r[0]] = 1;
+    // как позиция называется в iiko — пригодится тем, кого нет в справочнике
+    if (!rawName[k]) rawName[k] = S(r[2]);
   });
   var movDays = Object.keys(movD).sort();
   var movFirst = movDays[0] || dFrom, movLast = movDays[movDays.length - 1] || dTo;
@@ -1373,7 +1376,9 @@ function build(wh, dFrom, dTo){
     return p >= movFirst ? p : ''; }
 
   MATCH50 = match50();
-  var rep = [], tot = [], day = dFrom, kpi = { list:0, ok:0, bad:0, noList:0 };
+  var rep = [], tot = [], day = dFrom;
+  // prOk / prBad — итог по проверке прихода, отдельно от проверки продажи
+  var kpi = { list:0, ok:0, bad:0, noList:0, prOk:0, prBad:0, prNa:0 };
   while (day <= dTo){
     var T = day, T1 = shift(T,-1), T2 = shift(T,-2), T3 = shift(T,1), keys = {};
     Object.keys(list).forEach(function(kd){ var p = kd.split('|'); if (p[1] === T) keys[p[0]] = 1; });
@@ -1387,7 +1392,7 @@ function build(wh, dFrom, dTo){
     });
     var inL = 0, ok = 0, bad = 0, noL = 0;
     Object.keys(keys).sort().forEach(function(k){
-      var sp = SPR[k] || { name:k, forma:'' }, lk = k + '|' + T;
+      var sp = SPR[k] || { name: rawName[k] || k, forma:'' }, lk = k + '|' + T;
       var vList = list[lk] !== undefined, nq = !!noQty[lk], c = vList ? list[lk] : 0;
       var dSp = mv(k,T3,'spisanie'), h = sk(k,T), vz = mv(k,T3,'vozvrat_srok'), p50 = mv(k,T,'perem_50');
       var dSp0 = mv(k,T,'spisanie');   // списание, оформленное в сам день отчёта
@@ -1401,12 +1406,23 @@ function build(wh, dFrom, dTo){
 
       // ── приход по ФИФО на дату «срок минус сутки» ─────────
       var P = prihodDate(k,T), pf = null, frozen = frozenByName(sp.name);
-      if (P){ var g = pGp(k,P), t = pTt(k,P); if (t > 0) frozen = true; pf = (g+t) || null; }
+      if (P){ var g = pGp(k,P), t = pTt(k,P); pf = (g+t) || null; }
+      /* Продукция с «Таугуль торт склад» приходит замороженной. Срок на витрине
+         идёт от разморозки, а её время в учёте не фиксируется — значит по такой
+         партии проверить приход по ФИФО нельзя в принципе. Смотрим не только день
+         ФИФО, но и весь срок до отчёта: заморозка могла приехать любым из этих дней. */
+      var srokDn = srokD(k);
+      if (srokDn) for (var bb = 0; bb < srokDn; bb++)
+        if (pTt(k, shift(T, -bb)) > 0){ frozen = true; break; }
+
+      // позиции нет в справочнике — срок неизвестен, и ФИФО посчитать не из чего
+      var neSpr = !SPR[k];
 
       // ── проверка прихода 20% ──────────────────────────────
       var M;
       if (c <= 0)               M = '';
-      else if (frozen)          M = 'невозможно отследить';
+      else if (neSpr)           M = 'нет в справочнике';
+      else if (frozen)          M = 'невозможно отследить (заморозка)';
       else if (!pf)             M = 'нету прихода по сроку';
       else if (pf >= c - 1e-9)  M = 'ок';
       else                      M = 'приход меньше скидки';
@@ -1416,7 +1432,8 @@ function build(wh, dFrom, dTo){
       if (dSp0 <= 0)                Nn = '';
       else if (isPizza(sp.name))    Nn = mv(k,T1,'prigotovlenie') > 1e-9
                                        ? 'ок' : 'нету акта приготовления';
-      else if (frozen)              Nn = 'невозможно отследить';
+      else if (neSpr)               Nn = 'нет в справочнике';
+      else if (frozen)              Nn = 'невозможно отследить (заморозка)';
       else if (!pf)                 Nn = 'нету прихода по сроку';
       else if (pf >= dSp0 - 1e-9)   Nn = 'ок';
       else                          Nn = 'приход меньше списания';
@@ -1427,7 +1444,13 @@ function build(wh, dFrom, dTo){
              pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
              pGp(k,T)||'',  pTt(k,T)||'',
              L, M, Nn] });
-      if (vList){ inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++; }
+      if (vList){
+        inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++;
+        if (M === 'ок') kpi.prOk++;
+        else if (M === '' ) ;                       // проверять нечего
+        else if (cls(M) === 'na') kpi.prNa++;
+        else kpi.prBad++;
+      }
       else if (L.indexOf('нарушение (нет') === 0) noL++;
     });
     tot.push([ru(T), inL, ok, bad, noL]);
@@ -1568,7 +1591,8 @@ function cls(v){
   v = S(v); if (!v) return '';
   if (v === 'ок') return 'ok';
   if (v.indexOf('нет данных') === 0 || v.indexOf('не известна') === 0
-      || v.indexOf('невозможно отследить') === 0) return 'na';
+      || v.indexOf('невозможно отследить') === 0
+      || v.indexOf('нет в справочнике') === 0) return 'na';
   return 'bad';
 }
 var CHIP_SHORT = {
@@ -1801,7 +1825,14 @@ $('btnBuild').onclick = function(){
       '<div><span>Совпало позиций</span><b style="color:var(--okT)">' + k.ok + '</b></div>' +
       '<div><span>Расхождений</span><b style="color:var(--badT)">' + k.bad + '</b></div>' +
       '<div><span>Скидка без заявки</span><b style="color:var(--naT)">' + k.noList + '</b></div>' +
-      '<div><span>Доля совпавших</span><b>' + pct + '%</b></div>';
+      '<div><span>Доля совпавших</span><b>' + pct + '%</b></div>' +
+      // отдельная карточка по приходу: если нарушений нет — говорим об этом прямо,
+      // иначе бухгалтер листает 116 строк, чтобы убедиться, что всё в порядке
+      '<div><span>Приход по списку филиала</span>' + (k.prBad === 0
+        ? '<b style="color:var(--okT)">всё ок</b><span>' + k.prOk + ' проверено' +
+          (k.prNa ? ', ' + k.prNa + ' не отследить' : '') + '</span>'
+        : '<b style="color:var(--badT)">' + k.prBad + '</b><span>требуют разбора из ' +
+          (k.prOk + k.prBad + k.prNa) + '</span>') + '</div>';
     document.querySelectorAll('.tabs button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
     render('rep');
     histAdd({ ts: new Date().toISOString(), kind: 'rep', wh: REPORT.wh, from: f, to: t,
