@@ -943,6 +943,16 @@ Object.keys(SPR).forEach(function(k){
 /* ═════════ импорт выгрузок ═════════ */
 var DOCKINDS = {};
 
+/* Ключ документа для склейки товарного отчёта с товарной ведомостью.
+   Одного номера мало: iiko нумерует документы отдельно по каждому виду,
+   поэтому номер 371091 в один день — приходная накладная из цеха,
+   а через десять дней — акт приготовления. По одному номеру приход
+   филиала терялся: его перебивал акт приготовления с тем же номером.
+   Номер + тип + вид + дата встречаются в выгрузке ровно один раз. */
+function docKey(num, tip, vid, den){
+  return num + '|' + tip + '|' + vid + '|' + den;
+}
+
 function parseTovarny(v){
   var fh = findHdr(v, ['Номер документа','Наименование','Вид документа','Тип'], 'Товарный отчёт');
   var h = fh.h, kinds = {};
@@ -968,8 +978,8 @@ function parseTovarny(v){
       k = nm.indexOf('возврат по качеству') >= 0 ? 'vozvrat_kach'
         : nm.indexOf('50%') >= 0 ? 'perem_50' : 'other';
     else k = 'other';
-    kinds[num + '|' + tip] = k;
     var d = D(row[col(h,'Дата документа')]);
+    kinds[docKey(num, tip, vid, d)] = k;
     if (d){ if (!kinds.__from || d < kinds.__from) kinds.__from = d;
             if (!kinds.__to   || d > kinds.__to)   kinds.__to   = d; }
   }
@@ -999,8 +1009,8 @@ function parseTovarnaya(v, kinds){
     var wo = S(row[iWo]), wi = S(row[iWi]);
     var wh = isBranchWh(wi) ? wi : (isBranchWh(wo) ? wo : '');
     if (!wh) continue;
-    var tip = S(row[iTip]), num = S(row[iNum]), vid = S(row[iVid]);
-    var k = kinds[num + '|' + tip];
+    var tip = S(row[iTip]), num = S(row[iNum]), vid = S(row[iVid]), den = D(row[iD]);
+    var k = kinds[docKey(num, tip, vid, den)];
     // у актов реализации, списания и инвентаризации назначение и так однозначно;
     // важно оно только для накладных и перемещений
     // считаем только витринную продукцию: перчатки и дезсредство на проверки не влияют
@@ -1016,7 +1026,7 @@ function parseTovarnaya(v, kinds){
         : vid === 'Инвентаризация' ? (tip === 'Приход' ? 'inv_in' : 'inv_out') : 'other';
     }
     if (k.indexOf('prihod') === 0 && wi !== wh) k = 'other';
-    out.push([D(row[iD]), wh, S(row[iNm]), k, N(row[iQ])]);
+    out.push([den, wh, S(row[iNm]), k, N(row[iQ])]);
   }
   DOCCOVER = { seen: seen, missed: missed };
   return out;
