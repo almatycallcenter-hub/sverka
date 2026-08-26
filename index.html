@@ -1335,6 +1335,20 @@ function branches(){
   return _brCache;
 }
 
+/* Мороженой позицию делает сама продукция, а не филиал. В TT8 Qaratau по
+   Трайфлу Сникерс вообще нет приходных накладных — только реализация и возврат,
+   и по одному этому филиалу не догадаешься, что он мороженый. Зато в 010-Шугыле
+   он приезжает с тортового склада. Поэтому список собираем по всей сети. */
+var _tort = null, _tortSig = '';
+function tortPositions(){
+  var sig = DB.mov.length + '/' + (DB.mov.length ? S(DB.mov[DB.mov.length - 1][2]) : '');
+  if (_tort && _tortSig === sig) return _tort;
+  var m = {};
+  DB.mov.forEach(function(r){ if (r[3] === 'prihod_tort') m[nrm(r[2])] = 1; });
+  _tortSig = sig;
+  return (_tort = m);
+}
+
 var REPORT = null;
 var LIST_ROWS = [];   // строки «Списка филиала» в том порядке, в каком они на экране
 
@@ -1358,11 +1372,11 @@ function build(wh, dFrom, dTo){
      мороженая, срок на витрине идёт от разморозки, а её время нигде не
      фиксируется. Отличить в остатке мороженую партию от гэпэшной нельзя,
      поэтому по такой позиции приход не проверяется вовсе. */
-  var _fz = {};
+  var _fz = {}, TORT = tortPositions();
   function alwaysFrozen(k){
     if (_fz[k] !== undefined) return _fz[k];
-    var tt = hasTt[k];
-    (kusOf[k] || []).forEach(function(x){ if (hasTt[x]) tt = 1; });
+    var tt = hasTt[k] || TORT[k];
+    (kusOf[k] || []).forEach(function(x){ if (hasTt[x] || TORT[x]) tt = 1; });
     return (_fz[k] = !!tt);
   }
 
