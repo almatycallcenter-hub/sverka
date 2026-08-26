@@ -182,6 +182,10 @@
      border-bottom:1px solid var(--bd2);border-right:1px solid var(--bd2)}
   tbody tr:last-child td{border-bottom:0}
   td.name,th.name{text-align:left;min-width:220px;white-space:normal}
+  /* Филиал держим на месте при прокрутке вправо — иначе непонятно, чья строка */
+  .wrapT th:first-child,.wrapT td:first-child{position:sticky;left:0;z-index:1;
+    box-shadow:1px 0 0 var(--bd)}
+  .wrapT th:first-child{z-index:3}
   td.name{color:var(--txt);font-weight:500}
   tbody tr:hover td{background:var(--rowHov)}
   td.c0,th.c0{position:sticky;left:0;z-index:1;min-width:96px;width:96px}
@@ -419,6 +423,10 @@
             <div class="f"><label>Продажи со скидкой 20%</label>
               <div class="h">Отчёт по продажам филиала, тип скидки «Скидка 20%», по учётным дням</div>
               <input type="file" id="fProd20" accept=".xlsx"></div>
+            <div class="f"><label>Продажи по чекам (со временем)</label>
+              <div class="h">Отчёт по продажам филиала с колонкой «Время закрытия» —
+                нужен, чтобы знать час выхода в стоп. Тип скидки при выгрузке не выбирайте.</div>
+              <input type="file" id="fCheki" accept=".xlsx"></div>
             <div class="f"><label>Продажи со скидкой 50%</label>
               <div class="h">С колонкой «В кредит на...» — кто из сотрудников выкупил</div>
               <input type="file" id="fProd50" accept=".xlsx"></div>
@@ -498,6 +506,8 @@
           <div class="fbar" id="fbar">
             <input type="text" id="q" placeholder="Поиск по блюду">
             <label><input type="checkbox" id="onlyBad"> только расхождения</label>
+            <label id="labOnlyList"><input type="checkbox" id="onlyList">
+              только из списка филиала</label>
             <label><input type="checkbox" id="fullMode"> все колонки</label>
             <span class="cnt" id="cnt"></span>
           </div>
@@ -793,6 +803,22 @@ function D(v){
   m = s.match(/(\d{4})-(\d{2})-(\d{2})/);           if (m) return m[1] + '-' + m[2] + '-' + m[3];
   return '';
 }
+/* Время из ячейки. Excel хранит «30.07.2026 07:57» числом 46233.3314…:
+   целая часть — день, дробная — доля суток. Строку вида «2026-07-30 07:57»
+   тоже понимаем — так отдают некоторые выгрузки. */
+function T(v){
+  var s = S(v);
+  if (/^\d{4,6}(\.\d+)?$/.test(s)){
+    var n = parseFloat(s);
+    if (n > 20000 && n < 60000){
+      var sec = Math.round((n - Math.floor(n)) * 86400);
+      if (sec >= 86400) sec = 86399;
+      return pad(Math.floor(sec / 3600)) + ':' + pad(Math.floor(sec / 60) % 60);
+    }
+  }
+  var m = s.match(/[T ](\d{1,2}):(\d{2})/);
+  return m ? pad(+m[1]) + ':' + m[2] : '';
+}
 function shift(d, n){ var p = d.split('-'); var t = new Date(+p[0], +p[1]-1, +p[2]); t.setDate(t.getDate()+n);
   return t.getFullYear() + '-' + pad(t.getMonth()+1) + '-' + pad(t.getDate()); }
 function ru(d){ var p = S(d).split('-'); return p.length === 3 ? p[2]+'.'+p[1]+'.'+p[0] : S(d); }
@@ -833,7 +859,7 @@ function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg 
 function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
-var DB = { mov: [], s20: [], s50: [], list: [], syn: {} };
+var DB = { mov: [], s20: [], s50: [], cheki: [], list: [], syn: {} };
 /* В движениях одни и те же названия складов, блюд и видов повторяются
    десятками тысяч раз. Храним их словарём, а в строках — номера.
    В памяти формат прежний, поэтому остальной код не меняется. */
@@ -841,10 +867,12 @@ function packDB(db){
   var d = {}, list = [];
   function id(x){ var k = String(x);
     if (d[k] === undefined){ d[k] = list.length; list.push(k); } return d[k]; }
-  var out = {}; for (var k in db) if (k !== 'mov') out[k] = db[k];
+  var out = {}; for (var k in db) if (k !== 'mov' && k !== 'cheki') out[k] = db[k];
   out.dict = list;
   out.movP = (db.mov || []).map(function(r){
     return [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]]; });
+  out.chekiP = (db.cheki || []).map(function(r){
+    return [id(r[0]), id(r[1]), id(r[2]), id(r[3])]; });
   out.packed = 1;
   return out;
 }
@@ -852,7 +880,8 @@ function unpackDB(db){
   if (!db || !db.packed) return db;
   var L = db.dict || [];
   db.mov = (db.movP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]]; });
-  delete db.movP; delete db.dict; delete db.packed;
+  db.cheki = (db.chekiP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]]]; });
+  delete db.movP; delete db.chekiP; delete db.dict; delete db.packed;
   return db;
 }
 function saveDB(){
@@ -876,13 +905,13 @@ var DBSIZE = 0;
 function loadDB(){
   try{ var s = localStorage.getItem('sverka20'); if (s) DB = unpackDB(JSON.parse(s)); }catch(e){}
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
-  ['mov','s20','s50','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  ['mov','s20','s50','cheki','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
   migrateDB();
 }
 
-var DB_V = 3;
+var DB_V = 4;
 /* Приводим ранее сохранённые данные к текущей форме.
    Без этого старые записи молча дают пустые цены и сломанные проверки. */
 function migrateDB(){
@@ -893,6 +922,8 @@ function migrateDB(){
     return r.length >= 5 ? r : [r[0], r[1], r[2], r[3], 0]; });
   // v3: движения обязаны иметь 5 полей — дата, склад, блюдо, вид, количество
   if (was < 3) DB.mov = (DB.mov || []).filter(function(r){ return r && r.length >= 5; });
+  // v4: появились продажи по чекам со временем закрытия
+  if (was < 4 && !DB.cheki) DB.cheki = [];
   DB.v = DB_V;
   try{ localStorage.setItem('sverka20', JSON.stringify(packDB(DB))); }catch(e){}
 }
@@ -1020,6 +1051,42 @@ function parseProdazhi(v, hasCredit, onlyTip){
   return out;
 }
 
+/* Отчёт по продажам с «Временем закрытия».
+   В файле бывает больше ста тысяч строк — по одной на позицию в чеке.
+   Хранить их целиком незачем: нам нужен только час последней продажи
+   каждого блюда в каждом филиале за день, поэтому сразу сворачиваем. */
+function parseCheki(v){
+  var fh = findHdr(v, ['Время закрытия','Блюдо','Количество блюд'], 'Отчёт по продажам по чекам');
+  var h = fh.h;
+  var iT = col(h,'Время закрытия'), iC = col(h,'Концепция'),
+      iCat = col(h,'Категория блюда'), iDish = col(h,'Блюдо'), iQ = col(h,'Количество блюд');
+  if (iT === undefined) throw new Error(
+    'В файле нет колонки «Время закрытия» — это обычный отчёт по учётным дням, а не по чекам.');
+
+  var poz = {}, day = '', tm = '', conc = '';
+  for (var r = fh.row + 1; r < v.length; r++){
+    var row = v[r]; if (!row) continue;
+    var c0 = S(row[iT]);
+    if (c0){
+      if (c0 === 'Итого') break;
+      // дата и время лежат в одной ячейке — разбираем обе части
+      day = D(row[iT]); tm = T(row[iT]);
+      conc = '';
+    }
+    var c1 = S(row[iC]); if (c1){ if (/всего$/.test(c1)) continue; conc = c1; }
+    var c2 = S(row[iCat]); if (c2 && /всего$/.test(c2)) continue;
+    var dish = S(row[iDish]);
+    if (!dish || /всего$/.test(dish)) continue;
+    if (!day || !conc || !tm) continue;
+    if (!N(row[iQ])) continue;
+
+    var k = day + '|' + conc + '|' + dish;
+    if (!poz[k] || tm > poz[k]) poz[k] = tm;     // час последней продажи за день
+  }
+  return Object.keys(poz).map(function(k){
+    var p = k.split('|'); return [p[0], p[1], p[2], poz[k]]; });
+}
+
 function mergeRows(key, rows){
   var dates = {}; rows.forEach(function(r){ dates[r[0]] = 1; });
   DB[key] = DB[key].filter(function(r){ return !dates[r[0]]; }).concat(rows);
@@ -1056,6 +1123,16 @@ $('btnLoad').onclick = async function(){
           'Проверьте, что при выгрузке выбран тип скидки «Скидка 20%».');
         else { mergeRows('s20', r20); done.push('продажи 20%: ' + r20.length + ' строк'); }
       }catch(e){ problems.push('Продажи 20%: ' + (e.message || e)); }
+    }
+
+    f = $('fCheki').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'» — файл большой, это займёт время…','wait');
+      try{
+        var rch = parseCheki(await readXlsx(f));
+        if (!rch.length) problems.push('В «' + f.name + '» не нашлось продаж со временем.');
+        else { mergeRows('cheki', rch);
+               done.push('продажи по чекам: ' + rch.length + ' позиций со временем'); }
+      }catch(e){ problems.push('Продажи по чекам: ' + (e.message || e)); }
     }
 
     f = $('fProd50').files[0];
@@ -1516,9 +1593,12 @@ function suggest(raw, cur){
 }
 
 function rowsFiltered(){
-  var q = nrm($('q').value), bad = $('onlyBad').checked;
+  var q = nrm($('q').value), bad = $('onlyBad').checked, vList = $('onlyList').checked;
   return REPORT.rep.filter(function(r){
     if (q && nrm(r.name).indexOf(q) < 0) return false;
+    // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
+    // Колонка 2 — «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
+    if (vList && S(r.v[2]) === '') return false;
     if (bad){
       var v = r.v;
       if (!(String(v[CHK0]).indexOf('нарушение') === 0 ||
@@ -1684,7 +1764,7 @@ function render(view){
   }
 }
 
-['q','onlyBad','fullMode'].forEach(function(id){
+['q','onlyBad','onlyList','fullMode'].forEach(function(id){
   $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', function(){
     if (REPORT) render('rep');
   });
@@ -2031,7 +2111,7 @@ function isDelivery(w){ return /достав/i.test(S(w)); }
    Выпечка со сроком 24 ч приедет уже к концу срока — смысла нет. */
 function movable(k){ var sp = SPR[k]; return !!sp && sp.srok >= 48; }
 /* перемещать между филиалами имеет смысл только то, что живёт дольше суток */
-var MOVE_CATS = { 'торт':1, 'пирог':1, 'пирожное':1 };
+var MOVE_CATS = { 'торт':1, 'пирог':1, 'пирожное':1 };   // группы, не категории
 /* Категории справочника сводим к четырём, с которыми работает отчёт.
    Раньше категория угадывалась по названию — и «Қаймақты» с
    «Сүзбелі-жидекті таңқурай» попадали в «прочее», хотя это бәліш, то есть пирог.
@@ -2039,23 +2119,29 @@ var MOVE_CATS = { 'торт':1, 'пирог':1, 'пирожное':1 };
    для позиций, которых в справочнике ещё нет. */
 var KAT_GRUPPA = {
   'торттар': 'торт', 'кіші торттар': 'торт', 'кусочки тортов': 'торт',
+  'кусочки тортов, пирогов': 'торт',
   'бәліш': 'пирог', 'балиш': 'пирог',
   'пирожные': 'пирожное', 'десерты': 'пирожное', 'печенье': 'пирожное',
   'рулеттер': 'пирожное',
   'выпечка': 'выпечка', 'пицца': 'выпечка',
   // не витринная продукция: свечи для торта, леденцы для украшения, напитки
-  'свечи': 'не еда', 'конфеты/леденцы': 'не еда', 'напитки/соки': 'не еда'
+  'свечи': 'не еда', 'конфеты/леденцы': 'не еда', 'напитки/соки': 'не еда',
+  // сами названия групп — чтобы grpOf работал и для позиций вне справочника
+  'торт': 'торт', 'пирог': 'пирог', 'пирожное': 'пирожное', 'прочее': 'прочее'
 };
+/* Группа нужна только для фильтра «что имеет смысл возить».
+   В таблице показываем настоящую категорию справочника: кусочек торта — это
+   «Кусочки тортов», а печенье в упаковке — «Печенье», а не «пирожное». */
+function grpOf(kat){ return KAT_GRUPPA[S(kat).toLowerCase()] || 'прочее'; }
+function movableCat(kat){ var g = grpOf(kat);
+  return g === 'торт' || g === 'пирог' || g === 'пирожное'; }
 /* Категории, которых не должно быть в отчёте о потерях выпечки.
    Свечу нельзя списать по сроку, а бутылка сока живёт годами. */
 var NE_TOVAR = { 'не еда': 1 };
 
 function catOf(n){
   var sp = SPR[nrm(n)];
-  if (sp && sp.kat){
-    var g = KAT_GRUPPA[S(sp.kat).toLowerCase()];
-    if (g) return g;
-  }
+  if (sp && sp.kat && KAT_GRUPPA[S(sp.kat).toLowerCase()]) return sp.kat;
   return catPoImeni(n);
 }
 
@@ -2122,6 +2208,18 @@ function priceMap(){
 function chrono(dFrom, dTo){
   var PR = priceMap(), acc = {};
   SERIES = {};
+  // час последней продажи блюда в филиале за день — из отчёта по чекам
+  var TM = {};
+  (DB.cheki || []).forEach(function(r){
+    var d = r[0]; if (!d || d < dFrom || d > dTo) return;
+    var k = nrm(r[2]); if (!SPR[k]) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    branches().forEach(function(w){
+      if (!sameBranch(r[1], w)) return;
+      var key = w + '|' + base + '|' + d;
+      if (!TM[key] || r[3] > TM[key]) TM[key] = r[3];
+    });
+  });
   // продажи со скидкой 20% по филиалу и дню — это тоже потеря, но в цене
   var S20 = {};
   DB.s20.forEach(function(r){
@@ -2142,7 +2240,7 @@ function chrono(dFrom, dTo){
     // Склад доставки — это канал продаж, а не витрина. Всё, что там происходит,
     // в итоге уезжает покупателю, поэтому в потери филиалов он не входит.
     if (isDelivery(wh)) return;
-    if (NE_TOVAR[catOf(SPR[k].name)]) return;      // свечи, леденцы, напитки
+    if (grpOf(catOf(SPR[k].name)) === 'не еда') return;   // свечи, леденцы, напитки
     var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
     var f = isKus[k] ? 1 / KUSOK : 1;
     if (!SPR[base]) return;
@@ -2150,7 +2248,11 @@ function chrono(dFrom, dTo){
     var a = acc[key] || (acc[key] = { wh: wh, k: base, days: {} });
     var dd = a.days[d] || (a.days[d] = { p:0, s:0, l:0, v:0, f50:0, sp:0 });
     if (kind === 'perem_dost'){ dd.dost = (dd.dost || 0) + q * f; return; }
-    if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other') dd.p += q * f;
+    if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other'){
+      dd.p += q * f;
+      // приход из Цеха ГП датирован точно — только по нему можно отмотать ФИФО
+      if (kind === 'prihod_gp') dd.gp = (dd.gp || 0) + q * f;
+    }
     else if (kind === 'realiz')       dd.s  += q * f;
     else if (kind === 'vozvrat_srok'){ dd.v += q * f; dd.l += q * f; }
     else if (kind === 'perem_50')    { dd.f50 += q * f; dd.l += q * f; }
@@ -2166,33 +2268,61 @@ function chrono(dFrom, dTo){
   Object.keys(acc).forEach(function(key){
     var a = acc[key], sp = SPR[a.k];
     var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0;
-    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0, D20 = 0, dDisc = 0, lastS = '';
+    var dLoss = 0, dArr = 0, onShelf = 0, stop = 0, D20 = 0, dDisc = 0;
+    var lastS = '', lastT = '', gpP = 0;
     var bal = 0, minCum = 0, cum = 0, series = [];
     days.forEach(function(dd){
       var x = a.days[dd] || { p:0, s:0, l:0, v:0, f50:0, sp:0 };
+      if (x.gp > 1e-9) gpP += x.gp;
       P += x.p; S_ += x.s; L += x.l; V += x.v; F += x.f50; SP += x.sp; DS += (x.dost || 0);
       if (x.l > 1e-9) dLoss++;
       if (x.p > 1e-9) dArr++;
-      if (x.s > 1e-9) lastS = dd;
+      if (x.s > 1e-9){ lastS = dd; lastT = TM[a.wh + '|' + a.k + '|' + dd] || ''; }
       var q20 = S20[a.wh + '|' + a.k + '|' + dd] || 0;
       if (q20 > 1e-9){ D20 += q20; dDisc++; }
       cum += x.p - x.s - x.l;
       if (cum < minCum) minCum = cum;
-      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s });
+      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s, gp: x.gp || 0 });
     });
     if (P < 1e-9 && S_ < 1e-9) return;
-    var open = Math.max(0, -minCum), prev = 0, stopDays = [];
+    var open = Math.max(0, -minCum), prev = 0, stopDays = [], stopTimes = {};
     series.forEach(function(x, i){
       bal = open + x.cum;
       x.bal = r3(bal);
       if (bal > 1e-9) x.st = 0, onShelf++;
-      else if (x.p > 1e-9 || prev > 1e-9){ x.st = 1; stop++; stopDays.push(x.d); }
+      else if (x.p > 1e-9 || prev > 1e-9){
+        x.st = 1; stop++; stopDays.push(x.d);
+        // час, когда продали последнюю штуку — это и есть время выхода в стоп
+        stopTimes[x.d] = TM[a.wh + '|' + a.k + '|' + x.d] || '';
+      }
       else x.st = 0;
       prev = x.p;
     });
+    /* «Худший день».
+       Если продукция приходит из Цеха ГП, дата прихода известна точно, и по сроку
+       можно отмотать назад: то, что пропало в четверг, завезли в понедельник.
+       Менять надо заявку на понедельник, а не четверг — поэтому показываем завоз.
+       По остальным складам (Таугуль, заморозка) точной даты нет — показываем день
+       самих потерь, как раньше. */
+    var poZavozu = gpP > 0 && gpP >= P * 0.5;
+    var srokDney = sp.srok ? Math.max(1, Math.round(sp.srok / 24)) : 0;
     var dl = {}, best = -1, bestD = '';
-    series.forEach(function(x){ if (x.l > 1e-9){ var w = dowOf(x.d);
-      dl[w] = (dl[w] || 0) + x.l; if (dl[w] > best){ best = dl[w]; bestD = DOW[w]; } } });
+    series.forEach(function(x, i){
+      if (x.l <= 1e-9) return;
+      var den = x.d;
+      if (poZavozu && srokDney > 1){
+        // ищем последний завоз не позже, чем за (срок − 1) дней до потери
+        var predel = shift(x.d, -(srokDney - 1)), nayden = '';
+        for (var j = 0; j <= i; j++){
+          if (series[j].d > predel) break;
+          if (series[j].gp > 1e-9) nayden = series[j].d;
+        }
+        if (nayden) den = nayden;
+      }
+      var w = dowOf(den);
+      dl[w] = (dl[w] || 0) + x.l;
+      if (dl[w] > best){ best = dl[w]; bestD = DOW[w] + (poZavozu ? ' (завоз)' : ''); }
+    });
     var price = PR[a.k] || 0;
     var endBal = r3(open + cum);
     // деньги: непроданное теряем целиком, уценённое — на размер скидки
@@ -2221,12 +2351,13 @@ function chrono(dFrom, dTo){
     var sKey = a.wh + '|' + sp.name;
     SERIES[sKey] = series.map(function(x){
       return { d: x.d, p: r3(x.p), s: r3(x.s), l: r3(x.l), bal: x.bal, st: x.st,
-               q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0) };
+               q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0),
+               tm: TM[a.wh + '|' + a.k + '|' + x.d] || '' };
     });
     rows.push([a.wh, sp.name, catOf(sp.name), sp.srok || '', r3(P), r3(S_),
       r3(L), P > 1e-9 ? r3(L / P) : '', r3(D20), r3(discShare),
-      r3(V), r3(F), r3(SP), dLoss, onShelf, stop, daysText(stopDays),
-      lastS ? ru(lastS) : '', endBal, onShelf ? r3(S_ / onShelf) : 0, bestD,
+      r3(V), r3(F), r3(SP), dLoss, onShelf, stop, daysText(stopDays, stopTimes),
+      lastS ? (ru(lastS) + (lastT ? ' ' + lastT : '')) : '', endBal, onShelf ? r3(S_ / onShelf) : 0, bestD,
       price ? Math.round(price) : '', money ? Math.round(money) : '',
       todo, cut || '', r3(DS) || '']);
   });
@@ -2236,15 +2367,18 @@ function chrono(dFrom, dTo){
 }
 var CHRONO_DAYS = null, CHRONO_WH = null, SERIES = {};
 
-/* «2026-08-05, 2026-08-12, 2026-08-13, 2026-08-14» → «05.08, 12–14.08» */
-function daysText(list){
+/* «2026-08-05, 2026-08-12, 2026-08-13, 2026-08-14» → «05.08, 12–14.08».
+   Если известен час выхода в стоп, одиночный день показываем с ним: «05.08 в 18:42». */
+function daysText(list, times){
   if (!list || !list.length) return '';
+  times = times || {};
   var out = [], i = 0;
   var dd = function(d){ return S(d).slice(8, 10); }, mm = function(d){ return S(d).slice(5, 7); };
   while (i < list.length){
     var j = i;
     while (j + 1 < list.length && shift(list[j], 1) === list[j + 1]) j++;
-    if (j === i) out.push(dd(list[i]) + '.' + mm(list[i]));
+    if (j === i) out.push(dd(list[i]) + '.' + mm(list[i]) +
+                          (times[list[i]] ? ' в ' + times[list[i]] : ''));
     else if (mm(list[i]) === mm(list[j])) out.push(dd(list[i]) + '–' + dd(list[j]) + '.' + mm(list[j]));
     else out.push(dd(list[i]) + '.' + mm(list[i]) + '–' + dd(list[j]) + '.' + mm(list[j]));
     i = j + 1;
@@ -2260,7 +2394,7 @@ function pairsOf(rows, minPrih){
   rows.forEach(function(r){
     if (N(r[P_PRIH]) < minPrih) return;
     if (r[P_SHARE] === '') return;
-    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;   // выпечка (24 ч) — возить нет смысла
+    if (!movableCat(r[P_CAT]) || N(r[P_SROK]) < 48) return;  // выпечка (24 ч) — возить нет смысла
     if (isDelivery(r[P_WH])) return;     // склад доставки — не точка на маршруте
     (byDish[r[P_DISH]] = byDish[r[P_DISH]] || []).push(r);
   });
@@ -2311,7 +2445,7 @@ function trioOf(rows, topN){
   var byRoute = {};
   rows.forEach(function(r){
     if (isDelivery(r[P_WH])) return;
-    if (!MOVE_CATS[r[P_CAT]] || N(r[P_SROK]) < 48) return;
+    if (!movableCat(r[P_CAT]) || N(r[P_SROK]) < 48) return;
     if (r[P_SHARE] === '' && !N(r[P_D20])) return;
     var rt = DB.routes[r[P_WH]] || '— вне маршрутов —';
     var g = byRoute[rt] || (byRoute[rt] = {});
@@ -2543,7 +2677,7 @@ function renderDyn(){
   // Уважает галочку «только торты, пироги, пирожные».
   var dv = $('onlyMove').checked, poBlyudu = {};
   (CHRONO.pos || []).forEach(function(r){
-    if (dv && !MOVE_CATS[r[P_CAT]]) return;
+    if (dv && !movableCat(r[P_CAT])) return;
     var m = N(r[P_MONEY]), sht = N(r[P_LOSS]) + N(r[P_D20]);
     if (m < 1e-9 && sht < 1e-9) return;
     var t = poBlyudu[r[P_DISH]] || (poBlyudu[r[P_DISH]] = { m: 0, sht: 0 });
@@ -2573,7 +2707,7 @@ function routeOf(wh){ return (DB.routes && DB.routes[wh]) || '— вне мар�
 function fillFilters(view){
   var all = view === 'trio' ? (CHRONO.trio || []) : (CHRONO.pos || []);
   if (view === 'pos' && $('onlyMove').checked)
-    all = all.filter(function(r){ return MOVE_CATS[r[P_CAT]]; });
+    all = all.filter(function(r){ return movableCat(r[P_CAT]); });
   var get = view === 'trio'
     ? { rt: function(r){ return r[0]; }, wh: function(r){ return r[4]; }, cat: function(r){ return r[2]; } }
     : { rt: function(r){ return routeOf(r[P_WH]); }, wh: function(r){ return r[P_WH]; },
@@ -2619,8 +2753,9 @@ function dayTable(key){
   if (!ser.length) return '<div class="hint">Нет данных по дням.</div>';
   // колонку скидки показываем, только если скидка вообще была — иначе она съедает ширину
   var has20 = ser.some(function(x){ return x.q20 > 1e-9; });
+  var hasTm = ser.some(function(x){ return x.tm; });
   var head = ['Дата','День','Приход','Продано'].concat(has20 ? ['со скидкой'] : [])
-    .concat(['Потери','Остаток','']);
+    .concat(['Потери','Остаток']).concat(hasTm ? ['Посл. продажа'] : []).concat(['']);
   var h = '<div class="detWrap"><div class="detT">' + esc(key.replace('|', ' · ')) +
     ' — по дням</div><table class="det2"><thead><tr>' +
     head.map(function(t){ return '<th>' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
@@ -2633,12 +2768,18 @@ function dayTable(key){
       (has20 ? '<td>' + (x.q20 || '') + '</td>' : '') +
       '<td>' + (x.l || '') + '</td>' +
       '<td>' + x.bal + '</td>' +
-      '<td>' + (x.st ? '<span class="chip bad">стоп</span>'
+      (hasTm ? '<td>' + (x.tm || '') + '</td>' : '') +
+      '<td>' + (x.st ? '<span class="chip bad">стоп' + (x.tm ? ' в ' + x.tm : '') + '</span>'
                      : (x.l > 1e-9 ? '<span class="chip na">потери</span>' : '')) + '</td></tr>';
   });
-  h += '</tbody></table><div class="hint" style="margin:8px 2px 0">Время выхода в стоп ' +
-    'по этим выгрузкам не определить: в акте реализации у всех продаж стоит 23:00 — ' +
-    'iiko проводит их одним документом в конце дня. День — максимум, что можно сказать точно.</div></div>';
+  h += '</tbody></table>' + (hasTm
+    ? '<div class="hint" style="margin:8px 2px 0">«Посл. продажа» — час, когда блюдо купили ' +
+      'в последний раз за день, из отчёта по чекам. В день стопа это и есть время, ' +
+      'когда витрина опустела.</div>'
+    : '<div class="hint" style="margin:8px 2px 0">Часа продажи здесь нет: загрузите ' +
+      '«Продажи по чекам (со временем)» на странице «Выгрузки iiko», и время появится. ' +
+      'В акте реализации у всех продаж стоит 23:00 — iiko проводит их одним документом ' +
+      'в конце дня.</div>') + '</div>';
   return h;
 }
 
@@ -2674,7 +2815,7 @@ function renderChrono(view){
   } else if (view === 'pos'){
     head = POS_HEAD; st = SORT.pos;
     rows = CHRONO.pos.filter(function(r){
-      if (dvizh && !MOVE_CATS[r[P_CAT]]) return false;
+      if (dvizh && !movableCat(r[P_CAT])) return false;
       if (fR && routeOf(r[P_WH]) !== fR) return false;
       if (fW && r[P_WH] !== fW) return false;
       if (fC && r[P_CAT] !== fC) return false;
