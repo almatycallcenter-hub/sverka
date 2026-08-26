@@ -1461,8 +1461,24 @@ function build(wh, dFrom, dTo){
 }
 
 /** Концепция в продажах («TT8 Qaratau») и склад («TT8 Qaratau склад») — одно и то же. */
+/* Номер филиала: «ТТ6 Автодом» → 6, «010-Шугыла склад» → 10, «Цех Алматы» → null. */
+function whNum(w){ var m = S(w).match(/\d+/); return m ? +m[0] : null; }
+
+/* Один и тот же филиал в отчёте по продажам и в товарной ведомости называется
+   по-разному, иногда даже разными алфавитами:
+        ведомость            отчёт по продажам
+        ТТ6 Автодом          TT6 Avtodom      ← латиница
+        ТТ1 Атакент склад    ТТ1-Атакент
+        010-Шугыла склад     ТТ10 Шугыла
+        011 Алма-Сити 5      ТТ11 Алма-Сити
+        TT9-Бесагаш склад    TT9 Besagash
+   Сравнивать текстом бесполезно. Зато номер филиала совпадает всегда —
+   по нему и сверяем. Текстовое сравнение оставлено запасным вариантом
+   для складов без номера. */
 function sameBranch(conc, wh){
   if (!conc) return true;
+  var na = whNum(conc), nb = whNum(wh);
+  if (na !== null && nb !== null) return na === nb;
   var a = nrm(conc).replace(/склад/g,'').trim(), b = nrm(wh).replace(/склад/g,'').trim();
   return a === b || b.indexOf(a) === 0 || a.indexOf(b) === 0;
 }
@@ -2944,7 +2960,6 @@ function routeHint(){
 }
 
 /* номер филиала из названия склада: «010-Шугыла склад» → 10, «TT8 Qaratau» → 8 */
-function whNum(w){ var m = S(w).match(/\d+/); return m ? +m[0] : null; }
 /* все склады с этим номером — ТТ5 их два (доставка и магазин) */
 function branchesByNum(n, wantDelivery){
   var all = branches().filter(function(b){ return whNum(b) === n; });
