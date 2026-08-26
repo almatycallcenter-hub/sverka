@@ -509,6 +509,7 @@
               только из списка филиала</label>
             <label id="labFull"><input type="checkbox" id="fullMode"> все колонки</label>
             <span class="cnt" id="cnt"></span>
+            <span class="cnt" id="xlsHint"></span>
           </div>
           <div class="wrapT" id="out"></div>
         </div>
@@ -1352,18 +1353,17 @@ function build(wh, dFrom, dTo){
   var movDays = Object.keys(movD).sort();
   var movFirst = movDays[0] || dFrom, movLast = movDays[movDays.length - 1] || dTo;
 
-  /* Позиция, которая в этот филиал вообще никогда не приезжает из Цеха ГП,
-     а только с тортового склада, приходит замороженной всегда. Срок на витрине
-     считается от разморозки, а её время нигде не фиксируется — значит приход по
-     ФИФО по такой позиции не проверяется в принципе, даже если в конкретный день
-     поставки не было. Раньше смотрели только срок до отчёта, и позиция с редкой
-     поставкой (Трилече, Трайфл Сникерс) зря получала «нету прихода по сроку». */
+  /* Проверяем приход только у продукции с Цеха ГП: там дата поставки точная.
+     Если позиция хоть раз приезжала в этот филиал с тортового склада — она
+     мороженая, срок на витрине идёт от разморозки, а её время нигде не
+     фиксируется. Отличить в остатке мороженую партию от гэпэшной нельзя,
+     поэтому по такой позиции приход не проверяется вовсе. */
   var _fz = {};
   function alwaysFrozen(k){
     if (_fz[k] !== undefined) return _fz[k];
-    var gp = hasGp[k], tt = hasTt[k];
-    (kusOf[k] || []).forEach(function(x){ if (hasGp[x]) gp = 1; if (hasTt[x]) tt = 1; });
-    return (_fz[k] = !!tt && !gp);
+    var tt = hasTt[k];
+    (kusOf[k] || []).forEach(function(x){ if (hasTt[x]) tt = 1; });
+    return (_fz[k] = !!tt);
   }
 
   function raw(k,d,t){ return mov[k+'|'+d+'|'+t] || 0; }
@@ -1740,6 +1740,7 @@ function render(view){
                      : (view === 'm50')  ? 'Поиск по блюду или покупателю'
                                          : 'Поиск по блюду';
   if (withFlt) fillChkFilter(view);
+  setTimeout(xlsHint, 0);
   if (!REPORT){ o.innerHTML = ''; return; }
 
   if (view === 'rep'){
@@ -2043,26 +2044,64 @@ function makeXlsx(sheets){
     { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
+/* Excel забирает ровно то, что видно на экране: лист открытой вкладки — с
+   учётом поиска и фильтров, остальные листы целиком. Иначе человек фильтрует
+   18 строк, жмёт «Скачать» и получает файл на 560. */
+function listRowsF(){
+  var q = nrm($('q').value), c = $('fChk').value;
+  return DB.list.filter(function(r){
+    if (c && S(r[5]) !== c) return false;
+    return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[1]).indexOf(q) >= 0;
+  }).sort(function(a,b){ return a[0] < b[0] ? -1 : 1; });
+}
+function m50RowsF(){
+  var q = nrm($('q').value), c = $('fChk').value;
+  return (MATCH50 || match50()).rows.filter(function(r){
+    if (c && S(r[7]) !== c) return false;
+    return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0;
+  });
+}
+function fltOn(){
+  return !!(S($('q').value) || $('fChk').value ||
+            $('onlyBad').checked || $('onlyList').checked);
+}
+/* строка под фильтрами: что именно уедет в файл */
+function xlsHint(){
+  var el = $('xlsHint'); if (!el) return;
+  if (!REPORT || !fltOn()){ el.textContent = ''; return; }
+  var tab = { rep:'Отчёт', list:'Список филиала', m50:'Путь на склад 50%' }[VIEW];
+  if (!tab){ el.textContent = ''; return; }
+  var n = VIEW === 'rep' ? rowsFiltered().length
+        : VIEW === 'list' ? listRowsF().length : m50RowsF().length;
+  el.textContent = 'в Excel: «' + tab + '» — ' + n + ' стр. по фильтру, остальные листы целиком';
+}
+
 $('btnXlsx').onclick = function(){
   if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
   function stRep(v, i){
     if (i < CHK0) return 0;
     var c = cls(v); return c === 'ok' ? 2 : c === 'bad' ? 3 : c === 'na' ? 4 : 0;
   }
-  var repRows = REPORT.rep.map(function(r){ return r.v; });
-  var listRows = DB.list.filter(function(r){ return r[1] === REPORT.wh; })
-    .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; })
-    .map(function(r){ return [ru(r[0]), r[1], r[2], r[3] === '' ? '' : r[3], r[4], r[5]]; });
+  var on = fltOn(), mark = function(n, yes){ return yes && on ? n + ' (фильтр)' : n; };
+  var repSrc  = (on && VIEW === 'rep')  ? rowsFiltered() : REPORT.rep;
+  var listSrc = (on && VIEW === 'list') ? listRowsF()
+              : DB.list.filter(function(r){ return r[1] === REPORT.wh; })
+                       .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; });
+  var m50Src  = (on && VIEW === 'm50')  ? m50RowsF() : (MATCH50 || match50()).rows;
+  var repRows = repSrc.map(function(r){ return r.v; });
+  var listRows = listSrc.map(function(r){
+    return [ru(r[0]), r[1], r[2], r[3] === '' ? '' : r[3], r[4], r[5]]; });
   var blob = makeXlsx([
-    { name: 'Отчёт', head: REP_HEAD, rows: repRows, style: stRep },
+    { name: mark('Отчёт', VIEW === 'rep'), head: REP_HEAD, rows: repRows, style: stRep },
     { name: 'Итоги по дням', head: TOT_HEAD, rows: REPORT.tot },
-    { name: 'Список филиала', head: LIST_HEAD, rows: listRows },
-    { name: 'Путь на склад 50%', head: M50_HEAD, rows: (MATCH50 || match50()).rows,
+    { name: mark('Список филиала', VIEW === 'list'), head: LIST_HEAD, rows: listRows },
+    { name: mark('Путь на склад 50%', VIEW === 'm50'), head: M50_HEAD, rows: m50Src,
       style: function(v, i){ return i === 7 && S(v) ? 3 : 0; } }
   ]);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'Сверка 20% ' + REPORT.wh.replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  var suffix = (on && $('fChk').value) ? ' — ' + $('fChk').value : (on ? ' — фильтр' : '');
+  a.download = ('Сверка 20% ' + REPORT.wh + suffix).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
   a.style.display = 'none';
   document.body.appendChild(a); a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
