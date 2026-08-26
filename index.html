@@ -2538,6 +2538,28 @@ function renderDyn(){
     return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸' };
   }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
   if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам', '₸');
+
+  // Топ-10 позиций — то же, что в питоновском дашборде, но прямо на телефоне.
+  // Уважает галочку «только торты, пироги, пирожные».
+  var dv = $('onlyMove').checked, poBlyudu = {};
+  (CHRONO.pos || []).forEach(function(r){
+    if (dv && !MOVE_CATS[r[P_CAT]]) return;
+    var m = N(r[P_MONEY]), sht = N(r[P_LOSS]) + N(r[P_D20]);
+    if (m < 1e-9 && sht < 1e-9) return;
+    var t = poBlyudu[r[P_DISH]] || (poBlyudu[r[P_DISH]] = { m: 0, sht: 0 });
+    t.m += m; t.sht += sht;
+  });
+  var poDengam = Object.keys(poBlyudu).some(function(k){ return poBlyudu[k].m > 0; });
+  var top = Object.keys(poBlyudu).map(function(k){
+    var t = poBlyudu[k];
+    return { k: k, v: poDengam ? t.m : t.sht,
+             label: poDengam ? fmtNum(Math.round(t.m)) + ' ₸  ·  ' + r3(t.sht) + ' шт'
+                             : r3(t.sht) + ' шт' };
+  }).sort(function(a, b){ return b.v - a.v; }).slice(0, 10);
+  if (top.length)
+    h += chartBars(top, 'Топ-10 позиций по потерям' +
+                        (dv ? ' — торты, пироги, пирожные' : ' — все категории'),
+                   poDengam ? '₸' : 'шт');
   h += '<div class="hint" style="padding:0 4px 6px">Те же числа таблицей — на вкладке ' +
        '«Позиции». Наведите на столбик, чтобы увидеть точное значение.</div>';
   o.innerHTML = h;
@@ -2624,13 +2646,17 @@ function renderChrono(view){
   if (view) CHR_VIEW = view; view = CHR_VIEW;
   var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
   $('cardRoutes').style.display = view === 'route' ? '' : 'none';
-  $('fbarC').style.display = (view === 'route' || view === 'dyn') ? 'none' : '';
+  $('fbarC').style.display = view === 'route' ? 'none' : '';
+  // на «Динамике» из фильтров нужна только галочка — поиск и списки прячем
+  ['qC', 'fRoute', 'fWh', 'fCat', 'fClear'].forEach(function(id){
+    $(id).style.display = view === 'dyn' ? 'none' : ''; });
   $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
-  $('labMove').style.display = (view === 'pos' || view === 'trio') ? '' : 'none';
+  $('labMove').style.display =
+    (view === 'pos' || view === 'trio' || view === 'dyn') ? '' : 'none';
   var hasFlt = view === 'trio' || view === 'pos';
-  ['fRoute','fWh','fCat','fClear'].forEach(function(id){
-    $(id).style.display = hasFlt ? '' : 'none'; });
   if (hasFlt) fillFilters(view);
+  else if (view !== 'dyn')
+    ['fRoute','fWh','fCat','fClear'].forEach(function(id){ $(id).style.display = 'none'; });
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
 
