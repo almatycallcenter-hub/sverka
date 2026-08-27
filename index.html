@@ -41,6 +41,52 @@
       color-scheme:dark;
     }
   }
+
+  /* ── тепловая карта ───────────────────────────────────
+     Последовательная шкала — один синий тон от светлого к тёмному.
+     В тёмной теме порядок обратный: ближе к фону значит «почти ноль». */
+  :root{
+    --hm0:transparent;
+    --hm1:#cde2fb;--hm2:#9ec5f4;--hm3:#6da7ec;--hm4:#3987e5;
+    --hm5:#256abf;--hm6:#184f95;--hm7:#0d366b;
+    --hmInkLo:#0b0b0b;--hmInkHi:#ffffff;
+    --hmUp:#b42318;--hmDown:#067647;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --hm1:#0d366b;--hm2:#184f95;--hm3:#256abf;--hm4:#3987e5;
+      --hm5:#6da7ec;--hm6:#9ec5f4;--hm7:#cde2fb;
+      --hmInkLo:#f2f1ee;--hmInkHi:#0b0b0b;
+      --hmUp:#fca5a5;--hmDown:#6ee7a8;
+    }
+    :root:not([data-theme="light"]) .hmc.l4{color:var(--hmInkHi)}
+  }
+  table.hm{table-layout:fixed;font-variant-numeric:tabular-nums}
+  table.hm th{min-width:0}
+  table.hm td{text-align:center;padding:0;border-right:2px solid var(--card);
+    border-bottom:2px solid var(--card)}
+  table.hm td.hh{background:var(--head);color:var(--mut);font-size:11.5px;
+    padding:0 10px;text-align:right;position:sticky;left:0;z-index:1;width:64px}
+  .hmc{display:block;padding:9px 4px;border-radius:4px;font-size:12.5px;line-height:1.15;
+    color:var(--hmInkLo);cursor:default}
+  /* граница «светлых чернил» разная в двух темах: шкала в тёмной идёт наоборот */
+  .hmc.l5,.hmc.l6,.hmc.l7{color:var(--hmInkHi)}
+  .hmc.l0{color:var(--mut2)}
+  .hmc.l1{background:var(--hm1)}.hmc.l2{background:var(--hm2)}
+  .hmc.l3{background:var(--hm3)}.hmc.l4{background:var(--hm4)}
+  .hmc.l5{background:var(--hm5)}.hmc.l6{background:var(--hm6)}
+  .hmc.l7{background:var(--hm7)}
+  .hmc:hover{outline:2px solid var(--txt);outline-offset:-2px}
+  .hmc i{display:block;font-style:normal;font-size:10.5px;opacity:.8;color:inherit}
+  .hmLegend{display:flex;align-items:center;gap:8px;padding:10px 14px;flex-wrap:wrap;
+    font-size:12px;color:var(--mut)}
+  .hmLegend b{font-weight:500;color:var(--txt)}
+  .hmSw{display:inline-block;width:26px;height:12px;border-radius:3px;
+    border:1px solid var(--bd)}
+  .hmSum h3{margin:0 0 6px;font-size:14px}
+  .hmSum ul{margin:0 0 12px;padding-left:18px}
+  .hmSum li{margin:3px 0}
+  .hmNote{color:var(--mut);font-size:12.5px}
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;font:14px/1.5 -apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
@@ -389,6 +435,7 @@
       <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
+      <a data-page="heat"><span class="ic">🔥</span>Тепловая карта</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
@@ -572,6 +619,48 @@
           <div class="row"><button id="btnRoutes">Сохранить маршруты</button></div>
           <div class="msg" id="m5"></div>
           <div class="hint" id="routeHint"></div>
+        </div>
+      </section>
+
+
+      <!-- ─── Тепловая карта ───────────────────────────── -->
+      <section class="page wide" id="pg-heat">
+        <div class="card noprint">
+          <h2>Когда продаётся продукция со скидкой 20%</h2>
+          <p class="lead">Час × день недели. В ячейке — сколько штук ушло по уценке.
+            Считается по чекам: час берётся из времени закрытия чека.</p>
+          <div class="row" style="margin-top:10px">
+            <div><label class="lbl">с</label><input type="date" id="hFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="hTo"></div>
+            <button id="btnHeat">Построить</button>
+            <button class="sec" id="btnHeatXlsx">Скачать Excel</button>
+            <button class="sec" id="btnPrintHt">Печать / PDF</button>
+          </div>
+          <div class="quick">Быстро:
+            <button class="sec miniBtn" data-q="week"      data-t="heat">эта неделя</button>
+            <button class="sec miniBtn" data-q="prevweek"  data-t="heat">прошлая неделя</button>
+            <button class="sec miniBtn" data-q="month"     data-t="heat">этот месяц</button>
+            <button class="sec miniBtn" data-q="prevmonth" data-t="heat">прошлый месяц</button>
+          </div>
+          <div class="msg" id="m6"></div>
+        </div>
+
+        <div id="cardHeat" style="display:none">
+          <div class="kpi" id="kpiH"></div>
+          <div class="fbar" id="fbarH">
+            <input type="text" id="qH" placeholder="Поиск по продукции">
+            <select id="hWh" class="flt"><option value="">все филиалы</option></select>
+            <select id="hCat" class="flt"><option value="">все категории</option></select>
+            <label><input type="checkbox" id="hGp" checked> только продукция с Цеха ГП</label>
+            <label><input type="checkbox" id="hDelta"> показать ± к прошлому периоду</label>
+            <button id="hClear" class="miniBtn">Сбросить</button>
+            <span class="cnt" id="cntH"></span>
+          </div>
+          <div class="card">
+            <div class="wrapT"><div id="heatGrid"></div></div>
+            <div class="hmLegend" id="heatLeg"></div>
+          </div>
+          <div class="card" id="heatSum"></div>
         </div>
       </section>
 
@@ -868,12 +957,17 @@ function packDB(db){
   var d = {}, list = [];
   function id(x){ var k = String(x);
     if (d[k] === undefined){ d[k] = list.length; list.push(k); } return d[k]; }
-  var out = {}; for (var k in db) if (k !== 'mov' && k !== 'cheki') out[k] = db[k];
+  var out = {};
+  for (var k in db) if (k !== 'mov' && k !== 'cheki' && k !== 's20') out[k] = db[k];
   out.dict = list;
   out.movP = (db.mov || []).map(function(r){
     return [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]]; });
   out.chekiP = (db.cheki || []).map(function(r){
     return [id(r[0]), id(r[1]), id(r[2]), id(r[3])]; });
+  /* строк 20% десятки тысяч, и в них появился ещё и час — без словаря
+     они одни съедают половину лимита localStorage */
+  out.s20P = (db.s20 || []).map(function(r){
+    return [id(r[0]), id(r[1]), id(r[2]), r[3], r[4], id(r[5] || '')]; });
   out.packed = 1;
   return out;
 }
@@ -882,7 +976,9 @@ function unpackDB(db){
   var L = db.dict || [];
   db.mov = (db.movP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]]; });
   db.cheki = (db.chekiP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]]]; });
-  delete db.movP; delete db.chekiP; delete db.dict; delete db.packed;
+  if (db.s20P) db.s20 = db.s20P.map(function(r){
+    return [L[r[0]], L[r[1]], L[r[2]], r[3], r[4], L[r[5]] || '']; });
+  delete db.movP; delete db.chekiP; delete db.s20P; delete db.dict; delete db.packed;
   return db;
 }
 function saveDB(){
@@ -912,7 +1008,7 @@ function loadDB(){
   migrateDB();
 }
 
-var DB_V = 4;
+var DB_V = 5;
 /* Приводим ранее сохранённые данные к текущей форме.
    Без этого старые записи молча дают пустые цены и сломанные проверки. */
 function migrateDB(){
@@ -925,6 +1021,11 @@ function migrateDB(){
   if (was < 3) DB.mov = (DB.mov || []).filter(function(r){ return r && r.length >= 5; });
   // v4: появились продажи по чекам со временем закрытия
   if (was < 4 && !DB.cheki) DB.cheki = [];
+  /* v5: в строках 20% появился час продажи. Дописать его задним числом неоткуда —
+     помечаем такие строки, чтобы тепловая карта честно сказала: перезагрузите
+     отчёт по чекам, иначе часы взять неоткуда. */
+  if (was < 5) DB.s20 = (DB.s20 || []).map(function(r){
+    return r.length >= 6 ? r : [r[0], r[1], r[2], r[3], r[4], '']; });
   DB.v = DB_V;
   try{ localStorage.setItem('sverka20', JSON.stringify(packDB(DB))); }catch(e){}
 }
@@ -1100,7 +1201,8 @@ function parseCheki(v){
        подстроку, а не сравниваем целиком. */
     var tip = iTip === undefined ? '' : S(row[iTip]).toLowerCase();
     if (tip.indexOf('скидка 20%') >= 0)
-      s20.push([day, conc, dish, q, iS0 === undefined ? 0 : N(row[iS0])]);
+      // шестое поле — час продажи: без него тепловую карту не построить
+      s20.push([day, conc, dish, q, iS0 === undefined ? 0 : N(row[iS0]), tm]);
   }
   var times = Object.keys(poz).map(function(k){
     var p = k.split('|'); return [p[0], p[1], p[2], poz[k]]; });
@@ -2179,7 +2281,8 @@ function setDateRange(){
   var mv = minMaxDay(DB.mov);
   if (!mv[0]) return;
   var lo = mv[0], hi = mv[1];
-  ['dFrom','dTo'].forEach(function(id){ var el = $(id); el.min = lo; el.max = hi; });
+  ['dFrom','dTo','hFrom','hTo'].forEach(function(id){
+    var el = $(id); if (el){ el.min = lo; el.max = hi; } });
   // выгрузку берут на день шире с обеих сторон — значит отчётный период на день уже
   var defF = shiftDay(lo, 1), defT = shiftDay(hi, -1);
   var sl = minMaxDay(DB.s20);
@@ -2402,6 +2505,9 @@ var PAIR_HEAD = ['Маршрут','Блюдо','Точка А','Потери А'
 var DOW = ['пн','вт','ср','чт','пт','сб','вс'];
 
 function dowOf(d){ var p = S(d).split('-'); return (new Date(+p[0], +p[1]-1, +p[2])).getDay(); }
+/* DOW начинается с понедельника, а getDay() — с воскресенья. Индексировать DOW
+   значением dowOf нельзя: среда показывалась четвергом. */
+function dowMon(d){ return (dowOf(d) + 6) % 7; }
 
 /* цена позиции — из отчёта по продажам со скидкой 20% */
 function priceMap(){
@@ -2542,7 +2648,7 @@ function chrono(dFrom, dTo){
         }
         if (nayden) den = nayden;
       }
-      var w = dowOf(den);
+      var w = dowMon(den);
       dl[w] = (dl[w] || 0) + x.l;
       if (dl[w] > best){ best = dl[w]; bestD = DOW[w] + (poZavozu ? ' (завоз)' : ''); }
     });
@@ -2997,7 +3103,7 @@ function dayTable(key){
   ser.forEach(function(x){
     h += '<tr' + (x.st ? ' class="stopRow"' : '') + '>' +
       '<td>' + S(x.d).slice(8, 10) + '.' + S(x.d).slice(5, 7) + '</td>' +
-      '<td>' + DOW[dowOf(x.d)] + '</td>' +
+      '<td>' + DOW[dowMon(x.d)] + '</td>' +
       '<td>' + (x.p || '') + '</td>' +
       '<td>' + (x.s || '') + '</td>' +
       (has20 ? '<td>' + (x.q20 || '') + '</td>' : '') +
@@ -3261,6 +3367,328 @@ $('btnChrXlsx').onclick = function(){
 };
 
 
+/* ═════════ тепловая карта продаж со скидкой 20% ═════════
+   Час × день недели. Час берём из времени закрытия чека, поэтому карта живёт
+   только на строках 20%, загруженных начиная с версии 5 — у старых времени нет. */
+var HEAT = null, HM_H0 = 8, HM_H1 = 22;
+
+/* Позиции, которые действительно приезжают с Цеха ГП: есть приход ГП и нет
+   поставок с тортового склада. Мороженые сюда не входят — их «час продажи»
+   ничего не говорит о цикле завоза. */
+var _gp = null, _gpSig = '';
+function gpPositions(){
+  var sig = DB.mov.length + '/' + (DB.mov.length ? S(DB.mov[DB.mov.length - 1][2]) : '');
+  if (_gp && _gpSig === sig) return _gp;
+  var m = {}, tort = tortPositions();
+  DB.mov.forEach(function(r){ if (r[3] === 'prihod_gp') m[nrm(r[2])] = 1; });
+  Object.keys(m).forEach(function(k){ if (tort[k]) delete m[k]; });
+  _gpSig = sig;
+  return (_gp = m);
+}
+
+/* «Концепция» из чека → склад товарной ведомости, посчитано один раз на написание */
+function whResolver(){
+  var BR = branches(), memo = {};
+  return function(conc){
+    var key = S(conc);
+    if (memo[key] !== undefined) return memo[key];
+    var hit = '';
+    for (var i = 0; i < BR.length; i++)
+      if (whNum(key) !== null && whNum(key) === whNum(BR[i])){ hit = BR[i]; break; }
+    if (!hit) for (var j = 0; j < BR.length; j++)
+      if (sameBranch(key, BR[j])){ hit = BR[j]; break; }
+    return (memo[key] = hit || key);
+  };
+}
+
+/* Штуки бывают дробными — весовые позиции и кусочки. Три знака в ячейке
+   нечитаемы, поэтому округляем до десятых и убираем пустой хвост. */
+function fmtQ(n){
+  var v = Math.round(n * 10) / 10;
+  return String(v).replace(/\.0$/, '').replace(/\B(?=(\d{3})+(?!\d))/, ' ');
+}
+/* Категория для фильтра — только из справочника: catPoImeni даёт другие,
+   строчные названия, и в списке появлялись «Выпечка» и «выпечка» разом. */
+function heatCat(k, raw){
+  var sp = SPR[k];
+  return sp && sp.kat ? sp.kat : 'нет в справочнике';
+}
+/* Строка 20% вообще идёт в карту? Свечи и напитки — не продукция; склад
+   доставки и закрытые филиалы в аналитику не входят, как и в «Хронологии». */
+function heatSkip(k, wh){
+  if (isDelivery(wh) || isClosed(wh)) return true;
+  var sp = SPR[k];
+  if (sp && grpOf(catOf(sp.name)) === 'не еда') return true;
+  return false;
+}
+
+function hourOf(t){                    // «19:42» → 19
+  var m = /^(\d{1,2}):/.exec(S(t));
+  return m ? +m[1] : -1;
+}
+
+/* Период сравнения: неделя → прошлая неделя, целый месяц → прошлый месяц,
+   иначе — столько же дней подряд непосредственно перед началом. */
+function prevPeriod(from, to){
+  var n = daysBetween(from, to) + 1;
+  var p = from.split('-'), q = to.split('-');
+  var lastDay = new Date(Date.UTC(+q[0], +q[1], 0)).getUTCDate();
+  if (p[2] === '01' && +q[2] === lastDay && p[0] + p[1] === q[0] + q[1]){
+    var mm = +p[1] - 1, yy = +p[0];
+    if (mm < 1){ mm = 12; yy--; }
+    var last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+    return { from: yy + '-' + pad(mm) + '-01', to: yy + '-' + pad(mm) + '-' + pad(last),
+             label: 'прошлый месяц' };
+  }
+  return { from: shift(from, -n), to: shift(from, -1),
+           label: n === 7 ? 'прошлая неделя' : 'предыдущие ' + n + ' дн.' };
+}
+
+/* Сетка часов × дней недели по строкам 20% за период. */
+function heatGrid(from, to, flt){
+  var whOf = whResolver(), gp = gpPositions();
+  var g = [], top = [], tot = 0, outside = 0, noTime = 0, dishes = {}, byWh = {}, days = {};
+  for (var h = HM_H0; h <= HM_H1; h++){ g.push([0,0,0,0,0,0,0]); top.push([{},{},{},{},{},{},{}]); }
+  DB.s20.forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to) return;
+    var k = nrm(r[2]);
+    if (flt.gp && !gp[k]) return;
+    if (flt.q && nrm(r[2]).indexOf(flt.q) < 0) return;
+    var wh = whOf(r[1]);
+    if (heatSkip(k, wh)) return;
+    if (flt.wh && wh !== flt.wh) return;
+    if (flt.cat && heatCat(k, r[2]) !== flt.cat) return;
+    var q = N(r[3]); if (!q) return;
+    tot += q;
+    dishes[SPR[k] ? SPR[k].name : S(r[2])] = (dishes[SPR[k] ? SPR[k].name : S(r[2])] || 0) + q;
+    byWh[wh] = (byWh[wh] || 0) + q;
+    days[d] = (days[d] || 0) + q;
+    var hh = hourOf(r[5]);
+    if (hh < 0){ noTime += q; return; }
+    if (hh < HM_H0 || hh > HM_H1){ outside += q; return; }
+    var w = dowMon(d), row = hh - HM_H0;
+    g[row][w] += q;
+    var nm = SPR[k] ? SPR[k].name : S(r[2]);
+    top[row][w][nm] = (top[row][w][nm] || 0) + q;
+  });
+  return { g: g, top: top, tot: tot, outside: outside, noTime: noTime,
+           dishes: dishes, byWh: byWh, days: days };
+}
+
+function heatOptions(){
+  return { q: nrm($('qH').value), wh: $('hWh').value, cat: $('hCat').value,
+           gp: $('hGp').checked };
+}
+
+$('btnHeat').onclick = function(){
+  var f = D($('hFrom').value), t = D($('hTo').value);
+  if (!DB.s20.length) return msg('m6','Сначала загрузите отчёт по продажам филиала.','err');
+  if (!f || !t) return msg('m6','Укажите период.','err');
+  if (f > t) return msg('m6','Начало периода позже конца.','err');
+  HEAT = { from: f, to: t, prev: prevPeriod(f, t) };
+  $('cardHeat').style.display = '';
+  fillHeatFilters();
+  renderHeat();
+  msg('m6','Готово: ' + ru(f) + ' — ' + ru(t) + ', сравнение с ' + HEAT.prev.label +
+      ' (' + ru(HEAT.prev.from) + ' — ' + ru(HEAT.prev.to) + ').', 'ok');
+};
+
+/* Списки филиалов и категорий строим по тем строкам, что реально есть в периоде */
+function fillHeatFilters(){
+  if (!HEAT) return;
+  var whOf = whResolver(), ws = {}, cs = {}, gp = gpPositions(), onlyGp = $('hGp').checked;
+  DB.s20.forEach(function(r){
+    var d = r[0]; if (!d || d < HEAT.from || d > HEAT.to) return;
+    var k = nrm(r[2]), wh = whOf(r[1]);
+    if (heatSkip(k, wh)) return;
+    if (onlyGp && !gp[k]) return;
+    ws[wh] = 1;
+    cs[heatCat(k, r[2])] = 1;
+  });
+  function fill(id, vals, zero){
+    var el = $(id), cur = el.value;
+    var list = Object.keys(vals).sort();
+    if (cur && list.indexOf(cur) < 0) list.push(cur);
+    el.innerHTML = '<option value="">' + zero + '</option>' +
+      list.map(function(v){ return '<option' + (v === cur ? ' selected' : '') + '>' +
+        esc(v) + '</option>'; }).join('');
+    el.value = cur;
+    el.classList.toggle('on', !!cur);
+  }
+  fill('hWh', ws, 'все филиалы');
+  fill('hCat', cs, 'все категории');
+}
+
+function hmLevel(v, max){
+  if (v <= 0) return 0;
+  if (max <= 0) return 1;
+  var r = v / max;
+  return r > 0.86 ? 7 : r > 0.66 ? 6 : r > 0.48 ? 5
+       : r > 0.32 ? 4 : r > 0.18 ? 3 : r > 0.07 ? 2 : 1;
+}
+function topText(o){
+  var k = Object.keys(o).sort(function(a,b){ return o[b] - o[a]; }).slice(0, 3);
+  return k.map(function(n){ return n + ' — ' + fmtQ(o[n]); }).join('\n');
+}
+function sgn(n){ return (n > 0 ? '+' : '') + fmtQ(n); }
+/* На тёмных ячейках цветной знак не читается, поэтому направление несёт
+   стрелка, а не цвет: заодно работает при дальтонизме и на печати. */
+function sgnArrow(n){ return (n > 0 ? '▲ +' : n < 0 ? '▼ ' : '· ') + fmtQ(n); }
+
+function renderHeat(){
+  if (!HEAT) return;
+  var flt = heatOptions();
+  var cur = heatGrid(HEAT.from, HEAT.to, flt);
+  var prv = heatGrid(HEAT.prev.from, HEAT.prev.to, flt);
+  HEAT.cur = cur; HEAT.prv = prv; HEAT.flt = flt;
+  var delta = $('hDelta').checked;
+  var max = 0;
+  cur.g.forEach(function(row){ row.forEach(function(v){ if (v > max) max = v; }); });
+
+  var h = '<table class="hm"><thead><tr><th style="width:64px"></th>' +
+    DOW.map(function(d){ return '<th>' + d + '</th>'; }).join('') + '</tr></thead><tbody>';
+  for (var i = 0; i < cur.g.length; i++){
+    var hh = HM_H0 + i;
+    h += '<tr><td class="hh">' + pad(hh) + ':00</td>';
+    for (var w = 0; w < 7; w++){
+      var v = cur.g[i][w], p = prv.g[i][w], lvl = hmLevel(v, max);
+      var tip = DOW[w] + ' ' + pad(hh) + ':00 — ' + fmtQ(v) + ' шт' +
+                (delta || p ? '\n' + HEAT.prev.label + ': ' + fmtQ(p) + ' шт' : '') +
+                (Object.keys(cur.top[i][w]).length ? '\n\n' + topText(cur.top[i][w]) : '');
+      var dv = v - p;
+      h += '<td><span class="hmc l' + lvl + '" title="' + esc(tip) + '">' +
+           (v ? fmtQ(v) : '·') +
+           (delta && (v || p) ? '<i>' + sgnArrow(dv) + '</i>' : '') +
+           '</span></td>';
+    }
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  $('heatGrid').innerHTML = h;
+
+  var steps = [1,2,3,4,5,6,7].map(function(n){
+    return '<span class="hmSw" style="background:var(--hm' + n + ')"></span>'; }).join('');
+  $('heatLeg').innerHTML = '<b>Штук со скидкой 20%</b> · меньше ' + steps + ' больше · ' +
+    'максимум в ячейке <b>' + fmtQ(max) + '</b>' +
+    (delta ? ' · ▲ больше, ▼ меньше, чем ' + HEAT.prev.label : '');
+
+  var d0 = cur.tot - prv.tot;
+  var pct = prv.tot > 0 ? Math.round(d0 / prv.tot * 100) : null;
+  $('kpiH').innerHTML =
+    '<div><span>Продано со скидкой</span><b>' + fmtQ(cur.tot) + ' шт</b></div>' +
+    '<div><span>' + HEAT.prev.label + '</span><b>' + fmtQ(prv.tot) + ' шт</b></div>' +
+    '<div><span>Изменение</span><b style="color:var(--' + (d0 > 0 ? 'badT' : 'okT') + ')">' +
+      sgn(d0) + ' шт' + (pct === null ? '' : ' · ' + sgn(pct) + '%') + '</b></div>' +
+    '<div><span>Позиций</span><b>' + Object.keys(cur.dishes).length + '</b></div>' +
+    '<div><span>Филиалов</span><b>' + Object.keys(cur.byWh).length + '</b></div>';
+  $('cntH').textContent = 'штук: ' + fmtQ(cur.tot);
+  $('heatSum').innerHTML = heatSummary(cur, prv);
+}
+
+/* Итог под картой: что из неё следует, словами. */
+function heatSummary(cur, prv){
+  var best = { v: 0 }, byH = [], byW = [0,0,0,0,0,0,0], late = 0;
+  for (var i = 0; i < cur.g.length; i++){
+    var sum = 0;
+    for (var w = 0; w < 7; w++){
+      var v = cur.g[i][w]; sum += v; byW[w] += v;
+      if (v > best.v) best = { v: v, h: HM_H0 + i, w: w };
+    }
+    byH.push({ h: HM_H0 + i, v: sum });
+    if (HM_H0 + i >= 18) late += sum;
+  }
+  var topH = byH.slice().sort(function(a,b){ return b.v - a.v; }).slice(0, 3);
+  var wIdx = byW.map(function(v, i){ return { w: i, v: v }; })
+                .sort(function(a,b){ return b.v - a.v; });
+  var inGrid = byH.reduce(function(a, x){ return a + x.v; }, 0);
+  var top5 = Object.keys(cur.dishes).sort(function(a,b){ return cur.dishes[b] - cur.dishes[a]; })
+                   .slice(0, 5);
+  var whTop = Object.keys(cur.byWh).sort(function(a,b){ return cur.byWh[b] - cur.byWh[a]; });
+  var dl = cur.tot - prv.tot;
+  var latePct = inGrid > 0 ? Math.round(late / inGrid * 100) : 0;
+
+  var li = [];
+  if (best.v > 0)
+    li.push('Пик — <b>' + DOW[best.w] + ', ' + pad(best.h) + ':00</b>: ' + fmtQ(best.v) +
+            ' шт за период. Это час, когда продукция уже не продаётся по полной цене.');
+  if (topH.length && topH[0].v > 0)
+    li.push('Самые «уценочные» часы: ' + topH.map(function(x){
+      return '<b>' + pad(x.h) + ':00</b> (' + fmtQ(x.v) + ')'; }).join(', ') + '.');
+  if (wIdx[0] && wIdx[0].v > 0)
+    li.push('Больше всего уценки в <b>' + DOW[wIdx[0].w] + '</b> (' + fmtQ(wIdx[0].v) +
+            ' шт), меньше всего в <b>' + DOW[wIdx[6].w] + '</b> (' + fmtQ(wIdx[6].v) + ' шт). ' +
+            'Заявку на день перед пиком стоит пересмотреть.');
+  if (inGrid > 0)
+    li.push('После 18:00 уходит <b>' + latePct + '%</b> уценки. ' +
+            (latePct > 70 ? 'Это нормальная картина: скидку дают под закрытие.'
+                          : 'Уценка начинается рано — проверьте, не ставят ли скидку заранее.'));
+  li.push('К периоду «' + HEAT.prev.label + '» ' +
+          (dl > 0 ? 'уценка <b>выросла</b> на ' + fmtQ(dl) + ' шт'
+         : dl < 0 ? 'уценка <b>снизилась</b> на ' + fmtQ(-dl) + ' шт'
+                  : 'уценка не изменилась') + '.');
+  if (top5.length)
+    li.push('Топ позиций: ' + top5.map(function(n){
+      return esc(n) + ' (' + fmtQ(cur.dishes[n]) + ')'; }).join(', ') + '.');
+  if (whTop.length > 1)
+    li.push('Больше всех уценивает <b>' + esc(whTop[0]) + '</b> — ' + fmtQ(cur.byWh[whTop[0]]) +
+            ' шт; меньше всех <b>' + esc(whTop[whTop.length-1]) + '</b> — ' +
+            fmtQ(cur.byWh[whTop[whTop.length-1]]) + ' шт.');
+
+  var notes = [];
+  if (cur.noTime > 0)
+    notes.push('<b>' + fmtQ(cur.noTime) + ' шт без времени продажи</b> — эти строки загружены ' +
+               'старой версией страницы. Загрузите отчёт по продажам филиала заново, ' +
+               'и они встанут в свои часы.');
+  if (cur.outside > 0)
+    notes.push(fmtQ(cur.outside) + ' шт продано вне интервала ' + HM_H0 + ':00–' + HM_H1 +
+               ':00 — в карту они не попали.');
+
+  return '<div class="hmSum"><h3>Итог</h3>' +
+    (li.length ? '<ul>' + li.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul>'
+               : '<p class="hmNote">За период продаж со скидкой не нашлось.</p>') +
+    (notes.length ? '<p class="hmNote">' + notes.join('<br>') + '</p>' : '') + '</div>';
+}
+
+['qH','hWh','hCat','hGp','hDelta'].forEach(function(id){
+  $(id).addEventListener($(id).type === 'checkbox' ? 'change' : 'input', function(){
+    if (HEAT) renderHeat();
+  });
+});
+$('hClear').onclick = function(){
+  $('qH').value = ''; $('hWh').value = ''; $('hCat').value = '';
+  $('hGp').checked = true; $('hDelta').checked = false;
+  if (HEAT) renderHeat();
+};
+$('btnPrintHt').onclick = function(){
+  if (!HEAT) return msg('m6','Сначала постройте карту.','err');
+  doPrint('Тепловая карта уценки', 'период ' + ru(HEAT.from) + ' — ' + ru(HEAT.to));
+};
+$('btnHeatXlsx').onclick = function(){
+  if (!HEAT) return msg('m6','Сначала постройте карту.','err');
+  var head = ['Час'].concat(DOW).concat(['Всего']);
+  var rows = HEAT.cur.g.map(function(row, i){
+    var sum = row.reduce(function(a, b){ return a + b; }, 0);
+    return [pad(HM_H0 + i) + ':00'].concat(row.map(r3)).concat([r3(sum)]);
+  });
+  var prevRows = HEAT.prv.g.map(function(row, i){
+    var sum = row.reduce(function(a, b){ return a + b; }, 0);
+    return [pad(HM_H0 + i) + ':00'].concat(row.map(r3)).concat([r3(sum)]);
+  });
+  var dishRows = Object.keys(HEAT.cur.dishes)
+    .sort(function(a,b){ return HEAT.cur.dishes[b] - HEAT.cur.dishes[a]; })
+    .map(function(n){ return [n, r3(HEAT.cur.dishes[n])]; });
+  var blob = makeXlsx([
+    { name: 'Тепловая карта', head: head, rows: rows },
+    { name: 'Прошлый период', head: head, rows: prevRows },
+    { name: 'По позициям', head: ['Блюдо','Штук со скидкой'], rows: dishRows }
+  ]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ('Тепловая карта ' + ru(HEAT.from) + ' — ' + ru(HEAT.to)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+};
+
 /* ═════════ печать, быстрые периоды, свежесть, история ═════════ */
 function printHead(title, sub){
   $('printHead').innerHTML = '<b>' + esc(title) + '</b><br>' + esc(sub) +
@@ -3281,7 +3709,9 @@ $('btnPrintH').onclick = function(){ doPrint('История сверок', 'в�
 document.querySelectorAll('.quick button[data-q]').forEach(function(b){
   b.onclick = function(){
     var t = this.dataset.t;
-    setPeriod(this.dataset.q, t === 'rep' ? 'dFrom' : 'cFrom', t === 'rep' ? 'dTo' : 'cTo');
+    var ids = { rep: ['dFrom','dTo'], chr: ['cFrom','cTo'], heat: ['hFrom','hTo'] }[t]
+            || ['cFrom','cTo'];
+    setPeriod(this.dataset.q, ids[0], ids[1]);
   };
 });
 
@@ -3302,6 +3732,7 @@ function showFresh(){
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     rep: ['Сверка',''],
     chr: ['Аналитика','как продаётся и где теряется'],
+    heat:['Тепловая карта','когда уходит продукция со скидкой'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
@@ -3333,6 +3764,13 @@ function showFresh(){
       if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;
       if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
       if (typeof routeHint === 'function') routeHint();
+    }
+    if (p === 'heat'){
+      // по умолчанию — последняя полная неделя: карта именно про недельный цикл
+      if (!el('hFrom').value && typeof setPeriod === 'function')
+        setPeriod('prevweek', 'hFrom', 'hTo');
+      if (!el('hFrom').value){ el('hFrom').value = el('dFrom').value;
+                               el('hTo').value   = el('dTo').value; }
     }
     if (tab) openTab(p, tab);
   }
