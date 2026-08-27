@@ -1344,7 +1344,18 @@ function tortPositions(){
   var sig = DB.mov.length + '/' + (DB.mov.length ? S(DB.mov[DB.mov.length - 1][2]) : '');
   if (_tort && _tortSig === sig) return _tort;
   var m = {};
-  DB.mov.forEach(function(r){ if (r[3] === 'prihod_tort') m[nrm(r[2])] = 1; });
+  DB.mov.forEach(function(r){
+    if (r[3] !== 'prihod_tort') return;
+    var k = nrm(r[2]); m[k] = 1;
+    /* Часть тортов приезжает полуфабрикатом и в накладной называется иначе:
+       «ПФ Тирамису торт (шт)», «Пф Балхадиша торты». На витрину они попадают
+       уже как «Тирамису торт» и «Балхадиша торты» — если приставку не снять,
+       связь с позицией справочника теряется и торт зря считается гэпэшным. */
+    var base = k.replace(/^п\s*[\/.]?\s*ф\.?\s+/, '').replace(/\s*\(шт\.?\)\s*$/, '').trim();
+    if (!base || base === k) return;
+    m[base] = 1;
+    if (DB.syn[base]) m[nrm(DB.syn[base])] = 1;
+  });
   _tortSig = sig;
   return (_tort = m);
 }
