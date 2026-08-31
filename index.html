@@ -3732,6 +3732,20 @@ function renderHeat(view){
   $('labMoney').style.display = (v === 'qty' || v === 'arr') ? '' : 'none';
   $('labDelta').style.display = (v === 'qty' || v === 'first') ? '' : 'none';
   $('labAnom').style.display  = (v === 'qty') ? '' : 'none';
+  /* Без продаж по полной цене доли считать нельзя — выйдет ровно 100% везде,
+     и это соврёт. Лучше честно сказать, какой файл перезагрузить. */
+  if ((v === 'mix' || v === 'arr') && !DB.full.length){
+    $('heatGrid').innerHTML = '';
+    $('heatLeg').innerHTML = '';
+    $('kpiH').innerHTML = '';
+    $('cntH').textContent = '';
+    $('heatSum').innerHTML = '<div class="hmSum"><h3>Нужны продажи по полной цене</h3>' +
+      '<p class="hmNote">Эта вкладка сравнивает уценку с обычными продажами, а они ' +
+      'начали сохраняться только в этой версии страницы. Зайдите в «Выгрузки iiko» и ' +
+      'загрузите <b>отчёт по продажам филиала</b> заново — тот же файл, ничего ' +
+      'перевыгружать из iiko не нужно. Остальные вкладки работают и без этого.</p></div>';
+    return;
+  }
   if (v === 'qty')       renderHeatQty(flt);
   else if (v === 'first') renderHeatFirst(flt);
   else if (v === 'mix')   renderHeatMix(flt);
