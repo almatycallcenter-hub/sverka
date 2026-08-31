@@ -92,6 +92,8 @@
   .hmLegend b{font-weight:500;color:var(--txt)}
   .hmSw{display:inline-block;width:26px;height:12px;border-radius:3px;
     border:1px solid var(--bd)}
+  /* подсказка, а не факт: приглушённый курсив, чтобы не путали с документом */
+  td.guess{color:var(--mut);font-style:italic;white-space:normal;max-width:340px}
   .hmSum h3{margin:0 0 6px;font-size:14px}
   .hmSum ul{margin:0 0 12px;padding-left:18px}
   .hmSum li{margin:3px 0}
@@ -1692,6 +1694,48 @@ function daysBetween(a, b){
 }
 
 var MATCH50 = null;
+/* Продажу со скидкой 50% без расходной накладной нельзя привязать к филиалу
+   напрямую: документа, по которому продукция уехала на склад 50%, просто нет.
+   Зато недостача видна в инвентаризации — если в те же дни у филиала не сошлась
+   ровно эта позиция, скорее всего продукция ушла оттуда. Это подсказка, а не
+   доказательство: филиалов может быть несколько, и мы честно перечисляем всех. */
+var INV50_WINDOW = 7;
+var _inv = null, _invSig = '';
+function nedostacha(){
+  var sig = DB.mov.length + '/' + (DB.mov.length ? S(DB.mov[DB.mov.length - 1][0]) : '');
+  if (_inv && _invSig === sig) return _inv;
+  var m = {};
+  DB.mov.forEach(function(r){
+    if (r[3] !== 'inv_out') return;
+    if (isDelivery(r[1]) || isClosed(r[1])) return;
+    var b = baseOf(nrm(r[2])), q = N(r[4]) * b.f;
+    if (q <= 0) return;
+    (m[b.k] = m[b.k] || []).push({ d: r[0], wh: r[1], q: q });
+  });
+  _invSig = sig;
+  return (_inv = m);
+}
+function sourceHint(k, day, need){
+  var list = nedostacha()[k]; if (!list) return '';
+  var from = shift(day, -INV50_WINDOW), acc = {}, last = {};
+  list.forEach(function(x){
+    if (x.d < from || x.d > day) return;
+    acc[x.wh] = (acc[x.wh] || 0) + x.q;
+    if (!last[x.wh] || x.d > last[x.wh]) last[x.wh] = x.d;
+  });
+  var whs = Object.keys(acc);
+  if (!whs.length) return '';
+  // сначала те, у кого недостача покрывает выкуп, потом по величине
+  whs.sort(function(a, b){
+    var ca = acc[a] + 1e-9 >= need, cb = acc[b] + 1e-9 >= need;
+    return (cb - ca) || (acc[b] - acc[a]) || (last[b] < last[a] ? -1 : 1);
+  });
+  var txt = whs.slice(0, 3).map(function(w){
+    return w + ' (' + round3(acc[w]) + ' шт, ' + ru(last[w]) + ')'; }).join('; ');
+  return (whs.length === 1 ? 'вероятно ' : 'возможно ') + txt +
+         (whs.length > 3 ? ' и ещё ' + (whs.length - 3) : '');
+}
+
 function match50(){
   var moves = [], sales = [];
   DB.mov.forEach(function(r){
@@ -1726,16 +1770,18 @@ function match50(){
     byMove[m.wh + '|' + m.d + '|' + m.k] = txt;
     if (m.buyers.length)
       m.buyers.forEach(function(b){
-        keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q), '']]);
+        keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q),
+                   '', '']]);
       });
     if (m.left > 1e-9)
       keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
-                 'покупатель не найден']]);
+                 'покупатель не найден', '']]);
   });
   sales.forEach(function(sl){
     if (sl.left > 1e-9)
       keyed.push([sl.d, ['—', '—', sl.name, '—', sl.who, ru(sl.d), round3(sl.left),
-                 'продажа со скидкой 50% без расходной накладной на склад 50%']]);
+                 'продажа со скидкой 50% без расходной накладной на склад 50%',
+                 sourceHint(sl.k, sl.d, sl.left)]]);
   });
   keyed.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
   rows = keyed.map(function(x){ return x[1]; });
@@ -1758,7 +1804,8 @@ var COMPACT = [0,1,2,3,6,7,8]; // что видно в компактном ре
 var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
 var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
 var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
-                'Покупатель','Дата покупки','Кол-во выкуплено','Замечание'];
+                'Покупатель','Дата покупки','Кол-во выкуплено','Замечание',
+                'Откуда могла уйти (по недостаче)'];
 
 /* бөрек, самса, шығыс самсасы — время разморозки в учёте не фиксируется */
 function frozenByName(n){
@@ -1957,8 +2004,9 @@ function render(view){
     applySort(rowsM, SORT.m50, byIdx).forEach(function(r){
       var warn = !!r[7];
       h += '<tr' + (warn ? ' class="badrow"' : '') + '>' + r.map(function(v, i){
-        var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : v);
-        return '<td class="' + (i===2||i===4||i===7 ? 'name' : '') +
+        var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : esc(v));
+        return '<td class="' + (i===2||i===4||i===7||i===8 ? 'name' : '') +
+               (i===8 ? ' guess' : '') +
                '" data-l="' + esc(M50_HEAD[i]) + '">' + val + '</td>'; }).join('') + '</tr>';
     });
     h += '</tbody></table>';
