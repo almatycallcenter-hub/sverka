@@ -92,6 +92,15 @@
   .hmLegend b{font-weight:500;color:var(--txt)}
   .hmSw{display:inline-block;width:26px;height:12px;border-radius:3px;
     border:1px solid var(--bd)}
+  /* карточка товара: сначала цифры плитками, потом вывод словами */
+  .cardKpi{margin:2px 0 14px}
+  .cardKpi>div{padding:10px 12px}
+  .cardTodo{background:var(--panel);border:1px solid var(--bd);border-radius:12px;
+    padding:12px 14px;margin:0 0 16px}
+  .cardTodo h4{margin:0 0 6px;font-size:13px;color:var(--mut);font-weight:500;
+    text-transform:uppercase;letter-spacing:.03em}
+  .cardTodo ul{margin:0;padding-left:18px}
+  .cardTodo li{margin:5px 0;line-height:1.5}
   /* подсказка, а не факт: приглушённый курсив, чтобы не путали с документом */
   td.guess{color:var(--mut);font-style:italic;white-space:normal;max-width:340px}
   .hmSum h3{margin:0 0 6px;font-size:14px}
@@ -2623,13 +2632,13 @@ SORT.pos = {i:-1,d:1}; SORT.pair = {i:-1,d:1}; SORT.trio = {i:-1,d:1};
 var P_WH=0, P_DISH=1, P_CAT=2, P_SROK=3, P_PRIH=4, P_SOLD=5, P_LOSS=6, P_SHARE=7,
     P_D20=8, P_DSH=9, P_VOZ=10, P_F50=11, P_SPIS=12, P_DLOSS=13, P_ONSHELF=14,
     P_STOP=15, P_STOPD=16, P_LAST=17, P_BAL=18, P_SPEED=19, P_WDAY=20, P_PRICE=21,
-    P_MONEY=22, P_TODO=23, P_CUT=24, P_DOST=25;
+    P_MONEY=22, P_TODO=23, P_CUT=24, P_DOST=25, P_AGE=26, P_ZAKAZ=27;
 var POS_HEAD = ['Филиал','Блюдо','Категория','Срок, ч','Приход','Продано всего',
   'Не продано, шт','Доля не проданного','из них со скидкой 20%','Доля дней со скидкой',
   'Возврат по сроку','Склад 50%','Списание','Дней с потерями','Дней на витрине',
   'Дней в стопе','Дни стопа','Последняя продажа','Остаток на конец','Скорость, шт/день',
   'Худший день','Цена, ₸','Потери всего, ₸','Что делать','Снизить на, шт/день',
-  'Ушло на доставку'];
+  'Ушло на доставку','Возраст запаса, дн','Заявка на день, шт'];
 /* «Доставка ТТ5 склад» — не витрина: филиалы свозят туда, дальше товар уходит в доставку.
    Перемещение на неё — продажа по полной цене, а не потеря. */
 function isDelivery(w){ return /достав/i.test(S(w)); }
@@ -2803,7 +2812,7 @@ function chrono(dFrom, dTo){
   var days = [], d = dFrom;
   while (d <= dTo){ days.push(d); d = shift(d, 1); }
 
-  var byDay = {}, byWh = {};
+  var byDay = {}, byWh = {}, TORT = tortPositions();
   days.forEach(function(d){ byDay[d] = { d: d, loss: 0, money: 0, sold: 0 }; });
   var rows = [];
   Object.keys(acc).forEach(function(key){
@@ -2821,9 +2830,13 @@ function chrono(dFrom, dTo){
       if (x.s > 1e-9){ lastS = dd; lastT = TM[a.wh + '|' + a.k + '|' + dd] || ''; }
       var q20 = S20[a.wh + '|' + a.k + '|' + dd] || 0;
       if (q20 > 1e-9){ D20 += q20; dDisc++; }
-      cum += x.p - x.s - x.l;
+      /* Перемещение на склад доставки — не потеря, но продукция физически уезжает
+         с витрины. Раньше её не вычитали из остатка: у позиций, которые возят на
+         доставку, «Остаток на конец» показывал десятки штук, которых там нет. */
+      cum += x.p - x.s - x.l - (x.dost || 0);
       if (cum < minCum) minCum = cum;
-      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s, gp: x.gp || 0 });
+      series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s, gp: x.gp || 0,
+                    dost: x.dost || 0 });
     });
     if (P < 1e-9 && S_ < 1e-9) return;
     var open = Math.max(0, -minCum), prev = 0, stopDays = [], stopTimes = {};
@@ -2839,6 +2852,56 @@ function chrono(dFrom, dTo){
       else x.st = 0;
       prev = x.p;
     });
+    /* ── Возраст запаса ────────────────────────────────────────
+       Сколько суток штука пролежала от прихода до продажи. Считаем по ФИФО:
+       сперва уходит вчерашний остаток, и только потом сегодняшний завоз. Ноль —
+       продали в день привоза; больше единицы — держим склад вместо витрины,
+       хотя свежее приезжает каждый день. Остаток на начало периода в среднее не
+       берём: дату его прихода мы не знаем, но очередь он занимает честно. */
+    /* У мороженых позиций дата прихода — это дата привоза с тортового склада,
+       а срок на витрине идёт от разморозки, которую нигде не фиксируют. ФИФО по
+       ним даёт бессмысленные «8 суток» — возраст по таким не считаем вовсе. */
+    var frozenPos = !!TORT[a.k];
+    var fifo = [], ageSum = 0, ageQty = 0;
+    if (open > 1e-9) fifo.push({ d: '', qty: open });
+    if (frozenPos) series.forEach(function(x){ x.age = null; });
+    else series.forEach(function(x){
+      if (x.p > 1e-9) fifo.push({ d: x.d, qty: x.p });
+      var need = x.s, dSum = 0, dQty = 0;
+      while (need > 1e-9 && fifo.length){
+        var b = fifo[0], t = Math.min(b.qty, need);
+        if (b.d){ var age = daysBetween(b.d, x.d);
+                  ageSum += age * t; ageQty += t; dSum += age * t; dQty += t; }
+        b.qty -= t; need -= t;
+        if (b.qty <= 1e-9) fifo.shift();
+      }
+      /* Уехавшее на доставку и потери тоже снимаются с очереди — иначе старые
+         партии висят вечно и возраст задирается до недели на ровном месте.
+         В средний возраст они не идут: когда доставка продала штуку, мы не знаем. */
+      var nl = x.l + (x.dost || 0);
+      while (nl > 1e-9 && fifo.length){
+        var b2 = fifo[0], t2 = Math.min(b2.qty, nl);
+        b2.qty -= t2; nl -= t2;
+        if (b2.qty <= 1e-9) fifo.shift();
+      }
+      x.age = dQty > 0 ? dSum / dQty : null;
+    });
+    var ageAvg = ageQty > 0 ? ageSum / ageQty : null;
+
+    /* ── Рекомендуемая заявка на день ──────────────────────────
+       Спрос считаем по дням, когда витрина не пустела: в день стопа продажи
+       обрезаны отсутствием товара и занижают спрос. Берём медиану, а не среднее,
+       чтобы один праздничный день не задрал заявку на всю неделю. */
+    var dSold = series.filter(function(x){ return x.s > 1e-9; }).length;
+    var demand = series.filter(function(x){ return !x.st; }).map(function(x){ return x.s; })
+                       .sort(function(a, b){ return a - b; });
+    var med = demand.length
+      ? (demand.length % 2 ? demand[(demand.length - 1) / 2]
+         : (demand[demand.length / 2 - 1] + demand[demand.length / 2]) / 2)
+      : 0;
+    var zakaz = med > 0 ? Math.ceil(med * 1.1) : 0;   // 10% страховки
+    var nowDay = days.length ? P / days.length : 0;   // сколько завозят сейчас
+
     /* «Худший день».
        Если продукция приходит из Цеха ГП, дата прихода известна точно, и по сроку
        можно отмотать назад: то, что пропало в четверг, завезли в понедельник.
@@ -2876,6 +2939,8 @@ function chrono(dFrom, dTo){
     else if (discShare >= 0.3 || lossShare >= 0.15) todo = 'снизить заявку';
     else if (discShare >= 0.15)                     todo = 'часто на скидке — проверить';
     else if (lossShare >= 0.08)                     todo = 'много списаний — проверить';
+    // товар лежит дольше суток, а свежий приезжает каждый день — это уже запас
+    else if (ageAvg !== null && ageAvg > 1)         todo = 'лежит больше суток — сократить запас';
     /* на сколько резать заявку: потери делим на ВСЕ дни на витрине, а не на дни с потерями.
        Показываем только если филиал ни разу не уходил в стоп — иначе резать нечего. */
     var cut = (stop < 1 && onShelf > 0) ? Math.round(L / onShelf) : 0;
@@ -2893,14 +2958,24 @@ function chrono(dFrom, dTo){
     SERIES[sKey] = series.map(function(x){
       return { d: x.d, p: r3(x.p), s: r3(x.s), l: r3(x.l), bal: x.bal, st: x.st,
                q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0),
+               dost: r3(x.dost || 0),
+               age: x.age === null ? null : Math.round(x.age * 10) / 10,
                tm: TM[a.wh + '|' + a.k + '|' + x.d] || '' };
     });
+    // всё, что нужно карточке товара и чего нет в строке таблицы
+    SERIES[sKey].info = { wh: a.wh, name: sp.name, srok: sp.srok || 0,
+      cat: catOf(sp.name), price: price, P: r3(P), S: r3(S_), L: r3(L), D20: r3(D20),
+      V: r3(V), F: r3(F), SP: r3(SP), DS: r3(DS), money: Math.round(money),
+      onShelf: onShelf, stop: stop, ageAvg: ageAvg, zakaz: zakaz, nowDay: nowDay,
+      med: med, todo: todo, cut: cut, discShare: discShare, lossShare: lossShare,
+      dni: days.length, bestD: bestD, frozen: frozenPos, dSold: dSold };
     rows.push([a.wh, sp.name, catOf(sp.name), sp.srok || '', r3(P), r3(S_),
       r3(L), P > 1e-9 ? r3(L / P) : '', r3(D20), r3(discShare),
       r3(V), r3(F), r3(SP), dLoss, onShelf, stop, daysText(stopDays, stopTimes),
       lastS ? (ru(lastS) + (lastT ? ' ' + lastT : '')) : '', endBal, onShelf ? r3(S_ / onShelf) : 0, bestD,
       price ? Math.round(price) : '', money ? Math.round(money) : '',
-      todo, cut || '', r3(DS) || '']);
+      todo, cut || '', r3(DS) || '',
+      ageAvg === null ? '' : Math.round(ageAvg * 10) / 10, zakaz || '']);
   });
   CHRONO_DAYS = days.map(function(d){ return byDay[d]; });
   CHRONO_WH = byWh;
@@ -3301,31 +3376,121 @@ function openDays(key){
   m.style.display = 'flex';
 }
 function closeDays(){ $('dayModal').style.display = 'none'; }
+/* Шапка карточки: цифры и, главное, что с ними делать. Страница нужна для
+   обучения, поэтому вывод пишем словами и с числом, а не значком «плохо». */
+function cardHead(info){
+  if (!info) return '';
+  function tile(t, v, sub, cls){
+    return '<div><span>' + t + '</span><b' + (cls ? ' style="color:var(--' + cls + ')"' : '') +
+           '>' + v + '</b>' + (sub ? '<span>' + sub + '</span>' : '') + '</div>';
+  }
+  var age = info.ageAvg;
+  var ageCls = age === null ? '' : age <= 1 ? 'okT' : age <= 2 ? 'naT' : 'badT';
+  var ageTxt = age === null ? '—' : (Math.round(age * 10) / 10) + ' дн';
+  var ageSub = info.frozen ? 'мороженая — не отследить'
+             : age === null ? 'продаж не было'
+             : age <= 1 ? 'уходит в день привоза' : 'столько лежит до продажи';
+  var lossPct = info.P > 0 ? Math.round(info.L / info.P * 100) : 0;
+
+  var kpi = '<div class="kpi cardKpi">' +
+    tile('Возраст запаса', ageTxt, ageSub, ageCls) +
+    tile('Приход', fmtQ(info.P) + ' шт', 'за ' + info.dni + ' дн.') +
+    tile('Продано', fmtQ(info.S) + ' шт',
+         info.D20 > 0 ? 'из них ' + fmtQ(info.D20) + ' со скидкой' : 'всё по полной цене') +
+    tile('Не продано', fmtQ(info.L) + ' шт', lossPct + '% прихода',
+         lossPct >= 10 ? 'badT' : lossPct > 0 ? 'naT' : 'okT') +
+    (info.money ? tile('Потери в деньгах', fmtQ(info.money) + ' ₸', '', 'badT') : '') +
+    (info.DS > 0 ? tile('Ушло на доставку', fmtQ(info.DS) + ' шт', 'это продажа, не потеря') : '') +
+    '</div>';
+
+  // ── что делать, словами и с числами
+  var li = [];
+  if (info.frozen)
+    li.push('Позиция приезжает с тортового склада мороженой. Срок на витрине идёт ' +
+      'от разморозки, а её время нигде не фиксируется — <b>возраст запаса по такой ' +
+      'продукции посчитать нельзя</b>, и приход по ФИФО тоже не проверяется.');
+  if (age !== null && age > 1)
+    li.push('<b>Товар лежит ' + (Math.round(age * 10) / 10) + ' суток до продажи.</b> ' +
+      'Сначала уходит вчерашний остаток, и до сегодняшнего завоза очередь доходит ' +
+      (age >= 2 ? 'только на третий день' : 'лишь на следующий') + '. ' +
+      'Свежее приезжает каждый день — держать запас незачем: он стареет и уходит в скидку.');
+  else if (age !== null)
+    li.push('Товар уходит в день привоза (возраст ' + (Math.round(age * 10) / 10) +
+      ' дн). Так и должно быть — запаса нет, продаём свежее.');
+
+  if (info.zakaz){
+    var d = info.nowDay - info.zakaz;
+    li.push('<b>Идеальная заявка: ' + info.zakaz + ' шт в день.</b> ' +
+      'В обычный день (без стопа) продаётся ' + fmtQ(Math.round(info.med * 10) / 10) +
+      ' шт, плюс 10% на всякий случай. Сейчас завозят в среднем ' +
+      fmtQ(Math.round(info.nowDay * 10) / 10) + ' шт в день — ' +
+      (d > 0.5 ? '<b>на ' + fmtQ(Math.round(d * 10) / 10) + ' шт больше нужного</b>. ' +
+                 'Это и есть то, что каждый день уходит в уценку.'
+       : d < -0.5 ? '<b>на ' + fmtQ(Math.round(-d * 10) / 10) + ' шт меньше нужного</b>. ' +
+                 'Витрина пустеет раньше времени — продажи теряются.'
+       : 'это примерно столько и есть. Заявка в порядке.'));
+  } else if (info.dSold > 0 && info.dni > 0 && info.dSold < info.dni * 0.6)
+    li.push('<b>Продаётся не каждый день</b> — покупали в ' + info.dSold + ' дн. из ' +
+      info.dni + ', в среднем ' + fmtQ(Math.round(info.S / info.dni * 10) / 10) +
+      ' шт в день. Ежедневная заявка тут только копит остаток: возите по факту ' +
+      'спроса или через день, а не ровным количеством.');
+  if (info.stop > 0)
+    li.push('Витрина пустела <b>' + info.stop + ' дн.</b> из ' + info.dni +
+      '. В такие дни спрос обрезан: реальный мог быть выше, чем показывают продажи.' +
+      (info.bestD ? ' Больше всего теряется в <b>' + info.bestD + '</b>.' : ''));
+  if (info.discShare >= 0.15)
+    li.push('Со скидкой уходит <b>' + Math.round(info.discShare * 100) +
+      '%</b> дней на витрине. Скидка — это минус пятая часть цены с каждой штуки; ' +
+      'дешевле завозить меньше, чем уценивать.');
+  if (info.SP > 0 || info.V > 0)
+    li.push('Списано и возвращено по сроку <b>' + fmtQ(info.SP + info.V) + ' шт</b> — ' +
+      'это потеря целиком, не как скидка.');
+
+  return kpi + (li.length
+    ? '<div class="cardTodo"><h4>Что с этим делать</h4><ul>' +
+      li.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></div>' : '');
+}
+
 function dayTable(key){
   var ser = SERIES[key] || [];
   if (!ser.length) return '<div class="hint">Нет данных по дням.</div>';
   // колонку скидки показываем, только если скидка вообще была — иначе она съедает ширину
   var has20 = ser.some(function(x){ return x.q20 > 1e-9; });
   var hasTm = ser.some(function(x){ return x.tm; });
+  var hasDs = ser.some(function(x){ return x.dost > 1e-9; });
+  var hasAge = ser.some(function(x){ return x.age !== null; });
   var head = ['Дата','День','Приход','Продано'].concat(has20 ? ['со скидкой'] : [])
-    .concat(['Потери','Остаток']).concat(hasTm ? ['Посл. продажа'] : []).concat(['']);
+    .concat(hasAge ? ['Возраст, дн'] : [])
+    .concat(['Потери']).concat(hasDs ? ['На доставку'] : []).concat(['Остаток'])
+    .concat(hasTm ? ['Посл. продажа'] : []).concat(['']);
   var h = '<div class="detWrap"><div class="detT">' + esc(key.replace('|', ' · ')) +
-    ' — по дням</div><table class="det2"><thead><tr>' +
+    '</div>' + cardHead(ser.info) +
+    '<div class="detT">По дням</div><table class="det2"><thead><tr>' +
     head.map(function(t){ return '<th>' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
   ser.forEach(function(x){
+    var ageCls = x.age === null ? '' : x.age <= 1 ? 'ok' : x.age <= 2 ? 'na' : 'bad';
     h += '<tr' + (x.st ? ' class="stopRow"' : '') + '>' +
       '<td>' + S(x.d).slice(8, 10) + '.' + S(x.d).slice(5, 7) + '</td>' +
       '<td>' + DOW[dowMon(x.d)] + '</td>' +
       '<td>' + (x.p || '') + '</td>' +
       '<td>' + (x.s || '') + '</td>' +
       (has20 ? '<td>' + (x.q20 || '') + '</td>' : '') +
+      (hasAge ? '<td>' + (x.age === null ? ''
+                : '<span class="chip ' + ageCls + '">' + x.age + '</span>') + '</td>' : '') +
       '<td>' + (x.l || '') + '</td>' +
+      (hasDs ? '<td>' + (x.dost || '') + '</td>' : '') +
       '<td>' + x.bal + '</td>' +
       (hasTm ? '<td>' + (x.tm || '') + '</td>' : '') +
       '<td>' + (x.st ? '<span class="chip bad">стоп' + (x.tm ? ' в ' + x.tm : '') + '</span>'
                      : (x.l > 1e-9 ? '<span class="chip na">потери</span>' : '')) + '</td></tr>';
   });
-  h += '</tbody></table>' + (hasTm
+  h += '</tbody></table>' +
+    (hasAge ? '<div class="hint" style="margin:8px 2px 0">«Возраст» — сколько суток ' +
+      'пролежала проданная в этот день штука. Считается по ФИФО: сперва уходит ' +
+      'вчерашний остаток, потом сегодняшний завоз. <span class="chip ok">0–1</span> — ' +
+      'хорошо, <span class="chip na">1–2</span> — есть запас, ' +
+      '<span class="chip bad">больше 2</span> — держим склад вместо витрины.</div>' : '') +
+    (hasTm
     ? '<div class="hint" style="margin:8px 2px 0">«Посл. продажа» — час, когда блюдо купили ' +
       'в последний раз за день, из отчёта по чекам. В день стопа это и есть время, ' +
       'когда витрина опустела.</div>'
@@ -3408,6 +3573,9 @@ function renderChrono(view){
              || (view === 'pair' && (i === 2 || i === 6)))
              ? 'name' : '';
       if (pct.indexOf(i) >= 0 && v !== '' && v >= 0.15) cl += ' bad';
+      // возраст запаса — светофором прямо в таблице, это главный учебный сигнал
+      if (view === 'pos' && i === P_AGE && v !== '')
+        cell = '<span class="chip ' + (v <= 1 ? 'ok' : v <= 2 ? 'na' : 'bad') + '">' + v + '</span>';
       if (view === 'trio'){
         if (i === 3) cl += (String(v).charAt(0) === '1' ? ' bad'
                           : String(v).charAt(0) === '3' ? ' good' : '');
