@@ -92,6 +92,14 @@
   .hmLegend b{font-weight:500;color:var(--txt)}
   .hmSw{display:inline-block;width:26px;height:12px;border-radius:3px;
     border:1px solid var(--bd)}
+  /* «Скидки и потери» — три самостоятельных блока, каждый со своим пояснением */
+  .lossSec{background:var(--card);border:1px solid var(--bd);border-radius:12px;
+    padding:14px 16px;margin:0 0 14px;box-shadow:var(--shCard)}
+  .lossSec h3{margin:0 0 4px;font-size:15px}
+  .lossSec .lead{margin:0 0 10px}
+  .lossSec table{margin-top:2px}
+  .lossSec th{position:static}
+  tr.totRow td{border-top:1px solid var(--bd);background:var(--head)}
   /* карточка товара: сначала цифры плитками, потом вывод словами */
   .cardKpi{margin:2px 0 14px}
   .cardKpi>div{padding:10px 12px}
@@ -614,6 +622,7 @@
             <button data-c="dyn">Динамика</button>
             <button data-c="trio">Топ-20: худший / средний / лучший</button>
             <button data-c="pair">Перемещать вместо уценки</button>
+            <button data-c="loss">Скидки и потери</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
@@ -625,6 +634,8 @@
             <label id="labMove"><input type="checkbox" id="onlyMove" checked>
               только торты, пироги, пирожные</label>
             <button id="fClear" class="miniBtn">Сбросить</button>
+            <label id="labOnlyAlarm"><input type="checkbox" id="onlyAlarm">
+              только где есть что делать</label>
             <label id="labOnlyRoute"><input type="checkbox" id="onlyRoute"> только пары на одном маршруте</label>
             <span class="cnt" id="cntC"></span>
           </div>
@@ -978,7 +989,7 @@ function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg 
 function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
-var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], list: [], syn: {} };
+var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], list: [], syn: {} };
 /* В движениях одни и те же названия складов, блюд и видов повторяются
    десятками тысяч раз. Храним их словарём, а в строках — номера.
    В памяти формат прежний, поэтому остальной код не меняется. */
@@ -1094,7 +1105,7 @@ function saveLS(packed, pre){
 /* Значения по умолчанию — до того, как данные приедут из базы */
 function loadDB(){
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
-  ['mov','s20','s50','cheki','full','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  ['mov','s20','s50','cheki','full','disc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
 }
@@ -1293,7 +1304,8 @@ function parseCheki(v){
     'В файле нет колонки «Время закрытия» — это обычный отчёт по учётным дням, а не по чекам.');
 
   var iTip = col(h,'Тип скидки'), iS0 = col(h,'Сумма без скидки, тенге');
-  var poz = {}, s20 = [], full = {}, day = '', tm = '', conc = '';
+  var iS1 = col(h,'Сумма со скидкой, тенге');
+  var poz = {}, s20 = [], full = {}, disc = {}, day = '', tm = '', conc = '';
   for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row) continue;
     var c0 = S(row[iT]);
@@ -1327,12 +1339,25 @@ function parseCheki(v){
       var fk = day + '|' + conc + '|' + dish + '|' + tm.slice(0, 2);
       full[fk] = (full[fk] || 0) + q;
     }
+    /* Скидок в чеках больше, чем 20% и 50%: десятки, бонусы, акции. Каждая —
+       это тоже недополученные деньги, просто в другом размере. Копим их
+       свёрнуто по типу и филиалу: строк получается сотни, а не десятки тысяч. */
+    if (tip && tip.indexOf('скидка 20%') < 0){
+      var dk = day + '|' + conc + '|' + S(row[iTip]);
+      var a = disc[dk] || (disc[dk] = { q: 0, s0: 0, s1: 0 });
+      a.q += q;
+      a.s0 += iS0 === undefined ? 0 : N(row[iS0]);
+      a.s1 += iS1 === undefined ? 0 : N(row[iS1]);
+    }
   }
   var times = Object.keys(poz).map(function(k){
     var p = k.split('|'); return [p[0], p[1], p[2], poz[k]]; });
   var fullRows = Object.keys(full).map(function(k){
     var p = k.split('|'); return [p[0], p[1], p[2], +p[3], full[k]]; });
-  return { times: times, s20: s20, full: fullRows };
+  var discRows = Object.keys(disc).map(function(k){
+    var p = k.split('|'), a = disc[k];
+    return [p[0], p[1], p.slice(2).join('|'), r3(a.q), Math.round(a.s0), Math.round(a.s1)]; });
+  return { times: times, s20: s20, full: fullRows, disc: discRows };
 }
 
 function mergeRows(key, rows){
@@ -1377,6 +1402,8 @@ $('btnLoad').onclick = async function(){
           done.push('продажи 20%: ' + rch.s20.length + ' строк (из этого же файла)'); }
         if (rch.full && rch.full.length){ mergeRows('full', rch.full);
           done.push('продажи без уценки: ' + rch.full.length + ' строк по часам'); }
+        if (rch.disc && rch.disc.length){ mergeRows('disc', rch.disc);
+          done.push('прочие скидки: ' + rch.disc.length + ' строк по типам'); }
         else problems.push('В «' + f.name + '» нет продаж со скидкой 20%. ' +
           'При выгрузке не отфильтровывайте тип скидки — нужны все.');
       }catch(e){ problems.push('Продажи по чекам: ' + (e.message || e)); }
@@ -3510,6 +3537,7 @@ function renderChrono(view){
   ['qC', 'fRoute', 'fWh', 'fCat', 'fTodo', 'fClear'].forEach(function(id){
     $(id).style.display = view === 'dyn' ? 'none' : ''; });
   $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
+  $('labOnlyAlarm').style.display = view === 'pos' ? '' : 'none';
   $('labMove').style.display =
     (view === 'pos' || view === 'trio' || view === 'dyn') ? '' : 'none';
   var hasFlt = view === 'trio' || view === 'pos';
@@ -3518,6 +3546,7 @@ function renderChrono(view){
     ['fRoute','fWh','fCat','fTodo','fClear'].forEach(function(id){ $(id).style.display = 'none'; });
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
+  if (view === 'loss'){ $('fbarC').style.display = 'none'; renderLoss(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -3539,6 +3568,8 @@ function renderChrono(view){
       if (fW && r[P_WH] !== fW) return false;
       if (fC && r[P_CAT] !== fC) return false;
       if (fT && S(r[P_TODO]) !== fT) return false;
+      // «есть что делать» — это ровно непустая колонка «Что делать»
+      if ($('onlyAlarm').checked && !S(r[P_TODO])) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
   } else {
     head = PAIR_HEAD; st = SORT.pair;
@@ -3598,6 +3629,145 @@ function renderChrono(view){
     };
   });
 }
+
+/* ═════════ скидки и потери, которых нет в основной сверке ═════════
+   Сверка занимается 20%, 50%, списанием и возвратом по сроку. Но в чеках есть
+   и другие скидки, а в движениях — возврат по качеству и недостачи. Каждое из
+   этого тоже деньги, просто по другой причине; собираем их в одном месте. */
+function discPct(tip){                       // «Скидка 10%» → 0.1
+  var m = /(\d{1,2})\s*%/.exec(S(tip));
+  return m ? +m[1] / 100 : null;
+}
+function lossData(from, to){
+  var whOf = whResolver(), PR = priceMap();
+
+  // 1. Прочие скидки из чеков
+  var BR = {}; branches().forEach(function(w){ BR[w] = 1; });
+  var byTip = {};
+  (DB.disc || []).forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to) return;
+    var wh = whOf(r[1]);
+    // цех и прочие неторговые точки в разрез по филиалам не идут
+    if (!BR[wh] || isDelivery(wh) || isClosed(wh)) return;
+    var tip = S(r[2]) || 'без названия';
+    // 50% — это выкуп сотрудниками, он разбирается на своей вкладке
+    if (tip.toLowerCase().indexOf('50%') >= 0) return;
+    var a = byTip[tip] || (byTip[tip] = { tip: tip, q: 0, s0: 0, s1: 0, wh: {} });
+    a.q += N(r[3]); a.s0 += N(r[4]); a.s1 += N(r[5]);
+    a.wh[wh] = (a.wh[wh] || 0) + N(r[3]);
+  });
+  var disc = Object.keys(byTip).map(function(k){ return byTip[k]; });
+  disc.forEach(function(a){
+    a.poteria = Math.max(0, a.s0 - a.s1);          // недополучено по факту
+    a.pct = a.s0 > 0 ? a.poteria / a.s0 : 0;
+  });
+  disc.sort(function(a, b){ return b.poteria - a.poteria; });
+
+  // 2. Возврат по качеству и 3. инвентаризация — из движений
+  var kach = {}, inv = {};
+  DB.mov.forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to) return;
+    var wh = r[1]; if (isDelivery(wh) || isClosed(wh)) return;
+    var k = nrm(r[2]), sp = SPR[k]; if (!sp) return;
+    if (grpOf(catOf(sp.name)) === 'не еда') return;
+    var b = baseOf(k), q = N(r[4]) * b.f, price = PR[b.k] || 0;
+    if (r[3] === 'vozvrat_kach'){
+      var a = kach[wh] || (kach[wh] = { wh: wh, q: 0, money: 0, top: {} });
+      a.q += q; a.money += q * price;
+      a.top[sp.name] = (a.top[sp.name] || 0) + q;
+    } else if (r[3] === 'inv_out' || r[3] === 'inv_in'){
+      var v = inv[wh] || (inv[wh] = { wh: wh, minus: 0, plus: 0, mMoney: 0, top: {} });
+      if (r[3] === 'inv_out'){ v.minus += q; v.mMoney += q * price;
+                               v.top[sp.name] = (v.top[sp.name] || 0) + q; }
+      else v.plus += q;
+    }
+  });
+  function arr(o){ return Object.keys(o).map(function(k){ return o[k]; }); }
+  var kachRows = arr(kach).sort(function(a, b){ return b.money - a.money; });
+  var invRows  = arr(inv).sort(function(a, b){ return b.mMoney - a.mMoney; });
+  return { disc: disc, kach: kachRows, inv: invRows };
+}
+
+function topNames(o, n){
+  return Object.keys(o).sort(function(a, b){ return o[b] - o[a]; }).slice(0, n || 3)
+           .map(function(x){ return esc(x) + ' (' + fmtQ(o[x]) + ')'; }).join(', ');
+}
+
+function renderLoss(){
+  var L = lossData(CHRONO.from, CHRONO.to);
+  LOSSDATA = L;
+  function tbl(head, rows, hint){
+    return '<table><thead><tr>' + head.map(function(t){ return '<th>' + t + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+      (hint ? '<div class="hint" style="padding:8px 4px 2px">' + hint + '</div>' : '');
+  }
+  var h = '';
+
+  // ── прочие скидки
+  h += '<div class="lossSec"><h3>Скидки, кроме 20%</h3>' +
+    '<p class="lead">Двадцать процентов — это уценка по сроку, ей занимается сверка. ' +
+    'Всё остальное здесь: бонусы, акции, десятки. Потеря считается по факту — ' +
+    'сумма без скидки минус сумма со скидкой из чека, а не по названию типа. ' +
+    'Скидка 50% сюда не входит: это выкуп сотрудниками, ему отведена своя вкладка.</p>';
+  if (!L.disc.length)
+    h += '<div class="hint">Других скидок за период не было. Если их не видно совсем — ' +
+         'загрузите отчёт по продажам филиала заново: типы скидок начали сохраняться ' +
+         'только в этой версии.</div>';
+  else {
+    var totQ = 0, totP = 0;
+    L.disc.forEach(function(a){ totQ += a.q; totP += a.poteria; });
+    h += tbl(['Тип скидки','Штук','Сумма без скидки, ₸','Продано на, ₸','Недополучено, ₸',
+              'Размер скидки','Где чаще'],
+      L.disc.map(function(a){
+        return '<tr><td class="name">' + esc(a.tip) + '</td>' +
+          '<td>' + fmtQ(a.q) + '</td><td>' + fmtQ(Math.round(a.s0)) + '</td>' +
+          '<td>' + fmtQ(Math.round(a.s1)) + '</td>' +
+          '<td class="bad">' + fmtQ(Math.round(a.poteria)) + '</td>' +
+          '<td>' + Math.round(a.pct * 100) + '%</td>' +
+          '<td class="name">' + topNames(a.wh, 2) + '</td></tr>';
+      }).join('') +
+      '<tr class="totRow"><td class="name"><b>Всего</b></td><td><b>' + fmtQ(totQ) +
+        '</b></td><td></td><td></td><td class="bad"><b>' + fmtQ(Math.round(totP)) +
+        '</b></td><td></td><td></td></tr>');
+  }
+  h += '</div>';
+
+  // ── возврат по качеству
+  h += '<div class="lossSec"><h3>Возврат по качеству</h3>' +
+    '<p class="lead">Это брак или возврат от покупателя — потеря <b>полной</b> цены, ' +
+    'а не пятой части, как при уценке. В «не продано» она не входит: там речь про срок ' +
+    'годности, а здесь про качество.</p>';
+  h += L.kach.length
+    ? tbl(['Филиал','Штук','Деньги, ₸','Что возвращают чаще'],
+        L.kach.map(function(a){
+          return '<tr><td class="name">' + esc(a.wh) + '</td><td>' + fmtQ(a.q) + '</td>' +
+            '<td class="bad">' + fmtQ(Math.round(a.money)) + '</td>' +
+            '<td class="name">' + topNames(a.top) + '</td></tr>'; }).join(''))
+    : '<div class="hint">За период возвратов по качеству не было.</div>';
+  h += '</div>';
+
+  // ── инвентаризация
+  h += '<div class="lossSec"><h3>Недостачи по инвентаризации</h3>' +
+    '<p class="lead">Недостача — это то, что по документам есть, а на полке нет. ' +
+    'Разово так бывает у всех: пересорт, ошибка при приёмке. Но если у одного филиала ' +
+    'это из месяца в месяц и по одним и тем же позициям — причина уже не в учёте. ' +
+    'По этим же недостачам страница подсказывает источник на вкладке «Путь на склад 50%».</p>';
+  h += L.inv.length
+    ? tbl(['Филиал','Недостача, шт','Излишки, шт','Недостача в деньгах, ₸','Чего не хватает чаще'],
+        L.inv.map(function(a){
+          return '<tr><td class="name">' + esc(a.wh) + '</td>' +
+            '<td class="bad">' + fmtQ(a.minus) + '</td><td>' + fmtQ(a.plus) + '</td>' +
+            '<td class="bad">' + fmtQ(Math.round(a.mMoney)) + '</td>' +
+            '<td class="name">' + topNames(a.top) + '</td></tr>'; }).join(''),
+        'Излишки показаны рядом не для красоты: если недостача и излишки примерно равны, ' +
+        'это чаще всего пересорт — одну позицию пробили вместо другой, а не пропажа.')
+    : '<div class="hint">Инвентаризаций за период в выгрузке нет.</div>';
+  h += '</div>';
+
+  $('outC').innerHTML = h;
+  $('cntC').textContent = '';
+}
+var LOSSDATA = null;
 
 function routeHint(){
   var bs = branches();
@@ -3727,17 +3897,29 @@ document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeD
 $('onlyMove').onchange = function(){ renderChrono(); };
 $('fClear').onclick = function(){
   $('fRoute').value = ''; $('fWh').value = ''; $('fCat').value = '';
-  $('fTodo').value = ''; $('qC').value = '';
+  $('fTodo').value = ''; $('qC').value = ''; $('onlyAlarm').checked = false;
   renderChrono();
 };
 $('onlyRoute').onchange = function(){ renderChrono(); };
+$('onlyAlarm').onchange = function(){ renderChrono(); };
 
 $('btnChrXlsx').onclick = function(){
   if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
+  var L = LOSSDATA || lossData(CHRONO.from, CHRONO.to);
   var blob = makeXlsx([
     { name: 'Позиции', head: POS_HEAD, rows: CHRONO.pos },
     { name: 'Топ-20 худший-средний-лучший', head: TRIO_HEAD, rows: CHRONO.trio || [] },
-    { name: 'Перемещать вместо уценки', head: PAIR_HEAD, rows: CHRONO.pair }
+    { name: 'Перемещать вместо уценки', head: PAIR_HEAD, rows: CHRONO.pair },
+    { name: 'Скидки кроме 20%',
+      head: ['Тип скидки','Штук','Сумма без скидки','Продано на','Недополучено','Размер скидки'],
+      rows: L.disc.map(function(a){
+        return [a.tip, r3(a.q), Math.round(a.s0), Math.round(a.s1),
+                Math.round(a.poteria), Math.round(a.pct * 100) + '%']; }) },
+    { name: 'Возврат по качеству', head: ['Филиал','Штук','Деньги'],
+      rows: L.kach.map(function(a){ return [a.wh, r3(a.q), Math.round(a.money)]; }) },
+    { name: 'Недостачи', head: ['Филиал','Недостача, шт','Излишки, шт','Недостача, ₸'],
+      rows: L.inv.map(function(a){
+        return [a.wh, r3(a.minus), r3(a.plus), Math.round(a.mMoney)]; }) }
   ]);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3785,7 +3967,8 @@ function whResolver(){
    нечитаемы, поэтому округляем до десятых и убираем пустой хвост. */
 function fmtQ(n){
   var v = Math.round(n * 10) / 10;
-  return String(v).replace(/\.0$/, '').replace(/\B(?=(\d{3})+(?!\d))/, ' ');
+  // без флага g пробел вставлялся только в первую группу: «5 591387»
+  return String(v).replace(/\.0$/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 /* Категория для фильтра — только из справочника: catPoImeni даёт другие,
    строчные названия, и в списке появлялись «Выпечка» и «выпечка» разом. */
