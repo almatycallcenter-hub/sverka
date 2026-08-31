@@ -701,7 +701,8 @@
       <section class="page" id="pg-db">
         <div class="card">
           <h2>Что загружено</h2>
-          <p class="lead">Данные держатся в этом браузере на этом устройстве.</p>
+          <p class="lead">Данные держатся в этом браузере на этом устройстве, в IndexedDB —
+            жёсткого лимита в пять мегабайт, как раньше, там нет.</p>
           <div class="st" id="status">пусто</div>
           <div class="row">
             <button class="sec" id="btnSave">Сохранить данные в файл</button>
@@ -1005,31 +1006,114 @@ function unpackDB(db){
   delete db.dict; delete db.packed;
   return db;
 }
+/* ═════════ хранилище: IndexedDB, localStorage — запасной ═════════
+   В localStorage на сайт даётся ~5 МБ, и месяц выгрузок занимал уже почти 3 из
+   них: на двух месяцах страница просто переставала сохраняться. IndexedDB
+   лимита в мегабайтах не имеет (браузер отводит долю свободного диска) и хранит
+   объект как есть, без JSON.stringify — это ещё и заметно быстрее.
+   localStorage остаётся запасным путём: приватное окно, старый браузер. */
+var IDB_NAME = 'sverka20', IDB_STORE = 'db', IDB_KEY = 'main', LS_KEY = 'sverka20';
+var STORAGE_MODE = 'idb';     // idb | ls | none
+var DBSIZE = 0;               // байт, оценка; -1 — «неизвестно, пересчитается»
+
+function idbOpen(){
+  return new Promise(function(res, rej){
+    if (!window.indexedDB) return rej(new Error('IndexedDB недоступен'));
+    var rq;
+    try{ rq = indexedDB.open(IDB_NAME, 1); }catch(e){ return rej(e); }
+    rq.onupgradeneeded = function(){ rq.result.createObjectStore(IDB_STORE); };
+    rq.onsuccess = function(){ res(rq.result); };
+    rq.onerror   = function(){ rej(rq.error || new Error('не открылась база')); };
+    rq.onblocked = function(){ rej(new Error('база занята другой вкладкой')); };
+  });
+}
+function idbDo(mode, fn){
+  return idbOpen().then(function(db){
+    return new Promise(function(res, rej){
+      var tx = db.transaction(IDB_STORE, mode), st = tx.objectStore(IDB_STORE), out;
+      var rq = fn(st);
+      if (rq) rq.onsuccess = function(){ out = rq.result; };
+      tx.oncomplete = function(){ db.close(); res(out); };
+      tx.onerror    = function(){ db.close(); rej(tx.error); };
+      tx.onabort    = function(){ db.close(); rej(tx.error || new Error('запись отменена')); };
+    });
+  });
+}
+function idbGet(){ return idbDo('readonly',  function(st){ return st.get(IDB_KEY); }); }
+function idbPut(v){ return idbDo('readwrite', function(st){ st.put(v, IDB_KEY); }); }
+
+function storageWarn(text){
+  var w = document.getElementById('errWarn');
+  if (w){ w.style.display = 'block'; w.innerHTML = text; }
+}
+/* Записи выстраиваем в цепочку: два сохранения подряд не должны перемешаться,
+   а вызывающему коду по-прежнему не нужно ничего ждать. */
+var SAVE_CHAIN = Promise.resolve(), SAVE_ERR = 0;
 function saveDB(){
+  DBSIZE = -1;
+  var packed;
+  try{ packed = packDB(DB); }
+  catch(e){ storageWarn('<b>Не смогла подготовить данные к сохранению:</b> ' + esc(e.message));
+            return false; }
+  SAVE_CHAIN = SAVE_CHAIN.then(function(){
+    if (STORAGE_MODE === 'idb')
+      return idbPut(packed).then(function(){ SAVE_ERR = 0; }, function(e){
+        // база отвалилась — доживаем сессию на localStorage, сколько влезет
+        STORAGE_MODE = 'ls';
+        return saveLS(packed, 'Не смогла сохранить в IndexedDB (' + (e.message || e) +
+                              '), перешла на обычное хранилище браузера.');
+      });
+    if (STORAGE_MODE === 'ls') return saveLS(packed, '');
+  }).catch(function(){});
+  return true;
+}
+function saveLS(packed, pre){
   try{
-    var s = JSON.stringify(packDB(DB));
-    localStorage.setItem('sverka20', s);
+    var s = JSON.stringify(packed);
+    localStorage.setItem(LS_KEY, s);
     DBSIZE = s.length;
-    return true;
+    if (pre) storageWarn('<b>' + pre + '</b><br>Оно меньше — около 5 МБ, ' +
+      'на двух месяцах выгрузок места может не хватить.');
   }catch(e){
-    // в браузере ~5 МБ на сайт; на большом периоде упираемся
-    var w = document.getElementById('errWarn');
-    if (w){ w.style.display = 'block';
-      w.innerHTML = '<b>Не смогла сохранить данные в браузере — не хватило места.</b><br>' +
-        'Отчёты сейчас соберутся, но после закрытия страницы выгрузки придётся загрузить заново. ' +
-        'Возьмите период короче (месяц вместо двух) или нажмите «Сохранить данные в файл» ' +
-        'в разделе «Хранилище».'; }
-    return false;
+    STORAGE_MODE = 'none';
+    storageWarn('<b>Не смогла сохранить данные в браузере — не хватило места.</b><br>' +
+      'Отчёты сейчас соберутся, но после закрытия страницы выгрузки придётся загрузить заново. ' +
+      'Возьмите период короче или нажмите «Сохранить данные в файл» в разделе «Хранилище».');
   }
 }
-var DBSIZE = 0;
+
+/* Значения по умолчанию — до того, как данные приедут из базы */
 function loadDB(){
-  try{ var s = localStorage.getItem('sverka20'); if (s) DB = unpackDB(JSON.parse(s)); }catch(e){}
   if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
   ['mov','s20','s50','cheki','full','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
-  migrateDB();
+}
+/* Чтение при старте: сначала IndexedDB, потом — старая копия в localStorage.
+   Найденную старую копию переносим в базу и удаляем, чтобы освободить те 2 МБ. */
+function loadStorage(){
+  return idbGet().then(function(v){
+    if (v) return { src: 'idb', packed: v };
+    var s = null;
+    try{ s = localStorage.getItem(LS_KEY); }catch(e){}
+    if (!s) return null;
+    return { src: 'ls', packed: JSON.parse(s) };
+  }).catch(function(e){
+    STORAGE_MODE = 'ls';
+    var s = null;
+    try{ s = localStorage.getItem(LS_KEY); }catch(e2){}
+    return s ? { src: 'ls-only', packed: JSON.parse(s) } : null;
+  }).then(function(found){
+    if (found) DB = unpackDB(found.packed);
+    loadDB();
+    migrateDB();
+    if (found && found.src === 'ls' && STORAGE_MODE === 'idb'){
+      // переезд: сохраняем в базу и только потом убираем старую копию
+      return idbPut(packDB(DB)).then(function(){
+        try{ localStorage.removeItem(LS_KEY); }catch(e){}
+      }, function(){ STORAGE_MODE = 'ls'; });
+    }
+  });
 }
 
 var DB_V = 5;
@@ -1051,7 +1135,7 @@ function migrateDB(){
   if (was < 5) DB.s20 = (DB.s20 || []).map(function(r){
     return r.length >= 6 ? r : [r[0], r[1], r[2], r[3], r[4], '']; });
   DB.v = DB_V;
-  try{ localStorage.setItem('sverka20', JSON.stringify(packDB(DB))); }catch(e){}
+  saveDB();
 }
 
 /* ═════════ справочник ═════════ */
@@ -1249,6 +1333,9 @@ function mergeRows(key, rows){
 
 $('btnLoad').onclick = async function(){
   var b = this; b.disabled = true;
+  // база читается асинхронно; если начать загружать файлы раньше, чем она
+  // приедет, свежие строки затрутся сохранённой копией
+  try{ await DBREADY; }catch(e){}
   var done = [], problems = [];
   try{
     var f;
@@ -1345,6 +1432,7 @@ function resolveName(nameRaw, sprByName){
 $('btnListXlsx').onclick = async function(){
   var f = $('fListXlsx').files[0];
   if (!f) return msg('m2b','Выберите файл таблицы.','err');
+  try{ await DBREADY; }catch(e){}
   var btn = this; btn.disabled = true;
   msg('m2b','Читаю таблицу…','wait');
   try{
@@ -2324,8 +2412,14 @@ $('btnSave').onclick = function(){
 $('btnRestore').onclick = function(){ $('fRestore').click(); };
 $('fRestore').onchange = async function(){
   var f = this.files[0]; if (!f) return;
-  try { DB = JSON.parse(await f.text()); saveDB(); refresh();
-        msg('m1','Данные загружены из файла.','ok'); }
+  try{ await DBREADY; }catch(e){}
+  try {
+    // файл мог быть сохранён и старой версией — приводим к текущей форме
+    DB = unpackDB(JSON.parse(await f.text()));
+    loadDB(); migrateDB(); saveDB();
+    reresolveList(); applyDefaults(); refresh();
+    msg('m1','Данные загружены из файла.','ok');
+  }
   catch(e){ msg('m1','Не удалось прочитать файл: ' + e.message,'err'); }
 };
 
@@ -2452,14 +2546,51 @@ function refresh(){
     '<b>Продажи 20%:</b> ' + span(DB.s20) + '<br>' +
     '<b>Продажи 50%:</b> ' + span(DB.s50) + '<br>' +
     '<b>Список филиалов:</b> ' + span(DB.list) + '<br>' +
-    '<b>Занято в браузере:</b> ' + (DBSIZE/1048576).toFixed(1) + ' МБ из ~5 МБ' +
-      (DBSIZE > 4*1048576 ? ' <span class="warn">— близко к пределу</span>' : '') + '<br>' +
+    '<b>Занято в браузере:</b> <span id="dbUse">считаю…</span><br>' +
     movKinds() +
     (unk ? '<br><span class="warn">Не распознано позиций: ' + unk + '</span>' : '');
+  showUsage();
   if (window.NAVBADGES) window.NAVBADGES();
+}
+/* Сколько места занято. В IndexedDB длину записи не спросишь, поэтому берём
+   оценку у самого браузера — она честнее любого нашего подсчёта. */
+function showUsage(){
+  var el = $('dbUse'); if (!el) return;
+  function mb(n){
+    return n < 1048576 ? Math.round(n / 1024) + ' КБ'
+                       : (n / 1048576).toFixed(1).replace('.', ',') + ' МБ';
+  }
+  if (STORAGE_MODE === 'none'){
+    el.innerHTML = '<span class="warn">не сохраняется — места не хватило</span>'; return; }
+  if (STORAGE_MODE === 'ls'){
+    // после перезагрузки DBSIZE ещё пуст — спрашиваем само хранилище
+    var n = DBSIZE;
+    if (n <= 0){ try{ n = (localStorage.getItem(LS_KEY) || '').length; }catch(e){ n = 0; } }
+    el.innerHTML = mb(n) + ' из ~5 МБ (обычное хранилище браузера)' +
+      (n > 4 * 1048576 ? ' <span class="warn">— близко к пределу</span>' : ''); return; }
+  el.textContent = 'считаю…';
+  if (!navigator.storage || !navigator.storage.estimate){
+    el.textContent = 'IndexedDB — лимит в мегабайтах не задан'; return; }
+  navigator.storage.estimate().then(function(x){
+    var use = x.usage || 0, q = x.quota || 0;
+    el.innerHTML = mb(use) + (q ? ' из ' + mb(q) : '') + ' · IndexedDB' +
+      (q && use / q > 0.8 ? ' <span class="warn">— близко к пределу</span>' : '');
+  }, function(){ el.textContent = 'IndexedDB'; });
 }
 
 loadDB();
+/* Данные приезжают из IndexedDB асинхронно. Пока едут — страница уже кликается,
+   просто пустая; чтение трёх мегабайт занимает десятки миллисекунд. */
+var DBREADY = loadStorage().then(function(){
+  reresolveList();
+  if (typeof applyDefaults === 'function') applyDefaults();
+  refresh();
+  if (typeof showFresh === 'function') showFresh();
+}).catch(function(e){
+  storageWarn('<b>Не смогла прочитать сохранённые данные:</b> ' + esc(e.message || e) +
+              '<br>Загрузите выгрузки iiko заново.');
+});
+
 /* Справочник пополняется, а списки филиалов уже лежат разобранными. Позиция,
    которую вчера не удалось опознать, сегодня может в справочнике появиться —
    прогоняем такие строки заново, чтобы не заставлять руками жать «Запомнить». */
