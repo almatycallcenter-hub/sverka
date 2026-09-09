@@ -92,6 +92,53 @@
   .hmLegend b{font-weight:500;color:var(--txt)}
   .hmSw{display:inline-block;width:26px;height:12px;border-radius:3px;
     border:1px solid var(--bd)}
+  /* покрытие выгрузок: не предупреждение, а справка — потому и нейтральный фон */
+  .covBox{border:1px solid var(--bd);border-radius:12px;background:var(--panel);
+    padding:10px 12px;margin:10px 0}
+  .covBox .detT{margin:0 0 6px}
+  .covBox table{width:auto;min-width:min(100%,520px)}
+  .covBox td{padding:5px 12px 5px 0;border:0;white-space:nowrap}
+  .covBox td.name{color:var(--txt)}
+  .covBox .z{color:var(--mut2)}
+  /* ── экран заявки: слева набранное, справа кнопки, как на кассе ──
+     Кнопки крупные: экран рассчитан на палец и на планшет за прилавком. */
+  .zGrid{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:14px;align-items:start}
+  .zLeft,.zRight{padding:12px 14px}
+  .zHead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .zList{min-height:180px;max-height:52vh;overflow:auto;
+    border:1px solid var(--bd);border-radius:10px;background:var(--panel)}
+  .zRow{display:flex;align-items:center;gap:8px;padding:8px 10px;
+    border-bottom:1px solid var(--bd2)}
+  .zRow:last-child{border-bottom:0}
+  .zRow .nm{flex:1;font-size:13px;line-height:1.25}
+  .zRow .q{min-width:34px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+  .zBtn{width:32px;height:32px;border:1px solid var(--bd);background:var(--card);
+    border-radius:8px;font-size:17px;line-height:1;color:var(--txt);cursor:pointer;flex:0 0 auto}
+  .zBtn:hover{background:var(--rowHov)}
+  .zBtn.del{color:var(--badT);font-size:15px}
+  .zEmpty{padding:26px 14px;text-align:center;color:var(--mut);font-size:13px}
+  .zActions{display:flex;gap:8px;margin-top:10px}
+  .zActions button{flex:1}
+  .zCats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+  .zCat{padding:7px 12px;border:1px solid var(--bd);background:var(--card);border-radius:999px;
+    font-size:13px;color:var(--txt);cursor:pointer}
+  .zCat.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .zPad{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:8px;
+    max-height:58vh;overflow:auto;padding:2px}
+  .zItem{position:relative;min-height:62px;padding:9px 10px;border:1px solid var(--bd);
+    border-radius:10px;background:var(--card);text-align:left;font-size:12.5px;line-height:1.3;
+    color:var(--txt);cursor:pointer;box-shadow:var(--sh)}
+  .zItem:hover{border-color:var(--acc2)}
+  .zItem.has{border-color:var(--acc2);background:var(--accbg)}
+  .zItem .n{position:absolute;right:6px;bottom:6px;background:var(--acc);color:#fff;
+    min-width:22px;height:22px;border-radius:11px;font-size:12px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;padding:0 6px}
+  .zItem .sr{display:block;color:var(--mut);font-size:11px;margin-top:3px}
+  @media (max-width:900px){
+    .zGrid{grid-template-columns:1fr}
+    .zList{max-height:34vh}
+    .zPad{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));max-height:none}
+  }
   /* «Скидки и потери» — три самостоятельных блока, каждый со своим пояснением */
   .lossSec{background:var(--card);border:1px solid var(--bd);border-radius:12px;
     padding:14px 16px;margin:0 0 14px;box-shadow:var(--shCard)}
@@ -454,6 +501,7 @@
       <div class="navsec">Данные</div>
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
+      <a data-page="zay"><span class="ic">🧾</span>Заявка филиала</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
@@ -506,6 +554,7 @@
           </div>
           <div class="row"><button id="btnLoad">Загрузить</button></div>
           <div class="msg" id="m1"></div>
+          <div id="covUp"></div>
           <div class="hint">Период выгрузок берите на день шире с обеих сторон: для отчёта с 01.08
             выгружайте движения с 30.07 — два дня назад нужны для прихода партии с 72-часовым сроком,
             день вперёд для возврата по сроку и списания.</div>
@@ -513,6 +562,41 @@
       </section>
 
       <!-- ─── Списки филиалов ──────────────────────────── -->
+      <!-- ─── Заявка филиала: экран как касса ──────────── -->
+      <section class="page wide" id="pg-zay">
+        <div class="card noprint">
+          <h2>Что сегодня уходит на уценку</h2>
+          <p class="lead">Экран для филиала: справа категории и продукция, слева —
+            то, что уже отметили. Ничего не печатать, только нажимать.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 240px"><label class="lbl">Филиал</label>
+              <select id="zWh"></select></div>
+            <div><label class="lbl">Дата</label><input type="date" id="zDay"></div>
+            <button class="sec" id="zLoad">Открыть сохранённое</button>
+            <button class="sec" id="zClear">Очистить</button>
+          </div>
+          <div class="msg" id="m7"></div>
+        </div>
+
+        <div class="zGrid">
+          <div class="card zLeft">
+            <div class="zHead"><b>Список на день</b><span id="zCnt" class="cnt"></span></div>
+            <div class="zList" id="zList"></div>
+            <div class="zActions">
+              <button id="zSend">Отправить</button>
+              <button class="sec" id="zSave">Сохранить у себя</button>
+              <button class="sec" id="zXlsx">Файлом</button>
+            </div>
+            <div class="hint" id="zHint"></div>
+          </div>
+          <div class="card zRight">
+            <input type="text" id="zQ" placeholder="Поиск по названию">
+            <div class="zCats" id="zCats"></div>
+            <div class="zPad" id="zPad"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="page" id="pg-sp">
         <div class="card">
           <h2>Вставьте сообщения из WhatsApp</h2>
@@ -544,6 +628,27 @@
           <div class="row"><button id="btnListXlsx">Загрузить таблицу</button></div>
           <div class="msg" id="m2b"></div>
         </div>
+
+        <div class="card">
+          <h2>Забрать заявки из облака</h2>
+          <p class="lead">Если филиалы отправляют списки прямо с экрана «Заявка филиала»,
+            заявки лежат в вашем приёмнике на Cloudflare. Здесь они забираются одной кнопкой —
+            файлы пересылать не нужно.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1 1 340px"><label class="lbl">Адрес приёмника</label>
+              <input type="text" id="apiUrl" placeholder="https://sverka-spisok.ваш-домен.workers.dev"></div>
+            <div style="flex:0 0 200px"><label class="lbl">Ключ на чтение</label>
+              <input type="password" id="apiKey" placeholder="READ_KEY"></div>
+          </div>
+          <div class="row">
+            <div><label class="lbl">с</label><input type="date" id="apiFrom"></div>
+            <div><label class="lbl">по</label><input type="date" id="apiTo"></div>
+            <button id="btnPull">Забрать</button>
+          </div>
+          <div class="hint">Адрес и ключ хранятся только в этом браузере — в файл страницы
+            и в репозиторий они не попадают.</div>
+          <div class="msg" id="m2c"></div>
+        </div>
       </section>
 
       <!-- ─── Сверка ───────────────────────────────────── -->
@@ -565,6 +670,7 @@
             <button class="sec miniBtn" data-q="prevmonth" data-t="rep">прошлый месяц</button>
           </div>
           <div id="freshRep"></div>
+          <div id="covRep"></div>
           <div class="msg" id="m3"></div>
         </div>
 
@@ -1380,7 +1486,12 @@ $('btnLoad').onclick = async function(){
       if (!nd) throw new Error('В файле «' + f.name + '» не нашлось ни одного документа. ' +
         'Похоже, это не товарный отчёт — проверьте, тот ли файл выбран.');
       done.push('товарный отчёт: ' + nd + ' документов' +
-        (DOCKINDS.__from ? ', ' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) : '')); }
+        (DOCKINDS.__from ? ', ' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) : ''));
+      // копим объединённое покрытие: сам DOCKINDS живёт только до перезагрузки
+      if (DOCKINDS.__from){
+        if (!DB.docFrom || DOCKINDS.__from < DB.docFrom) DB.docFrom = DOCKINDS.__from;
+        if (!DB.docTo   || DOCKINDS.__to   > DB.docTo)   DB.docTo   = DOCKINDS.__to;
+      } }
 
     f = $('fTovarnaya').files[0];
     if (f){
@@ -2488,6 +2599,9 @@ function shiftDay(d, n){
   return t.getUTCFullYear() + '-' + pad(t.getUTCMonth()+1) + '-' + pad(t.getUTCDate());
 }
 /* границы календаря по загруженным данным + подстановка периода при первом заходе */
+/* Что подставили сами — чтобы при следующей выгрузке сдвинуть период, но не
+   затирать даты, которые человек выставил руками. */
+var AUTO_PERIOD = null;
 function setDateRange(){
   var mv = minMaxDay(DB.mov);
   if (!mv[0]) return;
@@ -2499,8 +2613,54 @@ function setDateRange(){
   var sl = minMaxDay(DB.s20);
   if (sl[0]){ defF = sl[0]; defT = sl[1]; }
   if (defF < lo) defF = lo; if (defT > hi) defT = hi;
-  if (!$('dFrom').value) $('dFrom').value = defF;
-  if (!$('dTo').value)   $('dTo').value   = defT;
+  var f = $('dFrom'), t = $('dTo');
+  // пусто — ставим; стоит наше же прошлое значение — двигаем; правил человек — не трогаем
+  if (!f.value || (AUTO_PERIOD && f.value === AUTO_PERIOD.f)) f.value = defF;
+  if (!t.value || (AUTO_PERIOD && t.value === AUTO_PERIOD.t)) t.value = defT;
+  AUTO_PERIOD = { f: defF, t: defT };
+}
+
+/* ═════════ какой файл за какой период ═════════
+   Четыре выгрузки живут своей жизнью: движения обновили, а чеки забыли — и
+   отчёт молча обрывается на старой дате. Показываем все источники рядом. */
+function coverage(){
+  var mv = minMaxDay(DB.mov);
+  var src = [
+    { n: 'Движения (товарная ведомость)', r: mv, key: 'mov' },
+    { n: 'Товарный отчёт', r: [S(DB.docFrom), S(DB.docTo)], key: 'doc' },
+    { n: 'Продажи со скидкой 20%', r: minMaxDay(DB.s20), key: 's20' },
+    { n: 'Продажи 50%', r: minMaxDay(DB.s50), key: 's50' },
+    { n: 'Списки филиалов', r: minMaxDay(DB.list), key: 'list' }
+  ];
+  var hi = mv[1] || '';
+  src.forEach(function(s){
+    s.from = s.r[0] || ''; s.to = s.r[1] || '';
+    s.lag = (hi && s.to && s.to < hi) ? daysBetween(s.to, hi) : 0;
+    s.empty = !s.from;
+  });
+  return { hi: hi, src: src };
+}
+function coverageHtml(){
+  var c = coverage();
+  if (!c.hi) return '';
+  var rows = c.src.map(function(s){
+    var val = s.empty ? '<span class="z">не загружено</span>'
+            : ru(s.from) + ' — ' + ru(s.to);
+    var note = s.empty ? '' : s.lag > 1
+      ? '<span class="chip na">отстаёт на ' + s.lag + ' дн.</span>'
+      : '<span class="chip ok">свежее</span>';
+    return '<tr><td class="name">' + s.n + '</td><td>' + val + '</td><td>' + note + '</td></tr>';
+  }).join('');
+  var lag = c.src.filter(function(s){ return !s.empty && s.lag > 1; });
+  var hint = lag.length
+    ? '<div class="hint" style="margin-top:8px">Отчёт считается только там, где есть ' +
+      '<b>все</b> нужные данные, поэтому период по умолчанию упирается в самый отстающий ' +
+      'файл. Обновите ' + lag.map(function(s){ return '<b>' + esc(s.n.toLowerCase()) + '</b>'; })
+        .join(' и ') + ' за тот же период — и последние дни появятся.</div>'
+    : '<div class="hint" style="margin-top:8px">Все выгрузки за один период — ' +
+      'отчёт можно строить до ' + ru(c.hi) + '.</div>';
+  return '<div class="covBox"><div class="detT">За какой период что загружено</div>' +
+    '<table class="det2"><tbody>' + rows + '</tbody></table>' + hint + '</div>';
 }
 /* сходятся ли периоды и хватает ли товарного отчёта на всю ведомость */
 function checkCoverage(){
@@ -2515,11 +2675,15 @@ function checkCoverage(){
   var mf = '', mt = '';
   DB.mov.forEach(function(r){ if (!r[0]) return;
     if (!mf || r[0] < mf) mf = r[0]; if (!mt || r[0] > mt) mt = r[0]; });
-  if (mf && DOCKINDS && DOCKINDS.__from){
-    if (DOCKINDS.__from > mf || DOCKINDS.__to < mt)
-      out.push('Товарный отчёт выгружен за <b>' + ru(DOCKINDS.__from) + ' — ' + ru(DOCKINDS.__to) +
-        '</b>, а ведомость за <b>' + ru(mf) + ' — ' + ru(mt) + '</b>. ' +
-        'Выгрузите товарный отчёт за тот же период.');
+  /* Сравниваем не с последним файлом, а с тем, что товарный отчёт покрыл за все
+     загрузки: движения накапливаются, и одиночный файл всегда «уже» их — из-за
+     этого страница ругалась на нормальную догрузку свежих дней. */
+  if (mf && DB.docFrom){
+    if (DB.docFrom > mf || DB.docTo < mt)
+      out.push('Товарный отчёт покрывает <b>' + ru(DB.docFrom) + ' — ' + ru(DB.docTo) +
+        '</b>, а движения есть за <b>' + ru(mf) + ' — ' + ru(mt) + '</b>. ' +
+        'На непокрытых днях не определится назначение накладных: возврат по сроку, ' +
+        'склад 50% и разделение прихода будут неполными.');
   }
   var s20f = '', s20t = '';
   DB.s20.forEach(function(r){ if (!r[0]) return;
@@ -2566,8 +2730,9 @@ var ROUTES_V = 2;      // подняли версию — старые сохр�
 function refresh(){
   var bs = branches();
   var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
-  ['branch','defBranch'].forEach(function(id){
-    var el = $(id), cur = el.value || saved;
+  ['branch','defBranch','zWh'].forEach(function(id){
+    var el = $(id); if (!el) return;
+    var cur = el.value || saved;
     el.innerHTML = bs.map(function(b){ return '<option>' + b + '</option>'; }).join('');
     if (bs.indexOf(cur) >= 0) el.value = cur;
   });
@@ -2586,6 +2751,7 @@ function refresh(){
     movKinds() +
     (unk ? '<br><span class="warn">Не распознано позиций: ' + unk + '</span>' : '');
   showUsage();
+  if (typeof showFresh === 'function') showFresh();
   if (window.NAVBADGES) window.NAVBADGES();
 }
 /* Сколько места занято. В IndexedDB длину записи не спросишь, поэтому берём
@@ -4729,6 +4895,266 @@ $('btnHeatXlsx').onclick = function(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
 };
 
+/* ═════════ экран заявки: набирают пальцем, как на кассе ═════════
+   Филиалы всё равно каждый день составляют список того, что уходит на уценку.
+   Печатать названия руками — источник половины «НЕ РАСПОЗНАНО», поэтому здесь
+   только кнопки: справа категории и продукция, слева набранное. */
+var ZAY = { cat: '', items: {} };   // items: нормализованное имя → количество
+
+function zayList(){
+  // только витринная продукция со сроком: свечи и напитки на уценку не уходят
+  return Object.keys(SPR).filter(function(k){
+    var sp = SPR[k];
+    if (!sp.srok || sp.skidka === 'Нет') return false;
+    if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    return true;
+  });
+}
+function zayCats(){
+  var c = {};
+  zayList().forEach(function(k){ c[SPR[k].kat || 'прочее'] = 1; });
+  return Object.keys(c).sort();
+}
+function zayRender(){
+  var q = nrm($('zQ').value), cats = zayCats();
+  if (ZAY.cat && cats.indexOf(ZAY.cat) < 0) ZAY.cat = '';
+  $('zCats').innerHTML = '<button class="zCat' + (ZAY.cat ? '' : ' on') + '" data-c="">все</button>' +
+    cats.map(function(c){
+      return '<button class="zCat' + (ZAY.cat === c ? ' on' : '') + '" data-c="' + esc(c) + '">' +
+             esc(c) + '</button>'; }).join('');
+
+  var keys = zayList().filter(function(k){
+    if (ZAY.cat && (SPR[k].kat || 'прочее') !== ZAY.cat) return false;
+    return !q || k.indexOf(q) >= 0;
+  }).sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
+
+  $('zPad').innerHTML = keys.length ? keys.map(function(k){
+    var n = ZAY.items[k] || 0;
+    return '<button class="zItem' + (n ? ' has' : '') + '" data-k="' + esc(k) + '">' +
+      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч</span>' +
+      (n ? '<span class="n">' + fmtQ(n) + '</span>' : '') + '</button>';
+  }).join('') : '<div class="zEmpty">Ничего не нашлось. Проверьте поиск или выберите другую категорию.</div>';
+
+  zayLeft();
+}
+/* Перерисовываем только одну кнопку и левый список: если перестраивать всю
+   панель на каждое нажатие, она прокручивается в начало, и на планшете
+   приходится каждый раз искать позицию заново. */
+function zayMark(k){
+  var b = $('zPad').querySelector('.zItem[data-k="' + (window.CSS && CSS.escape
+          ? CSS.escape(k) : k.replace(/"/g, '\\"')) + '"]');
+  if (!b) return;
+  var n = ZAY.items[k] || 0;
+  b.classList.toggle('has', !!n);
+  var badge = b.querySelector('.n');
+  if (!n){ if (badge) badge.remove(); return; }
+  if (!badge){ badge = document.createElement('span'); badge.className = 'n'; b.appendChild(badge); }
+  badge.textContent = fmtQ(n);
+}
+function zayLeft(){
+  var picked = Object.keys(ZAY.items).filter(function(k){ return ZAY.items[k] > 0; })
+                     .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
+  $('zList').innerHTML = picked.length ? picked.map(function(k){
+    return '<div class="zRow"><span class="nm">' + esc(SPR[k].name) + '</span>' +
+      '<button class="zBtn" data-m="' + esc(k) + '">−</button>' +
+      '<span class="q">' + fmtQ(ZAY.items[k]) + '</span>' +
+      '<button class="zBtn" data-p="' + esc(k) + '">+</button>' +
+      '<button class="zBtn del" data-x="' + esc(k) + '">×</button></div>';
+  }).join('') : '<div class="zEmpty">Пока пусто. Нажимайте на продукцию справа — ' +
+                'она появится здесь.</div>';
+  var tot = picked.reduce(function(a, k){ return a + ZAY.items[k]; }, 0);
+  $('zCnt').textContent = picked.length ? picked.length + ' позиций · ' + fmtQ(tot) + ' шт' : '';
+}
+function zayAdd(k, d){
+  var v = (ZAY.items[k] || 0) + d;
+  if (v <= 0) delete ZAY.items[k]; else ZAY.items[k] = v;
+  zayMark(k); zayLeft();
+}
+/* Строки этого филиала за этот день — чтобы можно было открыть и дополнить */
+function zayLoad(){
+  var wh = $('zWh').value, d = D($('zDay').value);
+  ZAY.items = {};
+  if (!wh || !d) return zayRender();
+  var n = 0;
+  DB.list.forEach(function(r){
+    if (r[1] !== wh || r[0] !== d) return;
+    var k = nrm(r[4] || r[2]); if (!SPR[k]) return;
+    ZAY.items[k] = (ZAY.items[k] || 0) + (S(r[3]) === '' ? 1 : N(r[3]));
+    n++;
+  });
+  zayRender();
+  return n;
+}
+function zayRows(){
+  var wh = $('zWh').value, d = D($('zDay').value);
+  return Object.keys(ZAY.items).filter(function(k){ return ZAY.items[k] > 0; })
+    .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; })
+    .map(function(k){ return [d, wh, SPR[k].name, ZAY.items[k], SPR[k].name, '']; });
+}
+
+$('zWh').onchange = function(){ zayLoad(); };
+$('zDay').onchange = function(){ zayLoad(); };
+$('zQ').oninput = function(){ zayRender(); };
+$('zCats').onclick = function(e){
+  var b = e.target.closest('.zCat'); if (!b) return;
+  ZAY.cat = b.dataset.c; zayRender();
+};
+$('zPad').onclick = function(e){
+  var b = e.target.closest('.zItem'); if (!b) return;
+  zayAdd(b.dataset.k, 1);
+};
+$('zList').onclick = function(e){
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.p) zayAdd(b.dataset.p, 1);
+  else if (b.dataset.m) zayAdd(b.dataset.m, -1);
+  else if (b.dataset.x){ var k = b.dataset.x; delete ZAY.items[k]; zayMark(k); zayLeft(); }
+};
+$('zLoad').onclick = function(){
+  var n = zayLoad();
+  msg('m7', n ? 'Открыто сохранённое: ' + n + ' строк.' : 'На эту дату ничего не сохранено.',
+      n ? 'ok' : 'wait');
+};
+$('zClear').onclick = function(){
+  if (!Object.keys(ZAY.items).length) return;
+  if (!confirm('Очистить набранный список? Сохранённое останется.')) return;
+  ZAY.items = {}; zayRender(); msg('m7','Список очищен.','wait');
+};
+$('zSave').onclick = function(){
+  var wh = $('zWh').value, d = D($('zDay').value);
+  if (!wh) return msg('m7','Сначала выберите филиал.','err');
+  if (!d) return msg('m7','Укажите дату.','err');
+  var rows = zayRows();
+  // замещаем именно этот день этого филиала, чужие дни не трогаем
+  DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
+  saveDB(); refresh();
+  msg('m7','Сохранено: ' + rows.length + ' позиций за ' + ru(d) + '. ' +
+      'Это уже видно в отчёте и в «Списках филиалов».', 'ok');
+};
+$('zXlsx').onclick = function(){
+  var wh = $('zWh').value, d = D($('zDay').value), rows = zayRows();
+  if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
+  /* Колонки ровно те, которые понимает загрузчик списка: файл, скачанный
+     филиалом, открывается на этой же странице без переделок. */
+  var blob = makeXlsx([{ name: 'Заполнять', head: ['Дата','Филиал','Блюдо','Кол-во'],
+    rows: rows.map(function(r){ return [ru(r[0]), r[1], r[2], r[3]]; }) }]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ('Уценка ' + wh + ' ' + ru(d)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  msg('m7','Файл готов — отправьте его в WhatsApp тому, кто сводит отчёт.','ok');
+};
+
+/* ═════════ приёмник заявок на Cloudflare ═════════
+   Страница лежит в публичном репозитории, поэтому ни адреса приёмника, ни
+   ключей в её коде нет: их вводят один раз, и они остаются в этом браузере.
+   Филиалу ссылку можно дать сразу с настройками — ?api=…&k=…&wh=… — тогда ему
+   вообще ничего вводить не придётся. */
+var API_CFG = 'sverka20_api';
+function apiCfg(){
+  try{ return JSON.parse(localStorage.getItem(API_CFG) || '{}'); }catch(e){ return {}; }
+}
+function apiSave(c){
+  try{ localStorage.setItem(API_CFG, JSON.stringify(c)); }catch(e){}
+}
+/* Настройки из ссылки: филиалу присылают готовый адрес, он открывает и работает */
+(function(){
+  try{
+    var p = new URLSearchParams(location.search);
+    if (!p.get('api') && !p.get('k') && !p.get('wh')) return;
+    var c = apiCfg();
+    if (p.get('api')) c.url = p.get('api');
+    if (p.get('k'))   c.send = p.get('k');
+    if (p.get('wh'))  c.wh = p.get('wh');
+    if (p.get('lock')) c.lock = 1;      // филиалу не давать переключаться на чужой
+    apiSave(c);
+    // ключ в адресной строке светить незачем — убираем, настройки уже сохранены
+    history.replaceState(null, '', location.pathname);
+  }catch(e){}
+})();
+
+function apiUrlOf(){ return S(apiCfg().url).replace(/\/+$/, ''); }
+
+async function apiPost(path, body){
+  var base = apiUrlOf();
+  if (!base) throw new Error('Не задан адрес приёмника.');
+  var r = await fetch(base + path, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  var t = await r.text(), j = null;
+  try{ j = JSON.parse(t); }catch(e){}
+  if (!r.ok) throw new Error((j && j.error) || ('приёмник ответил ' + r.status));
+  return j;
+}
+async function apiGet(path){
+  var base = apiUrlOf();
+  if (!base) throw new Error('Не задан адрес приёмника.');
+  var r = await fetch(base + path);
+  var t = await r.text(), j = null;
+  try{ j = JSON.parse(t); }catch(e){}
+  if (!r.ok) throw new Error((j && j.error) || ('приёмник ответил ' + r.status));
+  return j;
+}
+
+/* ─── филиал отправляет заявку ─── */
+$('zSend').onclick = async function(){
+  var b = this, wh = $('zWh').value, d = D($('zDay').value), rows = zayRows();
+  var c = apiCfg();
+  if (!c.url || !c.send)
+    return msg('m7','Отправка не настроена. Откройте ссылку, которую прислала бухгалтерия, ' +
+      'или пока пользуйтесь кнопкой «Файлом».','err');
+  if (!wh) return msg('m7','Сначала выберите филиал.','err');
+  if (!d)  return msg('m7','Укажите дату.','err');
+  if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
+  b.disabled = true; msg('m7','Отправляю…','wait');
+  try{
+    var res = await apiPost('/list', { key: c.send, day: d, branch: wh,
+      items: rows.map(function(r){ return { dish: r[2], qty: r[3] }; }) });
+    // сохраняем и у себя: если завтра нужно посмотреть, что отправляли
+    DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
+    saveDB(); refresh();
+    msg('m7','Отправлено: ' + res.saved + ' позиций за ' + ru(d) + '. ' +
+        'Повторная отправка за этот день заменит заявку — можно дополнить и отправить снова.','ok');
+  }catch(e){
+    msg('m7','Не отправилось: ' + e.message + '. Список сохранён у вас — ' +
+        'можно нажать «Файлом» и переслать вручную.','err');
+    DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
+    saveDB();
+  }
+  b.disabled = false;
+};
+
+/* ─── бухгалтерия забирает заявки ─── */
+$('btnPull').onclick = async function(){
+  var b = this, c = apiCfg();
+  var url = S($('apiUrl').value), key = S($('apiKey').value);
+  if (!url) return msg('m2c','Укажите адрес приёмника.','err');
+  if (!key) return msg('m2c','Укажите ключ на чтение.','err');
+  c.url = url; c.read = key; apiSave(c);
+  var from = D($('apiFrom').value) || '0000-01-01', to = D($('apiTo').value) || '9999-12-31';
+  b.disabled = true; msg('m2c','Забираю…','wait');
+  try{
+    var res = await apiGet('/list?key=' + encodeURIComponent(key) +
+      '&from=' + from + '&to=' + to);
+    var rows = (res.rows || []).map(function(r){
+      var k = nrm(r.dish), nm = SPR[k] ? SPR[k].name : S(r.dish);
+      return [r.day, r.branch, S(r.dish), N(r.qty), SPR[k] ? nm : '',
+              SPR[k] ? '' : 'НЕ РАСПОЗНАНО'];
+    });
+    if (!rows.length){ msg('m2c','За этот период заявок нет.','wait'); b.disabled = false; return; }
+    // заменяем ровно те дни и филиалы, что пришли: чужие дни не трогаем
+    var keys = {}; rows.forEach(function(r){ keys[r[0] + '|' + r[1]] = 1; });
+    DB.list = DB.list.filter(function(r){ return !keys[r[0] + '|' + r[1]]; }).concat(rows);
+    saveDB(); reresolveList(); refresh();
+    var whs = {}; rows.forEach(function(r){ whs[r[1]] = 1; });
+    var bad = rows.filter(function(r){ return r[5]; }).length;
+    msg('m2c','Забрано ' + rows.length + ' строк, филиалов ' + Object.keys(whs).length +
+        (bad ? '. Не распознано ' + bad + ' — поправьте на вкладке «Список филиала».' : '.'), 'ok');
+  }catch(e){ msg('m2c','Не получилось: ' + e.message,'err'); }
+  b.disabled = false;
+};
+
 /* ═════════ печать, быстрые периоды, свежесть, история ═════════ */
 function printHead(title, sub){
   $('printHead').innerHTML = '<b>' + esc(title) + '</b><br>' + esc(sub) +
@@ -4763,6 +5189,9 @@ $('btnHistClear').onclick = function(){
 function showFresh(){
   var f = dataFreshness();
   ['freshRep','freshChr'].forEach(function(id){ if ($(id)) $(id).innerHTML = f.html; });
+  // «за какой период что загружено» — там же, где выбирают файлы и период
+  var cov = coverageHtml();
+  ['covUp','covRep'].forEach(function(id){ if ($(id)) $(id).innerHTML = cov; });
 }
 
 /* ═════════ навигация по разделам ═════════ */
@@ -4770,6 +5199,7 @@ function showFresh(){
   var TITLES = {
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
+    zay: ['Заявка филиала','отметить, что сегодня уходит на уценку'],
     rep: ['Сверка',''],
     chr: ['Аналитика','как продаётся и где теряется'],
     heat:['Тепловая карта','когда уходит продукция со скидкой'],
@@ -4804,6 +5234,38 @@ function showFresh(){
       if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;
       if (!el('cTo').value)   el('cTo').value   = el('dTo').value;
       if (typeof routeHint === 'function') routeHint();
+    }
+    if (p === 'zay'){
+      if (!el('zDay').value) el('zDay').value = isoToday();
+      var c = (typeof apiCfg === 'function') ? apiCfg() : {};
+      /* Филиалу дали ссылку со своим складом. Сверять названия текстом нельзя:
+         в ведомости «TT8 Qaratau склад» латиницей, а в ссылке легко написать
+         кириллицей — поэтому ищем сначала точное совпадение, потом по номеру. */
+      var hit = '';
+      if (c.wh){
+        var sel = el('zWh'), i;
+        for (i = 0; i < sel.options.length; i++)
+          if (sel.options[i].value === c.wh){ hit = c.wh; break; }
+        if (!hit && typeof sameBranch === 'function')
+          for (i = 0; i < sel.options.length; i++)
+            if (sameBranch(c.wh, sel.options[i].value)){ hit = sel.options[i].value; break; }
+        if (hit) sel.value = hit;
+        // не нашли — ни в коем случае не запираем на чужом складе
+        sel.disabled = !!(c.lock && hit);
+      }
+      if (typeof zayLoad === 'function') zayLoad();
+      if (el('zHint')) el('zHint').textContent =
+        (c.wh && !hit) ? 'В ссылке указан филиал «' + c.wh + '», но такого склада в выгрузке ' +
+                         'нет — выберите вручную и скажите бухгалтерии поправить ссылку.'
+        : (c.url && c.send) ? 'Отправка настроена: заявка уйдёт в общий приёмник.'
+        : 'Отправка не настроена — пока пользуйтесь кнопкой «Файлом».';
+    }
+    if (p === 'sp' && typeof apiCfg === 'function'){
+      var a = apiCfg();
+      if (a.url && !el('apiUrl').value) el('apiUrl').value = a.url;
+      if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
+      if (!el('apiFrom').value) el('apiFrom').value = el('dFrom').value;
+      if (!el('apiTo').value)   el('apiTo').value   = el('dTo').value;
     }
     if (p === 'heat'){
       // по умолчанию — последняя полная неделя: карта именно про недельный цикл
