@@ -1938,7 +1938,7 @@ function build(wh, dFrom, dTo){
       else if (pf >= dSp0 - 1e-9)   Nn = 'ок';
       else                          Nn = 'приход меньше списания';
 
-      rep.push({ day: T, name: sp.name, inList: vList,
+      rep.push({ day: T, name: sp.name, inList: vList, br: wh,
         v: [ru(T), sp.name, nq ? '' : (c || ''),
              h||'', p50||'', p50 > 0 ? who50(k,T) : '', vz||'', dSp0||'', dSp||'',
              pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
@@ -1958,6 +1958,41 @@ function build(wh, dFrom, dTo){
     day = shift(day, 1);
   }
   return { rep: rep, tot: tot, kpi: kpi, movLast: movLast, posLast: posLast, wh: wh };
+}
+
+/* Отчёт по всей сети. Складываем готовые отчёты филиалов, а не переписываем
+   расчёт: филиал — не просто фильтр, у каждого свой приход, свои остатки и свой
+   ФИФО, и считать их в одной куче нельзя. Итоги по дням при этом суммируем,
+   иначе одна и та же дата шла бы десятью строками подряд. */
+function buildAll(dFrom, dTo){
+  var bs = branches();
+  if (!bs.length) throw new Error('Нет филиалов — загрузите товарную ведомость.');
+  var rep = [], kpi = { list:0, ok:0, bad:0, noList:0, prOk:0, prBad:0, prNa:0 };
+  var byDay = {}, movLast = '', posLast = '';
+  bs.forEach(function(wh){
+    var r = build(wh, dFrom, dTo);
+    rep = rep.concat(r.rep);
+    Object.keys(kpi).forEach(function(k){ kpi[k] += r.kpi[k]; });
+    if (r.movLast > movLast) movLast = r.movLast;
+    if (r.posLast > posLast) posLast = r.posLast;
+    r.tot.forEach(function(t){
+      var a = byDay[t[0]] || (byDay[t[0]] = [t[0], 0, 0, 0, 0]);
+      for (var i = 1; i < 5; i++) a[i] += t[i];
+    });
+  });
+  /* День приходит как дд.мм.гггг — по строке он сортируется неправильно,
+     поэтому раскладываем обратно. */
+  var tot = Object.keys(byDay).sort(function(a, b){
+    var pa = a.split('.'), pb = b.split('.');
+    return (pa[2]+pa[1]+pa[0]) < (pb[2]+pb[1]+pb[0]) ? -1 : 1;
+  }).map(function(d){ return byDay[d]; });
+  rep.sort(function(a, b){
+    return a.day < b.day ? -1 : a.day > b.day ? 1
+         : a.br  < b.br  ? -1 : a.br  > b.br  ? 1
+         : a.name < b.name ? -1 : 1;
+  });
+  return { rep: rep, tot: tot, kpi: kpi, movLast: movLast, posLast: posLast,
+           wh: 'все филиалы', all: true };
 }
 
 /** Концепция в продажах («TT8 Qaratau») и склад («TT8 Qaratau склад») — одно и то же. */
@@ -2105,6 +2140,13 @@ var REP_HEAD = ['День','Блюдо','Продукция с ожидаемо�
   'Приход Цех ГП (за день до)','Приход Таугуль торт (за день до)',
   'Приход Цех ГП (в день отчёта)','Приход Таугуль торт (в день отчёта)',
   'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания'];
+/* Колонка «Филиал» появляется только в отчёте по всей сети, поэтому у неё нет
+   места в строке — она живёт отдельным полем. Даём ей условный номер −1: так
+   сортировка, фильтр и выгрузка работают с ней теми же руками, что и с
+   остальными, и ни один номер существующей колонки не съезжает. */
+var BR_COL = -1;
+function repHead(i){ return i === BR_COL ? 'Филиал' : REP_HEAD[i]; }
+function repVal(r, i){ return i === BR_COL ? S(r.br) : r.v[i]; }
 var FROST = [10,12,14];        // колонки заморозки
 var CHK0  = 15;                // с какой колонки идут проверки
 var COMPACT = [0,1,2,3,6,7,8]; // что видно в компактном режиме (плюс проверка продажи справа)
@@ -2212,7 +2254,7 @@ function rowsFiltered(){
   var q = nrm($('q').value), bad = $('onlyBad').checked, vList = $('onlyList').checked;
   var chk = $('fChk').value;
   return REPORT.rep.filter(function(r){
-    if (q && nrm(r.name).indexOf(q) < 0) return false;
+    if (q && nrm(r.name).indexOf(q) < 0 && nrm(S(r.br)).indexOf(q) < 0) return false;
     // пометка ищется в любой из трёх проверок — так строка находится, где бы она ни стояла
     if (chk && S(r.v[CHK0]) !== chk && S(r.v[CHK0+1]) !== chk && S(r.v[CHK0+2]) !== chk) return false;
     // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
@@ -2260,12 +2302,14 @@ function render(view){
 
   if (view === 'rep'){
     var full = $('fullMode').checked;
-    var rows = applySort(rowsFiltered(), SORT.rep, function(r, i){ return r.v[i]; });
-    var cols = full ? REP_HEAD.map(function(_, i){ return i; }) : COMPACT;
+    var rows = applySort(rowsFiltered(), SORT.rep, repVal);
+    var cols = full ? REP_HEAD.map(function(_, i){ return i; }) : COMPACT.slice();
+    // «Филиал» ставим сразу за днём: день остаётся первой прилипшей колонкой
+    if (REPORT.all) cols = [cols[0], BR_COL].concat(cols.slice(1));
     h = '<table><thead><tr>' + (full ? '' : '<th class="chev"></th>') +
         cols.map(function(i){
           return '<th data-s="' + i + '" class="srt ' + (i===0?'c0':i===1?'c1':'') +
-                 (FROST.indexOf(i)>=0?' frost':'') + '">' + REP_HEAD[i] +
+                 (FROST.indexOf(i)>=0?' frost':'') + '">' + repHead(i) +
                  arrow(SORT.rep, i) + '</th>'; }).join('') +
         (full ? '' : '<th class="cR srt" data-s="' + CHK0 + '">' + REP_HEAD[CHK0] +
                      arrow(SORT.rep, CHK0) + '</th>') + '</tr></thead><tbody>';
@@ -2275,9 +2319,10 @@ function render(view){
         (full ? '' : '<td class="chev" data-x="' + ri + '">▸</td>') +
         cols.map(function(i){
           var c = '';
-          if (i === 0) c = 'c0'; if (i === 1) c = 'c1 name';
-          var val = (v[i] === '' || v[i] == null) ? '' : (i >= CHK0 ? chipHtml(v[i]) : v[i]);
-          return '<td class="' + c.trim() + '" data-l="' + esc(REP_HEAD[i]) + '">' + val + '</td>';
+          if (i === 0) c = 'c0'; if (i === 1 || i === BR_COL) c = 'c1 name';
+          var raw = repVal(r, i);
+          var val = (raw === '' || raw == null) ? '' : (i >= CHK0 ? chipHtml(raw) : raw);
+          return '<td class="' + c.trim() + '" data-l="' + esc(repHead(i)) + '">' + val + '</td>';
         }).join('') +
         (full ? '' : '<td class="cR" data-l="' + esc(REP_HEAD[CHK0]) + '">' +
                      chipHtml(v[CHK0]) + '</td>') + '</tr>';
@@ -2421,10 +2466,12 @@ document.querySelectorAll('.tabs button').forEach(function(b){
 $('btnBuild').onclick = function(){
   var wh = $('branch').value;
   var f = D($('dFrom').value), t = D($('dTo').value);
-  if (!wh) return msg('m3','Сначала загрузите товарную ведомость — из неё берутся филиалы.','err');
+  if (!branches().length)
+    return msg('m3','Сначала загрузите товарную ведомость — из неё берутся филиалы.','err');
   if (!f || !t) return msg('m3','Укажите период в формате дд.мм.гггг','err');
   try{
-    REPORT = build(wh, f, t);
+    // пустое значение в списке — это «все филиалы», а не «филиал не выбран»
+    REPORT = wh ? build(wh, f, t) : buildAll(f, t);
     $('cardOut').style.display = '';
     var k = REPORT.kpi, pct = k.list ? Math.round(k.ok / k.list * 100) : 0;
     $('kpi').innerHTML =
@@ -2596,20 +2643,24 @@ function xlsHint(){
 $('btnXlsx').onclick = function(){
   if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
   function stRep(v, i){
-    if (i < CHK0) return 0;
+    if (i < CHK0 + (REPORT.all ? 1 : 0)) return 0;
     var c = cls(v); return c === 'ok' ? 2 : c === 'bad' ? 3 : c === 'na' ? 4 : 0;
   }
   var on = fltOn(), mark = function(n, yes){ return yes && on ? n + ' (фильтр)' : n; };
   var repSrc  = (on && VIEW === 'rep')  ? rowsFiltered() : REPORT.rep;
   var listSrc = (on && VIEW === 'list') ? listRowsF()
-              : DB.list.filter(function(r){ return r[1] === REPORT.wh; })
+              : DB.list.filter(function(r){ return REPORT.all || r[1] === REPORT.wh; })
                        .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; });
   var m50Src  = (on && VIEW === 'm50')  ? m50RowsF() : (MATCH50 || match50()).rows;
-  var repRows = repSrc.map(function(r){ return r.v; });
+  /* В сетевом отчёте колонка «Филиал» есть и в файле — иначе строки одного дня
+     от разных точек в Excel уже не разделить. */
+  var repHeadX = REPORT.all ? [REP_HEAD[0], 'Филиал'].concat(REP_HEAD.slice(1)) : REP_HEAD;
+  var repRows = repSrc.map(function(r){
+    return REPORT.all ? [r.v[0], S(r.br)].concat(r.v.slice(1)) : r.v; });
   var listRows = listSrc.map(function(r){
     return [ru(r[0]), r[1], r[2], r[3] === '' ? '' : r[3], r[4], r[5]]; });
   var blob = makeXlsx([
-    { name: mark('Отчёт', VIEW === 'rep'), head: REP_HEAD, rows: repRows, style: stRep },
+    { name: mark('Отчёт', VIEW === 'rep'), head: repHeadX, rows: repRows, style: stRep },
     { name: 'Итоги по дням', head: TOT_HEAD, rows: REPORT.tot },
     { name: mark('Список филиала', VIEW === 'list'), head: LIST_HEAD, rows: listRows },
     { name: mark('Путь на склад 50%', VIEW === 'm50'), head: M50_HEAD, rows: m50Src,
@@ -2848,11 +2899,19 @@ function refresh(){
   var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
   [['branch', bs], ['defBranch', bs], ['zWh', whList()]].forEach(function(pair){
     var el = $(pair[0]); if (!el) return;
-    var list = pair[1], cur = el.value || saved;
+    /* При первой сборке списка берём филиал из памяти браузера, дальше —
+       тот, что выбран сейчас. Иначе выбранные «все филиалы» на каждом
+       обновлении откатывались бы к запомненному филиалу. */
+    var list = pair[1], cur = el.options.length ? el.value : saved;
+    /* В сверке первым пунктом — вся сеть. Смотреть каждый филиал по очереди,
+       чтобы понять, где вообще проблема, — это десять сборок вместо одной. */
+    if (pair[0] === 'branch')
+      el.innerHTML = '<option value="">все филиалы</option>';
+    else el.innerHTML = '';
     /* value задаём явно: без него браузер берёт значением текст опции, а текст
        он схлопывает — «TT9-Бесагаш  склад» с двумя пробелами превращается в один,
        перестаёт совпадать с выгрузкой, и филиал молча слетает с выбора. */
-    el.innerHTML = list.map(function(b){
+    el.innerHTML += list.map(function(b){
       return '<option value="' + esc(b) + '">' + esc(b) + '</option>'; }).join('');
     if (list.indexOf(cur) >= 0) el.value = cur;
   });
