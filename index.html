@@ -3544,11 +3544,15 @@ function setPeriod(kind, idFrom, idTo){
     var last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
     to = yy + '-' + pad(mm) + '-' + pad(last);
   }
-  // не выходим за пределы загруженных данных
-  var lo = $(idFrom).min, hi = $(idFrom).max;
+  /* За пределы загруженных данных не выходим: дни, по которым выгрузок нет,
+     в отчёте выглядят пустыми и читаются как «нарушений не было». Но молча
+     подменять period нельзя — «этот месяц», превратившийся в неделю, выглядит
+     поломкой. Поэтому возвращаем обрезанный конец, чтобы о нём сказали вслух. */
+  var lo = $(idFrom).min, hi = $(idFrom).max, cut = '';
   if (lo && f < lo) f = lo;
-  if (hi && to > hi) to = hi;
+  if (hi && to > hi){ cut = to; to = hi; }
   $(idFrom).value = f; $(idTo).value = to;
+  return cut;
 }
 
 /* ═════════ свежесть выгрузок ═════════ */
@@ -5458,7 +5462,13 @@ document.querySelectorAll('.quick button[data-q]').forEach(function(b){
     var t = this.dataset.t;
     var ids = { rep: ['dFrom','dTo'], chr: ['cFrom','cTo'], heat: ['hFrom','hTo'] }[t]
             || ['cFrom','cTo'];
-    setPeriod(this.dataset.q, ids[0], ids[1]);
+    var cut = setPeriod(this.dataset.q, ids[0], ids[1]);
+    var box = { rep: 'm3', chr: 'm4', heat: 'm6' }[t];
+    if (cut && box)
+      msg(box, 'Период обрезан: просили по ' + ru(cut) + ', а движения загружены по ' +
+          ru($(ids[1]).value) + '. Последние дни показать не из чего — обновите ' +
+          'выгрузки из iiko.', 'wait');
+    else if (box) msg(box, '', '');
   };
 });
 
