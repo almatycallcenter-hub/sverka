@@ -1278,7 +1278,16 @@ function saveLS(packed, pre){
 
 /* Значения по умолчанию — до того, как данные приедут из базы */
 function loadDB(){
-  if (!DB.syn || !Object.keys(DB.syn).length) DB.syn = Object.assign({}, EMBED.syn);
+  /* Синонимы приходят с двух сторон: зашитые в страницу и добавленные здесь
+     руками, кнопкой «Запомнить». Раньше зашитые брались только на чистом
+     браузере — и пополнение справочника не доезжало до того, кто уже работал:
+     страница обновилась, а «Банан большой» как был не распознан, так и остался.
+     Теперь дополняем. Своё в браузере всегда главнее: если человек однажды
+     решил, куда ведёт название, страница его решение не переписывает. */
+  if (!DB.syn) DB.syn = {};
+  Object.keys(EMBED.syn).forEach(function(k){
+    if (DB.syn[k] === undefined) DB.syn[k] = EMBED.syn[k];
+  });
   ['mov','s20','s50','cheki','full','disc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
