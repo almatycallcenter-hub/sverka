@@ -2136,7 +2136,8 @@ function fillChkFilter(view){
   if (cur && vals.indexOf(cur) < 0) vals.push(cur);
   el.innerHTML = '<option value="">все пометки</option>' +
     vals.map(function(v){
-      return '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+      return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' +
+             esc(v) + '</option>'; }).join('');
   el.value = cur;
   el.classList.toggle('on', !!cur);
 }
@@ -2271,7 +2272,8 @@ function render(view){
     sorted.forEach(function(r, i){
       var unknown = S(r[5]).indexOf('НЕ РАСПОЗНАНО') === 0;
       var opts = suggest(r[2], S(r[4])).map(function(n){
-        return '<option' + (n === S(r[4]) ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('');
+        return '<option value="' + esc(n) + '"' + (n === S(r[4]) ? ' selected' : '') + '>' +
+               esc(n) + '</option>'; }).join('');
       h += '<tr' + (unknown ? ' class="badrow"' : '') + '>' +
            '<td>'+ru(r[0])+'</td><td>'+r[1]+'</td><td class="name">'+r[2]+'</td>'+
            '<td>'+(r[3] === '' ? '' : r[3])+'</td>'+
@@ -2781,7 +2783,11 @@ function refresh(){
   [['branch', bs], ['defBranch', bs], ['zWh', whList()]].forEach(function(pair){
     var el = $(pair[0]); if (!el) return;
     var list = pair[1], cur = el.value || saved;
-    el.innerHTML = list.map(function(b){ return '<option>' + b + '</option>'; }).join('');
+    /* value задаём явно: без него браузер берёт значением текст опции, а текст
+       он схлопывает — «TT9-Бесагаш  склад» с двумя пробелами превращается в один,
+       перестаёт совпадать с выгрузкой, и филиал молча слетает с выбора. */
+    el.innerHTML = list.map(function(b){
+      return '<option value="' + esc(b) + '">' + esc(b) + '</option>'; }).join('');
     if (list.indexOf(cur) >= 0) el.value = cur;
   });
   if (typeof applyDefaults === 'function') applyDefaults();
@@ -3585,7 +3591,8 @@ function fillFilters(view){
   if (todoCur && todoVals.indexOf(todoCur) < 0) todoVals.push(todoCur);
   $('fTodo').innerHTML = '<option value="">все пометки</option>' +
     todoVals.map(function(v){
-      return '<option' + (v === todoCur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+      return '<option value="' + esc(v) + '"' + (v === todoCur ? ' selected' : '') + '>' +
+             esc(v) + '</option>'; }).join('');
   $('fTodo').value = todoCur;
   $('fTodo').classList.toggle('on', !!todoCur);
 
@@ -3596,7 +3603,8 @@ function fillFilters(view){
     if (cur[id] && vals.indexOf(cur[id]) < 0) vals.push(cur[id]);
     var el = $(id);
     el.innerHTML = '<option value="">' + label[id] + '</option>' +
-      vals.map(function(v){ return '<option' + (v === cur[id] ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
+      vals.map(function(v){ return '<option value="' + esc(v) + '"' +
+        (v === cur[id] ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
     el.value = cur[id];
     el.classList.toggle('on', !!cur[id]);
   });
@@ -4432,8 +4440,8 @@ function fillHeatFilters(){
     var list = Object.keys(vals).sort();
     if (cur && list.indexOf(cur) < 0) list.push(cur);
     el.innerHTML = '<option value="">' + zero + '</option>' +
-      list.map(function(v){ return '<option' + (v === cur ? ' selected' : '') + '>' +
-        esc(v) + '</option>'; }).join('');
+      list.map(function(v){ return '<option value="' + esc(v) + '"' +
+        (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
     el.value = cur;
     el.classList.toggle('on', !!cur);
   }
