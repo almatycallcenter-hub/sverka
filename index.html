@@ -638,11 +638,12 @@
         <div class="card">
           <h2>Забрать заявки из облака</h2>
           <p class="lead">Если филиалы отправляют списки прямо с экрана «Заявка филиала»,
-            заявки лежат в вашем приёмнике на Cloudflare. Здесь они забираются одной кнопкой —
-            файлы пересылать не нужно.</p>
+            заявки лежат в приёмнике — в Google-таблице или на Cloudflare. Здесь они
+            забираются одной кнопкой, файлы пересылать не нужно. Адрес страница узнаёт
+            сама: вставьте тот, что дал приёмник.</p>
           <div class="row" style="margin-top:10px">
             <div style="flex:1 1 340px"><label class="lbl">Адрес приёмника</label>
-              <input type="text" id="apiUrl" placeholder="https://sverka-spisok.ваш-домен.workers.dev"></div>
+              <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
             <div style="flex:0 0 200px"><label class="lbl">Ключ на чтение</label>
               <input type="password" id="apiKey" placeholder="READ_KEY"></div>
           </div>
@@ -652,7 +653,8 @@
             <button id="btnPull">Забрать</button>
           </div>
           <div class="hint">Адрес и ключ хранятся только в этом браузере — в файл страницы
-            и в репозиторий они не попадают.</div>
+            и в репозиторий они не попадают. Ключ уходит в теле запроса, а не в адресе:
+            из адресной строки он попал бы в историю браузера.</div>
           <div class="msg" id="m2c"></div>
         </div>
       </section>
@@ -5163,27 +5165,41 @@ function apiSave(c){
 
 function apiUrlOf(){ return S(apiCfg().url).replace(/\/+$/, ''); }
 
-async function apiPost(path, body){
+/* Приёмников два, и страница понимает оба. Google-таблица проще ставится,
+   Cloudflare быстрее — выбирает тот, кто настраивает; сотрудник филиала
+   разницы не видит. Отличаем по адресу, спрашивать незачем. */
+function apiIsSheets(){ return /script\.google\.com/i.test(apiUrlOf()); }
+
+/* Apps Script не отвечает на предварительный CORS-запрос, который браузер шлёт
+   перед «непростым» POST. Поэтому Content-Type оставляем text/plain — тогда
+   запрос уходит сразу, а тело всё равно JSON и разбирается на той стороне.
+   Ещё Apps Script всегда отвечает кодом 200, даже на отказ, — поэтому ошибку
+   ищем в самом ответе, а не в статусе. */
+async function apiCall(op, body){
   var base = apiUrlOf();
   if (!base) throw new Error('Не задан адрес приёмника.');
-  var r = await fetch(base + path, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  var url, opt;
+  if (apiIsSheets()){
+    url = base;
+    opt = { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(Object.assign({ action: op }, body)) };
+  } else {
+    url = base + (op === 'read' ? '/read' : '/list');
+    opt = { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body) };
+  }
+  var r = await fetch(url, opt);
   var t = await r.text(), j = null;
   try{ j = JSON.parse(t); }catch(e){}
-  if (!r.ok) throw new Error((j && j.error) || ('приёмник ответил ' + r.status));
+  if (j && j.error) throw new Error(j.error);
+  if (!r.ok) throw new Error('приёмник ответил ' + r.status);
+  if (!j) throw new Error('приёмник ответил не по делу — проверьте адрес');
   return j;
 }
-async function apiGet(path){
-  var base = apiUrlOf();
-  if (!base) throw new Error('Не задан адрес приёмника.');
-  var r = await fetch(base + path);
-  var t = await r.text(), j = null;
-  try{ j = JSON.parse(t); }catch(e){}
-  if (!r.ok) throw new Error((j && j.error) || ('приёмник ответил ' + r.status));
-  return j;
-}
+/* Ключ на чтение уходит в теле запроса, а не в адресе: адреса попадают в
+   историю браузера и в журналы, и ключ оттуда уже не вынуть. */
+function apiSendList(body){ return apiCall('send', body); }
+function apiReadList(body){ return apiCall('read', body); }
 
 /* ─── филиал отправляет заявку ─── */
 $('zSend').onclick = async function(){
@@ -5197,7 +5213,7 @@ $('zSend').onclick = async function(){
   if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
   b.disabled = true; msg('m7','Отправляю…','wait');
   try{
-    var res = await apiPost('/list', { key: c.send, day: d, branch: wh,
+    var res = await apiSendList({ key: c.send, day: d, branch: wh,
       items: rows.map(function(r){ return { dish: r[2], qty: r[3] }; }) });
     // сохраняем и у себя: если завтра нужно посмотреть, что отправляли
     DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
@@ -5223,8 +5239,7 @@ $('btnPull').onclick = async function(){
   var from = D($('apiFrom').value) || '0000-01-01', to = D($('apiTo').value) || '9999-12-31';
   b.disabled = true; msg('m2c','Забираю…','wait');
   try{
-    var res = await apiGet('/list?key=' + encodeURIComponent(key) +
-      '&from=' + from + '&to=' + to);
+    var res = await apiReadList({ key: key, from: from, to: to });
     var rows = (res.rows || []).map(function(r){
       var k = nrm(r.dish), nm = SPR[k] ? SPR[k].name : S(r.dish);
       return [r.day, r.branch, S(r.dish), N(r.qty), SPR[k] ? nm : '',
