@@ -588,6 +588,12 @@
               <button class="sec" id="zXlsx">Файлом</button>
             </div>
             <div class="hint" id="zHint"></div>
+            <div class="hint">Куда попадает список: <b>«Отправить»</b> — в общий
+              приёмник, оттуда его забирает бухгалтерия. <b>«Сохранить у себя»</b> —
+              только в память этого телефона, никто больше не увидит.
+              <b>«Файлом»</b> — скачает файл, его можно переслать в WhatsApp.
+              Набранное не пропадёт, если закрыть страницу или погаснет
+              экран — вернётся само, как только откроете тот же филиал и дату.</div>
           </div>
           <div class="card zRight">
             <input type="text" id="zQ" placeholder="Поиск по названию">
@@ -2740,16 +2746,43 @@ var DEFAULT_ROUTES = { 2:'Маршрут 1', 10:'Маршрут 1', 11:'Марш
                        8:'Маршрут 2',  6:'Маршрут 2',  1:'Маршрут 2',
                        3:'Маршрут 3',  4:'Маршрут 3',  9:'Маршрут 3' };
 var DEFAULT_CLOSED = [/магазин\s*tt?5/i];      // Магазин TT5 Taugul закрыт
+
+/* Экран заявки открывают на телефоне филиала, а туда выгрузки iiko никто не
+   грузит и не будет: branches() там пуст, и выпадающий список оставался
+   пустым — филиал не мог отметить даже свой собственный склад. Поэтому список
+   филиалов зашит в страницу. Названия — ровно как в товарной ведомости, чтобы
+   заявка легла в отчёт без переименований. Появится новая точка — допишите
+   строку сюда и в справочник маршрутов выше. */
+var BRANCHES_FALLBACK = [
+  'ТТ1 Атакент склад', 'ТТ2 Сарыарка склад', 'TT3 Lamiya Склад',
+  'ТТ4 Ньютон склад',  'Доставка ТТ5 склад', 'ТТ6 Автодом',
+  'TT8 Qaratau склад', 'TT9-Бесагаш  склад', '010-Шугыла склад',
+  '011 Алма-Сити 5'
+];
+/* Загруженная ведомость всегда главнее зашитого списка: если склад переименуют
+   в iiko, заявка должна уйти с новым названием. Поэтому берём branches(), а из
+   зашитого добавляем только те номера, которых в выгрузке нет. */
+function whList(){
+  var bs = branches(), out = bs.slice();
+  BRANCHES_FALLBACK.forEach(function(b){
+    for (var i = 0; i < bs.length; i++) if (sameBranch(b, bs[i])) return;
+    out.push(b);
+  });
+  return out.sort(function(a, b){
+    var na = +((a.match(/\d+/) || [999])[0]), nb = +((b.match(/\d+/) || [999])[0]);
+    return na - nb || (a < b ? -1 : 1);
+  });
+}
 var ROUTES_V = 2;      // подняли версию — старые сохранённые маршруты перезапишутся
 
 function refresh(){
   var bs = branches();
   var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
-  ['branch','defBranch','zWh'].forEach(function(id){
-    var el = $(id); if (!el) return;
-    var cur = el.value || saved;
-    el.innerHTML = bs.map(function(b){ return '<option>' + b + '</option>'; }).join('');
-    if (bs.indexOf(cur) >= 0) el.value = cur;
+  [['branch', bs], ['defBranch', bs], ['zWh', whList()]].forEach(function(pair){
+    var el = $(pair[0]); if (!el) return;
+    var list = pair[1], cur = el.value || saved;
+    el.innerHTML = list.map(function(b){ return '<option>' + b + '</option>'; }).join('');
+    if (list.indexOf(cur) >= 0) el.value = cur;
   });
   if (typeof applyDefaults === 'function') applyDefaults();
   setDateRange();
@@ -4983,8 +5016,38 @@ function zayLeft(){
 function zayAdd(k, d){
   var v = (ZAY.items[k] || 0) + d;
   if (v <= 0) delete ZAY.items[k]; else ZAY.items[k] = v;
-  zayMark(k); zayLeft();
+  zayMark(k); zayLeft(); zayDraftSave();
 }
+
+/* Набранное держим в черновике. Сотрудник набирает список между делом, телефон
+   гасит экран, вкладку выкидывает из памяти — и полчаса работы пропадают, если
+   не нажал «Сохранить». Черновик лежит в этом же браузере и восстанавливается
+   сам, но только для той же пары «филиал + дата»: иначе вчерашний список
+   молча подмешается к сегодняшнему. */
+var ZAY_DRAFT = 'sverka20_zay_draft';
+function zayDraftSave(){
+  try{
+    var wh = $('zWh').value, d = D($('zDay').value);
+    if (!wh || !d) return;
+    localStorage.setItem(ZAY_DRAFT, JSON.stringify({ wh: wh, day: d, items: ZAY.items }));
+  }catch(e){}
+}
+function zayDraftLoad(){
+  try{
+    var wh = $('zWh').value, d = D($('zDay').value);
+    if (!wh || !d) return 0;
+    var j = JSON.parse(localStorage.getItem(ZAY_DRAFT) || 'null');
+    if (!j || j.wh !== wh || j.day !== d) return 0;
+    var n = 0;
+    Object.keys(j.items || {}).forEach(function(k){
+      if (!SPR[k] || !(j.items[k] > 0)) return;
+      if (!ZAY.items[k]) n++;
+      ZAY.items[k] = Math.max(ZAY.items[k] || 0, j.items[k]);
+    });
+    return n;
+  }catch(e){ return 0; }
+}
+function zayDraftClear(){ try{ localStorage.removeItem(ZAY_DRAFT); }catch(e){} }
 /* Строки этого филиала за этот день — чтобы можно было открыть и дополнить */
 function zayLoad(){
   var wh = $('zWh').value, d = D($('zDay').value);
@@ -4997,6 +5060,7 @@ function zayLoad(){
     ZAY.items[k] = (ZAY.items[k] || 0) + (S(r[3]) === '' ? 1 : N(r[3]));
     n++;
   });
+  n += zayDraftLoad();
   zayRender();
   return n;
 }
@@ -5022,7 +5086,8 @@ $('zList').onclick = function(e){
   var b = e.target.closest('button'); if (!b) return;
   if (b.dataset.p) zayAdd(b.dataset.p, 1);
   else if (b.dataset.m) zayAdd(b.dataset.m, -1);
-  else if (b.dataset.x){ var k = b.dataset.x; delete ZAY.items[k]; zayMark(k); zayLeft(); }
+  else if (b.dataset.x){ var k = b.dataset.x; delete ZAY.items[k];
+                         zayMark(k); zayLeft(); zayDraftSave(); }
 };
 $('zLoad').onclick = function(){
   var n = zayLoad();
@@ -5032,7 +5097,7 @@ $('zLoad').onclick = function(){
 $('zClear').onclick = function(){
   if (!Object.keys(ZAY.items).length) return;
   if (!confirm('Очистить набранный список? Сохранённое останется.')) return;
-  ZAY.items = {}; zayRender(); msg('m7','Список очищен.','wait');
+  ZAY.items = {}; zayDraftClear(); zayRender(); msg('m7','Список очищен.','wait');
 };
 $('zSave').onclick = function(){
   var wh = $('zWh').value, d = D($('zDay').value);
@@ -5041,7 +5106,7 @@ $('zSave').onclick = function(){
   var rows = zayRows();
   // замещаем именно этот день этого филиала, чужие дни не трогаем
   DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
-  saveDB(); refresh();
+  saveDB(); refresh(); zayDraftClear();
   msg('m7','Сохранено: ' + rows.length + ' позиций за ' + ru(d) + '. ' +
       'Это уже видно в отчёте и в «Списках филиалов».', 'ok');
 };
@@ -5128,7 +5193,7 @@ $('zSend').onclick = async function(){
       items: rows.map(function(r){ return { dish: r[2], qty: r[3] }; }) });
     // сохраняем и у себя: если завтра нужно посмотреть, что отправляли
     DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
-    saveDB(); refresh();
+    saveDB(); refresh(); zayDraftClear();
     msg('m7','Отправлено: ' + res.saved + ' позиций за ' + ru(d) + '. ' +
         'Повторная отправка за этот день заменит заявку — можно дополнить и отправить снова.','ok');
   }catch(e){
