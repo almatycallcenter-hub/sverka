@@ -136,8 +136,19 @@
   .zItem .sr{display:block;color:var(--mut);font-size:11px;margin-top:3px}
   @media (max-width:900px){
     .zGrid{grid-template-columns:1fr}
-    .zList{max-height:34vh}
+    /* На телефоне сначала то, по чему нажимают, и только потом набранное.
+       В обратном порядке сотрудник каждый раз пролистывает пустой список,
+       чтобы добраться до продукции, — а список пустой ровно до тех пор,
+       пока он до неё не добрался. */
+    .zRight{order:1}
+    .zLeft{order:2}
+    .zList{max-height:none}
     .zPad{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));max-height:none}
+    /* Поиск и категории не уезжают вверх вместе с длинной сеткой продукции */
+    .zRight #zQ{position:sticky;top:0;z-index:3}
+    .zCats{position:sticky;top:42px;z-index:2;background:var(--card);
+      margin:0 -14px;padding:8px 14px}
+    .zLeft,.zRight{padding:10px 14px}
   }
   /* «Скидки и потери» — три самостоятельных блока, каждый со своим пояснением */
   .lossSec{background:var(--card);border:1px solid var(--bd);border-radius:12px;
@@ -176,7 +187,8 @@
 
   .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 4px}
   .brand .logo{width:28px;height:28px;border-radius:8px;flex:0 0 28px;display:grid;place-items:center;
-    font-size:15px;background:linear-gradient(140deg,var(--logo1),var(--logo2));box-shadow:var(--sh)}
+    font-size:12px;font-weight:700;letter-spacing:.5px;color:#3a2a00;
+    background:linear-gradient(140deg,var(--logo1),var(--logo2));box-shadow:var(--sh)}
   .brand b{font-size:13.5px;font-weight:600;display:block;line-height:1.25}
   .brand i{font-style:normal;font-size:11.5px;color:var(--mut);display:block;line-height:1.25}
 
@@ -270,6 +282,20 @@
   .kpi b{font-size:24px;font-weight:600;letter-spacing:-.02em;color:var(--txt)}
 
   /* ── вкладки-подчёркивания ──────────────── */
+  /* Пояснения нужны один раз — при первом знакомстве. Дальше они только
+     оттесняют кнопки вниз, особенно на телефоне, где экран и так короткий.
+     Поэтому прячем их под строку, которую можно развернуть. */
+  details.tip{margin:8px 0 0;border:1px solid var(--bd);border-radius:10px;
+    background:var(--row)}
+  details.tip>summary{cursor:pointer;list-style:none;padding:8px 12px;font-size:12.5px;
+    color:var(--mut);font-weight:500;user-select:none}
+  details.tip>summary::-webkit-details-marker{display:none}
+  details.tip>summary::before{content:'?';display:inline-grid;place-items:center;
+    width:16px;height:16px;border-radius:50%;border:1px solid var(--bd);
+    font-size:11px;margin-right:7px;vertical-align:-3px}
+  details.tip[open]>summary{border-bottom:1px solid var(--bd2)}
+  details.tip p{margin:0;padding:9px 12px;font-size:12.5px;line-height:1.5;color:var(--mut)}
+  details.tip p+p{border-top:1px solid var(--bd2)}
   .tabs{display:flex;gap:2px;margin:0 0 14px;flex-wrap:wrap;border-bottom:1px solid var(--bd)}
   .tabs button{background:none;border:0;box-shadow:none;color:var(--mut);font-weight:500;
     padding:9px 12px;font-size:13px;border-radius:0;border-bottom:2px solid transparent;
@@ -335,6 +361,8 @@
 
   .sug{width:100%;padding:4px 7px;font-size:12px}
   .miniBtn{padding:4px 10px;font-size:12px;border-radius:7px}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;
+    word-break:break-all}
   /* Ссылки филиалов длинные. Не переносим их, а даём строке прокручиваться:
      перенесённую ссылку глазами не проверишь, а копируется она всё равно
      кнопкой целиком. */
@@ -502,7 +530,7 @@
 
   <aside class="side" id="side">
     <div class="brand">
-      <div class="logo">🥐</div>
+      <div class="logo">ТТ</div>
       <div><b>Тәп-Тәтті</b><i>Сверка 20% и списания</i></div>
     </div>
 
@@ -510,7 +538,7 @@
       <div class="navsec">Данные</div>
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
-      <a data-page="zay"><span class="ic">🧾</span>Заявка филиала</a>
+      <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
@@ -519,8 +547,8 @@
       <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
       <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
+      <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
-      <a data-page="heat"><span class="ic">🔥</span>Тепловая карта</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
@@ -574,12 +602,19 @@
       <!-- ─── Заявка филиала: экран как касса ──────────── -->
       <section class="page wide" id="pg-zay">
         <div class="card noprint">
-          <h2>Что сегодня уходит на уценку</h2>
-          <p class="lead">Экран для филиала: справа категории и продукция, слева —
-            то, что уже отметили. Ничего не печатать, только нажимать.</p>
-          <p class="lead"><b>Дата — это день скидки, а не день заполнения.</b> Список
-            составляют сегодня, продукция уходит по 20% завтра, поэтому в поле сразу
-            стоит завтрашнее число. Время отправки приёмник запоминает сам.</p>
+          <h2>Что завтра уходит по скидке</h2>
+          <details class="tip"><summary>Как заполнять</summary>
+            <p>Справа категории и продукция, слева — то, что уже отметили. Ничего не
+              печатать, только нажимать.</p>
+            <p><b>Дата — это день скидки, а не день заполнения.</b> Список составляют
+              сегодня, продукция уходит по 20% завтра, поэтому в поле сразу стоит
+              завтрашнее число. Время отправки приёмник запоминает сам.</p>
+            <p><b>«Отправить»</b> — в общий приёмник, оттуда забирает бухгалтерия.
+              <b>«Сохранить у себя»</b> — только в память этого телефона.
+              <b>«Файлом»</b> — скачает файл для WhatsApp.</p>
+            <p>Набранное не пропадёт, если закрыть страницу или погаснет экран —
+              вернётся само, как только откроете тот же филиал и дату.</p>
+          </details>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 240px"><label class="lbl">Филиал</label>
               <select id="zWh"></select></div>
@@ -600,12 +635,6 @@
               <button class="sec" id="zXlsx">Файлом</button>
             </div>
             <div class="hint" id="zHint"></div>
-            <div class="hint">Куда попадает список: <b>«Отправить»</b> — в общий
-              приёмник, оттуда его забирает бухгалтерия. <b>«Сохранить у себя»</b> —
-              только в память этого телефона, никто больше не увидит.
-              <b>«Файлом»</b> — скачает файл, его можно переслать в WhatsApp.
-              Набранное не пропадёт, если закрыть страницу или погаснет
-              экран — вернётся само, как только откроете тот же филиал и дату.</div>
           </div>
           <div class="card zRight">
             <input type="text" id="zQ" placeholder="Поиск по названию">
@@ -650,43 +679,42 @@
 
         <div class="card">
           <h2>Забрать заявки из облака</h2>
-          <p class="lead">Если филиалы отправляют списки прямо с экрана «Заявка филиала»,
-            заявки лежат в приёмнике — в Google-таблице или на Cloudflare. Здесь они
-            забираются одной кнопкой, файлы пересылать не нужно. Адрес страница узнаёт
-            сама: вставьте тот, что дал приёмник.</p>
+          <p class="lead">Заявки филиалов приезжают сюда одной кнопкой.</p>
           <div class="row" style="margin-top:10px">
-            <div style="flex:1 1 340px"><label class="lbl">Адрес приёмника</label>
-              <input type="text" id="apiUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
-            <div style="flex:0 0 200px"><label class="lbl">Ключ на чтение</label>
+            <div style="flex:0 0 220px"><label class="lbl">Ключ на чтение</label>
               <input type="password" id="apiKey" placeholder="READ_KEY"></div>
-          </div>
-          <div class="row">
             <div><label class="lbl">с</label><input type="date" id="apiFrom"></div>
             <div><label class="lbl">по</label><input type="date" id="apiTo"></div>
             <button id="btnPull">Забрать</button>
           </div>
-          <div class="hint">Адрес и ключ хранятся только в этом браузере — в файл страницы
-            и в репозиторий они не попадают. Ключ уходит в теле запроса, а не в адресе:
-            из адресной строки он попал бы в историю браузера.</div>
+          <details class="tip"><summary>Про адрес и ключ</summary>
+            <p>Приёмник прописан в странице, вводить его не нужно:
+              <span class="mono" id="apiShow"></span>. Переедете на другой —
+              поменяется одной строкой в коде.</p>
+            <p>Адрес и ключ хранятся только в этом браузере — в файл страницы и в
+              репозиторий они не попадают. Ключ уходит в теле запроса, а не в
+              адресе: из адресной строки он попал бы в историю браузера.</p>
+          </details>
           <div class="msg" id="m2c"></div>
         </div>
 
         <div class="card">
           <h2>Ссылки для филиалов</h2>
-          <p class="lead">Каждому филиалу — своя ссылка. Открыв её один раз, сотрудник
-            больше ничего не вводит: филиал и приёмник уже прописаны, а ключ из адресной
-            строки страница убирает сразу. Пусть добавят её на главный экран телефона.</p>
+          <p class="lead">Каждому филиалу — своя ссылка, отправьте её один раз.</p>
           <div class="row" style="margin-top:10px">
-            <div style="flex:1 1 340px"><label class="lbl">Адрес приёмника</label>
-              <input type="text" id="lnkUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
             <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
               <input type="password" id="lnkKey" placeholder="SEND_KEY"></div>
             <button id="btnLinks">Собрать ссылки</button>
           </div>
           <div id="lnkOut"></div>
-          <div class="hint">Ключ филиалов виден сотруднику — это нормально: им можно
-            только прислать свой список, ни прочитать чужое, ни удалить что-либо нельзя.
-            Ключ на чтение в эти ссылки не попадает.</div>
+          <details class="tip"><summary>Что внутри ссылки</summary>
+            <p>Филиал и приёмник уже прописаны, вводить сотруднику нечего. Ключ из
+              адресной строки страница убирает сразу после первого открытия. Пусть
+              добавят страницу на главный экран телефона.</p>
+            <p>Ключ филиалов сотрудник видит — это нормально: им можно только
+              прислать свой список, ни прочитать чужое, ни удалить что-либо нельзя.
+              Ключ на чтение в эти ссылки не попадает.</p>
+          </details>
           <div class="msg" id="m2d"></div>
         </div>
       </section>
@@ -763,7 +791,7 @@
 
         <div id="cardChr" style="display:none">
           <div class="kpi" id="kpiC"></div>
-          <div class="tabs" id="tabsC">
+          <div class="tabs" id="tabsC" hidden>
             <button class="on" data-c="pos">Позиции</button>
             <button data-c="dyn">Динамика</button>
             <button data-c="trio">Топ-20: худший / средний / лучший</button>
@@ -5178,6 +5206,12 @@ $('zXlsx').onclick = function(){
    ключей в её коде нет: их вводят один раз, и они остаются в этом браузере.
    Филиалу ссылку можно дать сразу с настройками — ?api=…&k=…&wh=… — тогда ему
    вообще ничего вводить не придётся. */
+/* Адрес приёмника не секрет — это просто адрес, по которому он живёт, и меняться
+   он не будет. Держим его константой, чтобы не вводить каждый раз. Ключи сюда
+   класть нельзя ни при каких условиях: страница лежит на GitHub Pages, её
+   исходник открыт любому, кто нажмёт «посмотреть код». Ключи вводятся один раз
+   и остаются в браузере того, кто их ввёл. */
+var API_URL = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
 var API_CFG = 'sverka20_api';
 function apiCfg(){
   try{ return JSON.parse(localStorage.getItem(API_CFG) || '{}'); }catch(e){ return {}; }
@@ -5201,7 +5235,7 @@ function apiSave(c){
   }catch(e){}
 })();
 
-function apiUrlOf(){ return S(apiCfg().url).replace(/\/+$/, ''); }
+function apiUrlOf(){ return S(apiCfg().url || API_URL).replace(/\/+$/, ''); }
 
 /* Приёмников два, и страница понимает оба. Google-таблица проще ставится,
    Cloudflare быстрее — выбирает тот, кто настраивает; сотрудник филиала
@@ -5272,10 +5306,10 @@ $('zSend').onclick = async function(){
 /* ─── бухгалтерия забирает заявки ─── */
 $('btnPull').onclick = async function(){
   var b = this, c = apiCfg();
-  var url = S($('apiUrl').value), key = S($('apiKey').value);
-  if (!url) return msg('m2c','Укажите адрес приёмника.','err');
+  var key = S($('apiKey').value);
+  if (!apiUrlOf()) return msg('m2c','Не задан адрес приёмника.','err');
   if (!key) return msg('m2c','Укажите ключ на чтение.','err');
-  c.url = url; c.read = key; apiSave(c);
+  c.read = key; apiSave(c);
   var from = D($('apiFrom').value) || '0000-01-01', to = D($('apiTo').value) || '9999-12-31';
   b.disabled = true; msg('m2c','Забираю…','wait');
   try{
@@ -5309,10 +5343,13 @@ function linkFor(base, key, wh){
          '&wh=' + encodeURIComponent(wh) + '&lock=1';
 }
 $('btnLinks').onclick = function(){
-  var base = S($('lnkUrl').value).replace(/\/+$/, ''), key = S($('lnkKey').value);
-  if (!base) return msg('m2d','Укажите адрес приёмника.','err');
+  var base = apiUrlOf(), key = S($('lnkKey').value);
+  if (!base) return msg('m2d','Не задан адрес приёмника.','err');
   if (!key)  return msg('m2d','Укажите ключ филиалов.','err');
-  var c = apiCfg(); c.url = base; apiSave(c);   // ключ филиалов не храним: он не наш
+  /* Ключ филиалов запоминаем в этом браузере. Раньше не запоминали из
+     осторожности, но прятать его тут не от кого: он и так уходит в ссылку
+     каждому филиалу. А вот набирать его руками каждый раз — лишняя работа. */
+  var c = apiCfg(); c.send = key; apiSave(c);
   var list = whList();
   $('lnkOut').innerHTML = '<table class="tbl lnkTbl"><thead><tr><th>Филиал</th>' +
     '<th>Ссылка</th><th></th></tr></thead><tbody>' +
@@ -5384,7 +5421,7 @@ function showFresh(){
   var TITLES = {
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
-    zay: ['Заявка филиала','отметить, что сегодня уходит на уценку'],
+    zay: ['20-50% жеңілдік өнімдері','что завтра уходит по скидке'],
     rep: ['Сверка',''],
     chr: ['Аналитика','как продаётся и где теряется'],
     heat:['Тепловая карта','когда уходит продукция со скидкой'],
@@ -5450,9 +5487,9 @@ function showFresh(){
     }
     if (p === 'sp' && typeof apiCfg === 'function'){
       var a = apiCfg();
-      if (a.url && !el('apiUrl').value) el('apiUrl').value = a.url;
-      if (a.url && !el('lnkUrl').value) el('lnkUrl').value = a.url;
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
+      if (a.send && !el('lnkKey').value) el('lnkKey').value = a.send;
+      if (el('apiShow')) el('apiShow').textContent = apiUrlOf();
       if (!el('apiFrom').value) el('apiFrom').value = el('dFrom').value;
       if (!el('apiTo').value)   el('apiTo').value   = el('dTo').value;
     }
