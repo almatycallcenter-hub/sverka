@@ -577,10 +577,13 @@
           <h2>Что сегодня уходит на уценку</h2>
           <p class="lead">Экран для филиала: справа категории и продукция, слева —
             то, что уже отметили. Ничего не печатать, только нажимать.</p>
+          <p class="lead"><b>Дата — это день скидки, а не день заполнения.</b> Список
+            составляют сегодня, продукция уходит по 20% завтра, поэтому в поле сразу
+            стоит завтрашнее число. Время отправки приёмник запоминает сам.</p>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 240px"><label class="lbl">Филиал</label>
               <select id="zWh"></select></div>
-            <div><label class="lbl">Дата</label><input type="date" id="zDay"></div>
+            <div><label class="lbl">Уценка на</label><input type="date" id="zDay"></div>
             <button class="sec" id="zLoad">Открыть сохранённое</button>
             <button class="sec" id="zClear">Очистить</button>
           </div>
@@ -634,7 +637,8 @@
           <h2>Или загрузите таблицу</h2>
           <p class="lead">Если филиалы заполняют общую Google-таблицу — скачайте её
             (Файл → Скачать → Microsoft Excel .xlsx) и загрузите здесь. Колонки:
-            Дата, Филиал, Блюдо, Кол-во.</p>
+            Дата уценки, Филиал, Блюдо, Кол-во. Колонка «Категория», если она есть,
+            не мешает. Старая подпись «Дата» тоже понимается.</p>
           <div class="f" style="max-width:520px">
             <label>Таблица со списками</label>
             <div class="h">Строки за те же дни и филиалы заменяются, остальные остаются</div>
@@ -1625,13 +1629,17 @@ $('btnListXlsx').onclick = async function(){
       var rows = sheets[si];
       for (var hi = 0; hi < Math.min(rows.length, 20); hi++){
         var H = hdr(rows[hi]);
-        var iD = H['Дата'], iB = H['Филиал'], iN = H['Блюдо'], iQ = H['Кол-во'];
+        /* «Дата уценки» — новая подпись, «Дата» — как было в старых файлах.
+           Колонку «Категория» пропускаем: категорию мы и так знаем из справочника,
+           а в файле она могла устареть. */
+        var iD = H['Дата уценки'] !== undefined ? H['Дата уценки'] : H['Дата'];
+        var iB = H['Филиал'], iN = H['Блюдо'], iQ = H['Кол-во'];
         if (iD === undefined || iN === undefined) continue;
         used = { rows: rows, from: hi + 1, iD: iD, iB: iB, iN: iN, iQ: iQ };
         break;
       }
     }
-    if (!used) throw new Error('Не нашла шапку с колонками «Дата» и «Блюдо». ' +
+    if (!used) throw new Error('Не нашла шапку с колонками «Дата уценки» и «Блюдо». ' +
       'Скачивайте таблицу как Microsoft Excel (.xlsx), лист «Заполнять» не переименовывайте.');
 
     var bs = branches(), byNrm = {};
@@ -5108,6 +5116,7 @@ function zayRows(){
     .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; })
     .map(function(k){ return [d, wh, SPR[k].name, ZAY.items[k], SPR[k].name, '']; });
 }
+function zayCatOf(k){ return S(SPR[k] && SPR[k].kat) || 'прочее'; }
 
 $('zWh').onchange = function(){ zayLoad(); };
 $('zDay').onchange = function(){ zayLoad(); };
@@ -5153,8 +5162,9 @@ $('zXlsx').onclick = function(){
   if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
   /* Колонки ровно те, которые понимает загрузчик списка: файл, скачанный
      филиалом, открывается на этой же странице без переделок. */
-  var blob = makeXlsx([{ name: 'Заполнять', head: ['Дата','Филиал','Блюдо','Кол-во'],
-    rows: rows.map(function(r){ return [ru(r[0]), r[1], r[2], r[3]]; }) }]);
+  var blob = makeXlsx([{ name: 'Заполнять',
+    head: ['Дата уценки','Филиал','Категория','Блюдо','Кол-во'],
+    rows: rows.map(function(r){ return [ru(r[0]), r[1], zayCatOf(nrm(r[2])), r[2], r[3]]; }) }]);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = ('Уценка ' + wh + ' ' + ru(d)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
@@ -5241,8 +5251,10 @@ $('zSend').onclick = async function(){
   if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
   b.disabled = true; msg('m7','Отправляю…','wait');
   try{
+    /* Категорию шлём вместе с блюдом: в таблице её видно рядом с названием,
+       и заявку можно читать глазами, не сверяясь со справочником. */
     var res = await apiSendList({ key: c.send, day: d, branch: wh,
-      items: rows.map(function(r){ return { dish: r[2], qty: r[3] }; }) });
+      items: rows.map(function(r){ return { dish: r[2], qty: r[3], cat: zayCatOf(nrm(r[2])) }; }) });
     // сохраняем и у себя: если завтра нужно посмотреть, что отправляли
     DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
     saveDB(); refresh(); zayDraftClear();
@@ -5409,7 +5421,10 @@ function showFresh(){
       if (typeof routeHint === 'function') routeHint();
     }
     if (p === 'zay'){
-      if (!el('zDay').value) el('zDay').value = isoToday();
+      /* Завтра, а не сегодня: филиал вечером отмечает то, что попадёт под скидку
+         на следующий день. Совпадение этой даты с днём продаж — то, на чём
+         держится вся сверка списка с чеками. */
+      if (!el('zDay').value) el('zDay').value = shift(isoToday(), 1);
       var c = (typeof apiCfg === 'function') ? apiCfg() : {};
       /* Филиалу дали ссылку со своим складом. Сверять названия текстом нельзя:
          в ведомости «TT8 Qaratau склад» латиницей, а в ссылке легко написать
