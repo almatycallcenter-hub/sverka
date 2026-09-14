@@ -1625,13 +1625,13 @@ function branchFromLine(s){
   var m = S(s).match(/(?:^|\s)(?:т|тт|tt)\s*[-–]?\s*(\d{1,2})/i);
   return m ? 'TT' + m[1] : '';
 }
+/* Филиал ищем по номеру, а не по тексту. Раньше сходилось только «TT2» ровно
+   такой строкой — а филиалы пишут «ТТ2 Сарыарка (4мкр 28/1)», «ТТ10 Шұғыла»,
+   кто латиницей, кто кириллицей. Всё это один и тот же филиал номер 2 и 10. */
 function matchBranch(code){
   if (!code) return '';
   var ws = branches();
-  for (var i = 0; i < ws.length; i++){
-    var d = (ws[i].match(/\d+/) || [])[0];
-    if (d && ('TT' + (+d)) === code) return ws[i];
-  }
+  for (var i = 0; i < ws.length; i++) if (sameBranch(code, ws[i])) return ws[i];
   return '';
 }
 
@@ -1661,7 +1661,7 @@ $('btnListXlsx').onclick = async function(){
   msg('m2b','Читаю таблицу…','wait');
   try{
     var sheets = await readXlsx(f, true), sprByName = sprIndex();
-    var out = [], unknown = [], used = null;
+    var out = [], unknown = [], used = null, badBr = {};
     for (var si = 0; si < sheets.length && !used; si++){
       var rows = sheets[si];
       for (var hi = 0; hi < Math.min(rows.length, 20); hi++){
@@ -1687,12 +1687,22 @@ $('btnListXlsx').onclick = async function(){
       var nameRaw = S(row[used.iN]);
       if (!day || !nameRaw) continue;
       var braw = used.iB === undefined ? '' : S(row[used.iB]);
-      var br = byNrm[nrm(braw)] || matchBranch(braw) || $('defBranch').value;
+      /* Не узнали филиал — так и говорим. Раньше такая строка молча падала на
+         тот филиал, который выбран в списке по умолчанию: уценка десяти точек
+         записывалась одной, и отчёт показывал чужие 13 штук как свои. Лучше
+         строка без филиала, которую видно, чем тихо приписанная не туда. */
+      var br = byNrm[nrm(braw)] || matchBranch(braw);
+      var brBad = '';
+      if (!br){
+        if (braw){ br = braw; brBad = 'ФИЛИАЛ НЕ РАСПОЗНАН'; badBr[braw] = 1; }
+        else { br = $('defBranch').value; }   // колонки филиала нет — берём выбранный
+      }
       var qv = used.iQ === undefined ? '' : S(row[used.iQ]);
       var qty = qv === '' ? '' : N(qv);
       var rz = resolveName(nameRaw, sprByName), note = rz.note;
       if (!rz.target) unknown.push(nameRaw);
       if (qty === '') note = (note ? note + '; ' : '') + 'кол-во не указано';
+      if (brBad) note = (note ? note + '; ' : '') + brBad;
       out.push([day, br, nameRaw, qty === '' ? '' : qty, rz.target, note]);
     }
     if (!out.length) throw new Error('В таблице нет ни одной заполненной строки.');
@@ -1704,9 +1714,13 @@ $('btnListXlsx').onclick = async function(){
     var txt = 'Загружено строк: ' + out.length + ' за ' + Object.keys(dd).length + ' дн.';
     if (unknown.length){
       var uq = unknown.filter(function(v,i,a){ return a.indexOf(v) === i; });
-      txt += ' <b>Не распознано: ' + uq.length + '</b> — поправьте на вкладке «Список филиала».';
+      txt += ' <b>Не распознано блюд: ' + uq.length + '</b> — поправьте на вкладке «Список филиала».';
     }
-    msg('m2b', txt, unknown.length ? 'wait' : 'ok');
+    var bb = Object.keys(badBr);
+    if (bb.length)
+      txt += ' <b>Не узнала филиал: ' + bb.join(', ') + '</b> — эти строки не попадут ' +
+             'ни в один отчёт, пока названия не совпадут с товарной ведомостью.';
+    msg('m2b', txt, (unknown.length || bb.length) ? 'wait' : 'ok');
     refresh();
   } catch(e){ msg('m2b','Ошибка: ' + (e.message || e),'err'); }
   btn.disabled = false;
