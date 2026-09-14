@@ -335,6 +335,15 @@
 
   .sug{width:100%;padding:4px 7px;font-size:12px}
   .miniBtn{padding:4px 10px;font-size:12px;border-radius:7px}
+  /* Ссылки филиалов длинные. Не переносим их, а даём строке прокручиваться:
+     перенесённую ссылку глазами не проверишь, а копируется она всё равно
+     кнопкой целиком. */
+  .lnkTbl{margin-top:12px;width:100%}
+  .lnkTbl td{text-align:left;vertical-align:middle}
+  .lnkCell{max-width:1px;width:100%}
+  .lnkCell span{display:block;overflow-x:auto;white-space:nowrap;font-size:12px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--mut);
+    padding-bottom:2px}
   .hint{color:var(--mut);font-size:12px;margin-top:10px;line-height:1.55}
   .warn{color:var(--badT);font-weight:600}
   td.bad{color:var(--badT);font-weight:600}
@@ -656,6 +665,25 @@
             и в репозиторий они не попадают. Ключ уходит в теле запроса, а не в адресе:
             из адресной строки он попал бы в историю браузера.</div>
           <div class="msg" id="m2c"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ссылки для филиалов</h2>
+          <p class="lead">Каждому филиалу — своя ссылка. Открыв её один раз, сотрудник
+            больше ничего не вводит: филиал и приёмник уже прописаны, а ключ из адресной
+            строки страница убирает сразу. Пусть добавят её на главный экран телефона.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1 1 340px"><label class="lbl">Адрес приёмника</label>
+              <input type="text" id="lnkUrl" placeholder="https://script.google.com/macros/s/…/exec"></div>
+            <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
+              <input type="password" id="lnkKey" placeholder="SEND_KEY"></div>
+            <button id="btnLinks">Собрать ссылки</button>
+          </div>
+          <div id="lnkOut"></div>
+          <div class="hint">Ключ филиалов виден сотруднику — это нормально: им можно
+            только прислать свой список, ни прочитать чужое, ни удалить что-либо нельзя.
+            Ключ на чтение в эти ссылки не попадает.</div>
+          <div class="msg" id="m2d"></div>
         </div>
       </section>
 
@@ -5258,6 +5286,48 @@ $('btnPull').onclick = async function(){
   b.disabled = false;
 };
 
+/* ─── ссылки филиалам ─── */
+/* Собираем прямо здесь, а не списком в переписке: филиалы переименовывают,
+   точки открываются и закрываются, и заготовленный где-то в чате список
+   протухает молча. Отсюда он всегда совпадает с тем, что знает страница. */
+function linkFor(base, key, wh){
+  var page = location.origin + location.pathname;
+  return page + '?api=' + encodeURIComponent(base) +
+         '&k=' + encodeURIComponent(key) +
+         '&wh=' + encodeURIComponent(wh) + '&lock=1';
+}
+$('btnLinks').onclick = function(){
+  var base = S($('lnkUrl').value).replace(/\/+$/, ''), key = S($('lnkKey').value);
+  if (!base) return msg('m2d','Укажите адрес приёмника.','err');
+  if (!key)  return msg('m2d','Укажите ключ филиалов.','err');
+  var c = apiCfg(); c.url = base; apiSave(c);   // ключ филиалов не храним: он не наш
+  var list = whList();
+  $('lnkOut').innerHTML = '<table class="tbl lnkTbl"><thead><tr><th>Филиал</th>' +
+    '<th>Ссылка</th><th></th></tr></thead><tbody>' +
+    list.map(function(wh){
+      var u = linkFor(base, key, wh);
+      return '<tr><td class="name">' + esc(wh) + '</td>' +
+             '<td class="lnkCell"><span>' + esc(u) + '</span></td>' +
+             '<td><button class="sec miniBtn" data-lnk="' + esc(u) + '">Копировать</button></td></tr>';
+    }).join('') + '</tbody></table>';
+  msg('m2d','Готово: ' + list.length + ' ссылок. Отправьте каждому филиалу его строку — ' +
+      'чужую открывать нельзя, она запирает на чужом складе.','ok');
+};
+$('lnkOut').onclick = async function(e){
+  var b = e.target.closest('button[data-lnk]'); if (!b) return;
+  var t = b.textContent;
+  try{ await navigator.clipboard.writeText(b.dataset.lnk); b.textContent = 'Скопировано'; }
+  catch(err){
+    /* На части телефонов буфер закрыт для страницы — тогда просто выделяем
+       ссылку, чтобы её можно было скопировать пальцем. */
+    var sp = b.closest('tr').querySelector('.lnkCell span'), r = document.createRange();
+    r.selectNodeContents(sp);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    b.textContent = 'Выделено';
+  }
+  setTimeout(function(){ b.textContent = t; }, 1600);
+};
+
 /* ═════════ печать, быстрые периоды, свежесть, история ═════════ */
 function printHead(title, sub){
   $('printHead').innerHTML = '<b>' + esc(title) + '</b><br>' + esc(sub) +
@@ -5366,6 +5436,7 @@ function showFresh(){
     if (p === 'sp' && typeof apiCfg === 'function'){
       var a = apiCfg();
       if (a.url && !el('apiUrl').value) el('apiUrl').value = a.url;
+      if (a.url && !el('lnkUrl').value) el('lnkUrl').value = a.url;
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
       if (!el('apiFrom').value) el('apiFrom').value = el('dFrom').value;
       if (!el('apiTo').value)   el('apiTo').value   = el('dTo').value;
