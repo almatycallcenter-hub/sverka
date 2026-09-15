@@ -117,6 +117,16 @@
   .zBtn:hover{background:var(--rowHov)}
   .zBtn.del{color:var(--badT);font-size:15px}
   .zEmpty{padding:26px 14px;text-align:center;color:var(--mut);font-size:13px}
+  /* Брони сотрудников — не список на уценку, поэтому отдельной рамкой:
+     филиал не должен путать «что уходит по 20%» и «что у меня выкупят». */
+  .bkBox{margin-top:12px;border:1px solid var(--acc2);border-radius:10px;
+    background:var(--accbg);padding:10px 12px}
+  .bkSec{margin-bottom:8px}
+  .bkSec:last-of-type{margin-bottom:0}
+  .bkSec > b{display:block;font-size:12.5px;margin-bottom:4px}
+  .bkWho{font-size:12.5px;font-weight:600;color:var(--acc);margin-top:6px}
+  .bkList{list-style:none;margin:2px 0 0;padding:0}
+  .bkList li{font-size:12.5px;line-height:1.5;color:var(--txt)}
   .zActions{display:flex;gap:8px;margin-top:10px}
   .zActions button{flex:1}
   .zCats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
@@ -635,6 +645,7 @@
               <button class="sec" id="zXlsx">Файлом</button>
             </div>
             <div class="hint" id="zHint"></div>
+            <div id="zBook"></div>
           </div>
           <div class="card zRight">
             <input type="text" id="zQ" placeholder="Поиск по названию">
@@ -906,6 +917,30 @@
           <div class="hint">Чтобы передать базу на другой компьютер — сохраните в файл и загрузите
             там. Этот файл в интернет не выкладывайте: в нём продажи и ФИО покупателей.</div>
         </div>
+
+        <div class="card">
+          <h2>Справочник продукции</h2>
+          <p class="lead">Живёт в той же Google-таблице, что и заявки, на листах
+            «Справочник» и «Синонимы». Вышла новая продукция — дописали строку в таблицу,
+            и страница подхватит её сама, пересобирать ничего не нужно.</p>
+          <div class="st" id="refSt">—</div>
+          <div class="row">
+            <button class="sec" id="btnRef">Обновить справочник</button>
+            <button class="sec" id="btnRefLocal">Вернуть зашитый</button>
+            <button class="sec" id="btnStaff">Отправить список сотрудников</button>
+          </div>
+          <details class="tip"><summary>Как это работает</summary>
+            <p>Страница забирает справочник при каждом открытии, тихо и в фоне. Не
+              достучалась — работает с тем, что скачалось в прошлый раз, а на совсем
+              чистом браузере с зашитой копией. Поэтому и без интернета она живая.</p>
+            <p>Облачный справочник главнее зашитого. Синонимы, которые вы добавили
+              здесь кнопкой «Запомнить», остаются — пока в таблице нет своего варианта
+              того же названия.</p>
+            <p>«Вернуть зашитый» стирает скачанную копию и возвращает набор, собранный
+              вместе со страницей. Нужно, если в таблице что-то сломали.</p>
+          </details>
+          <div class="msg" id="m8"></div>
+        </div>
       </section>
 
       <!-- ─── Справка ──────────────────────────────────── -->
@@ -969,6 +1004,10 @@
           <h2>Путь на склад 50%</h2>
           <p class="lead">За каждой расходной накладной на склад 50% ищется продажа со скидкой 50%.
             Привязка идёт к ближайшей предыдущей накладной на этот же товар, в пределах 14 дней.</p>
+          <div class="hint" style="margin-top:0"><b>Точной считается только связь день в день.</b>
+            Выкупили не в тот день, когда оформили накладную, — в замечании стоит
+            «связь возможная»: между этими событиями могло встрять другое перемещение
+            той же позиции, и покупатель определён по вероятности, а не по документу.</div>
           <div class="hint" style="margin-top:0">Торт режут на 8 кусочков, поэтому «X (кусочек)»
             считается как 1/8 целого и отдельной строки не имеет.</div>
         </div>
@@ -1291,6 +1330,11 @@ function loadDB(){
   ['mov','s20','s50','cheki','full','disc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
+  /* Справочник из облака, если он когда-то приезжал. Лежит в базе браузера,
+     поэтому работает и без интернета — с тем набором, что успел скачаться. */
+  if (DB.ref && DB.ref.spr && DB.ref.spr.length) applySpr(DB.ref.spr);
+  if (DB.ref && DB.ref.syn)
+    Object.keys(DB.ref.syn).forEach(function(k){ DB.syn[k] = DB.ref.syn[k]; });
 }
 /* Чтение при старте: сначала IndexedDB, потом — старая копия в localStorage.
    Найденную старую копию переносим в базу и удаляем, чтобы освободить те 2 МБ. */
@@ -1342,16 +1386,27 @@ function migrateDB(){
 }
 
 /* ═════════ справочник ═════════ */
-var SPR = {};      // норм → {name, srok, forma, skidka}
-EMBED.spr.forEach(function(r){ SPR[nrm(r[0])] =
-  { name: r[0], srok: r[1] || 0, forma: r[2], skidka: r[3], kat: r[4] || '' }; });
-
-var KUSOK = 8, kusOf = {}, isKus = {};
-Object.keys(SPR).forEach(function(k){
-  if (k.indexOf('кусоч') < 0) return;
-  var b = k.replace(/\s*\(?кусочек\)?\s*$/, '').trim();
-  if (b && b !== k && SPR[b]){ (kusOf[b] = kusOf[b] || []).push(k); isKus[k] = 1; }
-});
+/* Справочник может приехать из облака — тогда новую продукцию добавляют в
+   Google-таблицу, а не пересобирают страницу. Зашитая копия остаётся запасной:
+   с ней страница работает на чистом браузере и без интернета. Всё, что из
+   справочника выводится — кусочки, список имён для подсказок — пересчитывается
+   здесь же, иначе после обновления они остались бы от старого набора. */
+var SPR = {}, KUSOK = 8, kusOf = {}, isKus = {}, SPR_NAMES = [];
+function applySpr(list){
+  SPR = {}; kusOf = {}; isKus = {};
+  (list || []).forEach(function(r){
+    if (!r || !r[0]) return;
+    SPR[nrm(r[0])] = { name: r[0], srok: r[1] || 0, forma: r[2] || '',
+                       skidka: r[3] || '', kat: r[4] || '' };
+  });
+  Object.keys(SPR).forEach(function(k){
+    if (k.indexOf('кусоч') < 0) return;
+    var b = k.replace(/\s*\(?кусочек\)?\s*$/, '').trim();
+    if (b && b !== k && SPR[b]){ (kusOf[b] = kusOf[b] || []).push(k); isKus[k] = 1; }
+  });
+  SPR_NAMES = Object.keys(SPR).map(function(k){ return SPR[k].name; }).sort();
+}
+applySpr(EMBED.spr);
 
 /* ═════════ импорт выгрузок ═════════ */
 var DOCKINDS = {};
@@ -2048,6 +2103,7 @@ function sameBranch(conc, wh){
  * (или в тот же день), в пределах MATCH50_WINDOW дней.                        */
 
 var MATCH50_WINDOW = 14;
+var M50_MAYBE = 'связь возможная — выкупили в другой день';
 
 function baseOf(k){
   if (isKus[k]) return { k: k.replace(/\s*\(?кусочек\)?\s*$/, '').trim(), f: 1 / KUSOK };
@@ -2127,16 +2183,23 @@ function match50(){
     }
   });
 
+  /* Связь считается точной только если выкупили в тот же день, когда оформили
+     расходную накладную. Разошлись даты — между этими двумя событиями мог
+     встрять кто угодно: другое перемещение той же позиции, другой покупатель.
+     Мы по-прежнему показываем, кто вероятнее всего забрал, но называем это
+     возможной связью, а не фактом. */
   var byMove = {}, rows = [], keyed = [];
   moves.forEach(function(m){
     var txt = m.buyers.map(function(b){
-      return b.who + ' (' + ru(b.d) + (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') + ')';
+      return b.who + ' (' + ru(b.d) +
+             (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') +
+             (b.d === m.d ? '' : ', возможно') + ')';
     }).join('; ');
     byMove[m.wh + '|' + m.d + '|' + m.k] = txt;
     if (m.buyers.length)
       m.buyers.forEach(function(b){
         keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q),
-                   '', '']]);
+                   b.d === m.d ? '' : M50_MAYBE, '']]);
       });
     if (m.left > 1e-9)
       keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
@@ -2218,11 +2281,15 @@ function cls(v){
   if (v === 'ок') return 'ok';
   if (v.indexOf('нет данных') === 0 || v.indexOf('не известна') === 0
       || v.indexOf('невозможно отследить') === 0
+      /* «возможная связь» — это неуверенность, а не нарушение: красным
+         красить нечего, но и зелёным называть нельзя. */
+      || v.indexOf('связь возможная') === 0
       || v.indexOf('нет в справочнике') === 0) return 'na';
   return 'bad';
 }
 var CHIP_SHORT = {
   'нарушение (нет в списке филиала)': 'нет в списке филиала',
+  'связь возможная — выкупили в другой день': 'связь возможная',
   'продажа со скидкой 50% без расходной накладной на склад 50%': 'нет расходной накладной'
 };
 function chipHtml(v){
@@ -2243,7 +2310,7 @@ function sim(a, b){
   for (var j = 0; j < b.length - 2; j++) if (g[b.substr(j,3)]) n++;
   return n * 10 - Math.abs(a.length - b.length);
 }
-var SPR_NAMES = Object.keys(SPR).map(function(k){ return SPR[k].name; }).sort();
+/* SPR_NAMES заполняется в applySpr — он же пересобирает его после обновления */
 function suggest(raw, cur){
   var arr = SPR_NAMES.map(function(n){ return { n: n, s: sim(raw, n) }; })
                      .sort(function(x,y){ return y.s - x.s; });
@@ -2990,6 +3057,10 @@ var DBREADY = loadStorage().then(function(){
   if (typeof applyDefaults === 'function') applyDefaults();
   refresh();
   if (typeof showFresh === 'function') showFresh();
+  if (typeof refStatus === 'function') refStatus();
+  /* Справочник тянем в фоне и молча: страница уже работает с той копией, что
+     есть, а новая продукция подхватится сама, без «обновите справочник». */
+  if (typeof refPull === 'function') setTimeout(function(){ refPull(true); }, 400);
 }).catch(function(e){
   storageWarn('<b>Не смогла прочитать сохранённые данные:</b> ' + esc(e.message || e) +
               '<br>Загрузите выгрузки iiko заново.');
@@ -5232,8 +5303,8 @@ function zayRows(){
 }
 function zayCatOf(k){ return S(SPR[k] && SPR[k].kat) || 'прочее'; }
 
-$('zWh').onchange = function(){ zayLoad(); };
-$('zDay').onchange = function(){ zayLoad(); };
+$('zWh').onchange = function(){ zayLoad(); zayBooks(); };
+$('zDay').onchange = function(){ zayLoad(); zayBooks(); };
 $('zQ').oninput = function(){ zayRender(); };
 $('zCats').onclick = function(e){
   var b = e.target.closest('.zCat'); if (!b) return;
@@ -5357,7 +5428,89 @@ async function apiCall(op, body){
 /* Ключ на чтение уходит в теле запроса, а не в адресе: адреса попадают в
    историю браузера и в журналы, и ключ оттуда уже не вынуть. */
 function apiSendList(body){ return apiCall('send', body); }
+function apiBooks(body){ return apiCall('books', body); }
+
+/* ─── брони сотрудников: что филиалу отложить и что увезти ─── */
+function bookHtml(rows, wh, day){
+  var here = [], away = [];
+  rows.forEach(function(r){
+    if (r.day !== day || !sameBranch(r.branch, wh)) return;
+    (sameBranch(r.dest, wh) ? here : away).push(r);
+  });
+  if (!here.length && !away.length) return '';
+  function block(title, list, withDest){
+    var by = {};
+    list.forEach(function(r){
+      var k = r.who + (withDest ? ' → ' + r.dest : '');
+      (by[k] = by[k] || []).push(r);
+    });
+    return '<div class="bkSec"><b>' + esc(title) + '</b>' +
+      Object.keys(by).sort().map(function(k){
+        return '<div class="bkWho">' + esc(k) + '</div><ul class="bkList">' +
+          by[k].map(function(r){
+            return '<li>' + esc(r.dish) + ' <b>' + fmtQ(r.qty) + ' шт</b></li>';
+          }).join('') + '</ul>';
+      }).join('') + '</div>';
+  }
+  return '<div class="bkBox">' +
+    (here.length ? block('Отложить у себя', here, false) : '') +
+    (away.length ? block('Переместить в другой филиал', away, true) : '') +
+    '<div class="hint" style="margin-top:8px">Это сотрудники, которые выкупят продукцию ' +
+    'по 50%. Переместите её на склад 50% и отложите.</div></div>';
+}
+async function zayBooks(){
+  var box = $('zBook'); if (!box) return;
+  var wh = $('zWh').value, d = D($('zDay').value), c = apiCfg();
+  if (!wh || !d || !apiUrlOf() || !(c.send || c.read)){ box.innerHTML = ''; return; }
+  try{
+    var res = await apiBooks({ key: c.send || c.read, from: d, to: d });
+    box.innerHTML = bookHtml(res.rows || [], wh, d);
+  }catch(e){ box.innerHTML = ''; }   // молча: филиалу это не ошибка, а просто «пока пусто»
+}
 function apiReadList(body){ return apiCall('read', body); }
+/* Справочник открыт обоим ключам: он нужен и бухгалтерии, и телефону филиала,
+   а у филиала есть только ключ отправки. Секрета в названиях продукции нет. */
+function apiRef(){
+  var c = apiCfg();
+  return apiCall('ref', { key: c.read || c.send || '' });
+}
+
+/* ─── справочник из облака ─── */
+function refStatus(){
+  var el = $('refSt'); if (!el) return;
+  var r = DB.ref;
+  el.innerHTML = r && r.ts
+    ? '<b>Из таблицы:</b> ' + (r.spr ? r.spr.length : 0) + ' позиций · ' +
+      Object.keys(r.syn || {}).length + ' синонимов<br>' +
+      '<b>Скачан:</b> ' + ru(S(r.ts).slice(0,10)) + ' в ' + S(r.ts).slice(11,16)
+    : '<b>Зашитый в страницу:</b> ' + EMBED.spr.length + ' позиций · ' +
+      Object.keys(EMBED.syn).length + ' синонимов<br>' +
+      '<span class="mut">Из таблицы ещё не скачивали</span>';
+}
+/* silent = открытие страницы: молчим, если приёмник не настроен или не ответил.
+   Ругаться на каждом запуске бессмысленно — справочник и так есть, запасной. */
+async function refPull(silent){
+  var c = apiCfg();
+  if (!apiUrlOf() || !(c.read || c.send)){
+    if (!silent) msg('m8','Приёмник не настроен — вписать ключ можно в «Списках филиалов».','err');
+    return;
+  }
+  if (!silent) msg('m8','Забираю справочник…','wait');
+  try{
+    var res = await apiRef();
+    var spr = res.spr || [], syn = res.syn || {};
+    if (!spr.length) throw new Error('в таблице нет листа «Справочник» или он пуст');
+    DB.ref = { spr: spr, syn: syn, ts: new Date().toISOString() };
+    applySpr(spr);
+    Object.keys(syn).forEach(function(k){ DB.syn[k] = syn[k]; });
+    saveDB(); reresolveList(); refresh(); refStatus();
+    if (!silent)
+      msg('m8','Готово: ' + spr.length + ' позиций, ' + Object.keys(syn).length +
+          ' синонимов. Списки филиалов пересобраны по новому справочнику.','ok');
+  }catch(e){
+    if (!silent) msg('m8','Не получилось: ' + e.message,'err');
+  }
+}
 
 /* ─── филиал отправляет заявку ─── */
 $('zSend').onclick = async function(){
@@ -5390,6 +5543,40 @@ $('zSend').onclick = async function(){
 };
 
 /* ─── бухгалтерия забирает заявки ─── */
+$('btnRef').onclick = async function(){
+  this.disabled = true; await refPull(false); this.disabled = false;
+};
+/* Имена сотрудников для витрины берём из выгрузки «Продажи 50%» — там они
+   записаны ровно так, как заведены в iiko. Наберёшь руками «Асель» вместо
+   «Әсел» — и выкуп потом не сойдётся с человеком. */
+$('btnStaff').onclick = async function(){
+  var seen = {}, names = [];
+  DB.s50.forEach(function(r){
+    var w = S(r[4]).trim(); if (!w || seen[w.toLowerCase()]) return;
+    seen[w.toLowerCase()] = 1; names.push(w);
+  });
+  if (!names.length)
+    return msg('m8','В выгрузке «Продажи 50%» нет имён — загрузите её на «Выгрузках iiko».','err');
+  var c = apiCfg();
+  if (!c.read) return msg('m8','Нужен ключ на чтение — впишите его в «Списках филиалов».','err');
+  this.disabled = true; msg('m8','Отправляю ' + names.length + ' имён…','wait');
+  try{
+    var res = await apiCall('staff', { key: c.read, names: names.sort() });
+    msg('m8','Готово: ' + res.saved + ' сотрудников на листе «Сотрудники». ' +
+        'Теперь витрина покажет их списком.','ok');
+  }catch(e){ msg('m8','Не получилось: ' + e.message,'err'); }
+  this.disabled = false;
+};
+
+$('btnRefLocal').onclick = function(){
+  if (!DB.ref) return msg('m8','Скачанного справочника и так нет.','wait');
+  if (!confirm('Вернуть справочник, зашитый в страницу? Скачанная копия удалится.')) return;
+  delete DB.ref;
+  applySpr(EMBED.spr);
+  saveDB(); reresolveList(); refresh(); refStatus();
+  msg('m8','Вернула зашитый справочник: ' + EMBED.spr.length + ' позиций.','ok');
+};
+
 $('btnPull').onclick = async function(){
   var b = this, c = apiCfg();
   var key = S($('apiKey').value);
@@ -5571,12 +5758,14 @@ function showFresh(){
         sel.disabled = !!(c.lock && hit);
       }
       if (typeof zayLoad === 'function') zayLoad();
+      if (typeof zayBooks === 'function') zayBooks();
       if (el('zHint')) el('zHint').textContent =
         (c.wh && !hit) ? 'В ссылке указан филиал «' + c.wh + '», но такого склада в выгрузке ' +
                          'нет — выберите вручную и скажите бухгалтерии поправить ссылку.'
         : (c.url && c.send) ? 'Отправка настроена: заявка уйдёт в общий приёмник.'
         : 'Отправка не настроена — пока пользуйтесь кнопкой «Файлом».';
     }
+    if (p === 'db' && typeof refStatus === 'function') refStatus();
     if (p === 'sp' && typeof apiCfg === 'function'){
       var a = apiCfg();
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;

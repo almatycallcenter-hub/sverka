@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f7f5f0">
+<title>Что со скидкой — Тәп-Тәтті</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8892b'/%3E%3Ctext x='32' y='44' font-family='sans-serif' font-size='30' font-weight='700' fill='%23fff' text-anchor='middle'%3E50%25%3C/text%3E%3C/svg%3E">
+<style>
+/* Страницу открывают сотрудники, среди них пожилые. Поэтому: крупный шрифт,
+   чёрным по светлому, никаких меню и фильтров, кнопка одна и большая.
+   Системные шрифты вместо загружаемых — на старом телефоне в мобильном
+   интернете страница должна появиться сразу, а не через три секунды. */
+:root{
+  --bg:#F7F5F0;
+  --card:#FFFFFF;
+  --ink:#14110C;
+  --mut:#57503F;
+  --line:#E2DCCF;
+  --gold:#8A6516;
+  --goldbg:#F5EBD4;
+  --ok:#2C6B3F;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:20px;line-height:1.5;
+  padding:0;
+}
+/* Заголовок не липкий: на телефоне он занимал почти половину экрана, и на
+   список оставалась узкая полоска. Липким сделано название филиала — при
+   прокрутке важно не «как называется страница», а «чей это список». */
+.top{
+  background:var(--card);border-bottom:2px solid var(--line);
+  padding:18px 20px 16px;
+}
+.brand{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+h1{font-size:27px;line-height:1.2;margin:0;font-weight:700}
+.when{
+  display:inline-block;margin-top:10px;background:var(--goldbg);color:var(--gold);
+  font-size:19px;font-weight:700;padding:6px 14px;border-radius:999px;
+}
+main{padding:0 16px 8px;max-width:760px;margin:0 auto}
+
+.note{
+  background:var(--card);border:2px solid var(--line);border-radius:14px;
+  padding:20px;margin:18px 0;font-size:19px;color:var(--mut);
+}
+.note b{color:var(--ink)}
+
+.shop{
+  background:var(--card);border:2px solid var(--line);border-radius:14px;
+  margin:18px 0;
+}
+.shop > h2{
+  margin:0;padding:16px 20px;font-size:23px;line-height:1.25;
+  border-bottom:2px solid var(--line);background:#FBF9F5;
+  border-radius:12px 12px 0 0;
+  position:sticky;top:0;z-index:3;
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
+}
+.shop > ul > li:last-child{border-radius:0 0 12px 12px}
+.shop > h2 .cnt{font-size:17px;font-weight:600;color:var(--mut)}
+ul{list-style:none;margin:0;padding:0}
+li{
+  display:flex;align-items:center;gap:14px;
+  padding:14px 20px;border-bottom:1px solid var(--line);
+  font-size:21px;line-height:1.35;
+}
+li:last-child{border-bottom:0}
+/* Названия длинные, а экран узкий. Поэтому в строке только название и кнопка,
+   а «сколько есть» ушло второй строкой под название: иначе «Берлинер
+   таңқурайлы» рвалось посреди слова. */
+li .nm{flex:1;min-width:0;overflow-wrap:break-word;hyphens:none}
+li .qt{
+  display:block;margin-top:3px;font-weight:600;font-variant-numeric:tabular-nums;
+  color:var(--gold);font-size:17px;
+}
+
+.quiet{
+  margin:22px 0;padding:18px 20px;border:2px dashed var(--line);border-radius:14px;
+  font-size:18px;color:var(--mut);
+}
+.quiet b{display:block;color:var(--ink);font-size:19px;margin-bottom:6px}
+
+/* Кнопка всегда под рукой: раньше до неё нужно было домотать список до конца,
+   а он на десять филиалов длинный. */
+.bar{
+  position:sticky;bottom:0;z-index:6;
+  padding:10px 16px 14px;max-width:760px;margin:0 auto;
+  background:linear-gradient(to top, var(--bg) 70%, rgba(247,245,240,0));
+}
+button{
+  width:100%;min-height:60px;font:inherit;font-size:21px;font-weight:700;
+  background:var(--ink);color:#fff;border:0;border-radius:14px;cursor:pointer;
+  padding:16px 20px;
+}
+button:active{background:#000}
+button:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
+button[disabled]{opacity:.55}
+
+.foot{max-width:760px;margin:26px auto 0;padding:0 20px;font-size:16px;color:var(--mut)}
+
+/* позиция превращается в кнопку: нажал — прибавилось */
+li.pick{cursor:pointer;-webkit-tap-highlight-color:transparent}
+li.pick:active{background:#FBF4E4}
+li .take{
+  flex:0 0 auto;min-width:54px;text-align:center;font-weight:700;font-size:19px;
+  border:2px solid var(--line);border-radius:10px;padding:6px 10px;color:var(--mut);
+}
+li.on .take{background:var(--ok);border-color:var(--ok);color:#fff}
+li.on .nm{font-weight:700}
+li.gone{opacity:.5}
+li.gone .qt{background:#EEE9DE;color:var(--mut)}
+.who{
+  display:block;font-size:16px;color:var(--ok);font-weight:600;margin-top:4px;
+}
+.shopfoot{padding:14px 16px;border-top:2px solid var(--line);display:flex;gap:10px;
+  flex-wrap:wrap}
+.shopfoot button{background:var(--ok)}
+.shopfoot .clear{background:none;color:var(--mut);border:2px solid var(--line);flex:0 0 40%}
+
+/* экран выбора поверх всего: одно решение за раз, крупными кнопками */
+.sheet{
+  position:fixed;inset:0;z-index:20;background:var(--bg);
+  display:flex;flex-direction:column;
+}
+.sheet[hidden]{display:none}
+.sheet .head{
+  background:var(--card);border-bottom:2px solid var(--line);padding:18px 20px;
+}
+.sheet .head h2{margin:0;font-size:24px;line-height:1.2}
+.sheet .head p{margin:6px 0 0;font-size:17px;color:var(--mut)}
+.sheet .body{flex:1;overflow:auto;padding:14px 16px 20px;max-width:760px;width:100%;margin:0 auto}
+.sheet .body button{
+  background:var(--card);color:var(--ink);border:2px solid var(--line);
+  text-align:left;margin-bottom:12px;font-size:21px;min-height:66px;
+}
+.sheet .body button.mine{border-color:var(--ok);background:#F1F7F2}
+.sheet .body button small{display:block;font-size:16px;font-weight:600;color:var(--mut);margin-top:2px}
+.sheet .bot{padding:12px 16px 16px;max-width:760px;width:100%;margin:0 auto}
+.sheet .bot button{background:var(--mut)}
+.done{
+  background:#F1F7F2;border:2px solid var(--ok);border-radius:14px;
+  padding:20px;margin:18px 0;font-size:20px;
+}
+.done b{display:block;font-size:22px;margin-bottom:6px}
+
+@media (min-width:620px){
+  body{font-size:21px}
+  h1{font-size:32px}
+  li{font-size:22px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <p class="brand">Тәп-Тәтті</p>
+  <h1>Что уходит со скидкой</h1>
+  <div class="when" id="when">загружаю…</div>
+</div>
+
+<main>
+  <div id="out">
+    <div class="note">Минутку, забираю список из филиалов…</div>
+  </div>
+
+  <div class="foot" id="foot"></div>
+</main>
+
+<div class="bar"><button id="upd" type="button">Обновить список</button></div>
+
+<div class="sheet" id="pick" hidden>
+  <div class="head">
+    <h2 id="pickT">Кто берёт?</h2>
+    <p id="pickP"></p>
+  </div>
+  <div class="body" id="pickB"></div>
+  <div class="bot"><button type="button" id="pickX">Назад</button></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* Адрес приёмника — тот же, что у сверки. Ключ витрины приходит в ссылке и
+     сразу убирается из адресной строки, чтобы не мозолил глаза и не уезжал
+     в историю. Он умеет ровно одно: показать список на день. */
+  var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
+  var STORE = 'tt_vitrina_key';
+  var KEY = '';
+  try{
+    var p = new URLSearchParams(location.search);
+    if (p.get('k')){
+      KEY = p.get('k');
+      localStorage.setItem(STORE, KEY);
+      history.replaceState(null, '', location.pathname);
+    } else {
+      KEY = localStorage.getItem(STORE) || '';
+    }
+  }catch(e){}
+
+  var DOW = ['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];
+  var MON = ['января','февраля','марта','апреля','мая','июня','июля','августа',
+             'сентября','октября','ноября','декабря'];
+  function iso(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') +
+           '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function human(s){
+    var p = s.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
+    return DOW[d.getDay()] + ', ' + (+p[2]) + ' ' + MON[+p[1]-1];
+  }
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function el(id){ return document.getElementById(id); }
+
+  /* Филиалы перечислены здесь, чтобы показать и тех, кто список ещё не прислал:
+     пустая строка «не прислали» — это тоже нужная сотруднику информация.
+     Порядок — по номеру, как везде. */
+  var SHOPS = [
+    ['ТТ1',  'Атакент',    'Тимирязева 38/1'],
+    ['ТТ2',  'Сарыарка',   '4 мкр, 28/1'],
+    ['ТТ3',  'Ламия',      'Ади Шарипова 145к2'],
+    ['ТТ4',  'Ньютон',     'Ньютона 1а'],
+    ['ТТ6',  'Автодом',    'Сатпаева 90/21'],
+    ['ТТ8',  'Каратау',    'Щепкина 35б'],
+    ['ТТ9',  'Бесағаш',    'Райымбека 168б'],
+    ['ТТ10', 'Шұғыла',     'Шугыла 340/35к15'],
+    ['ТТ11', 'Алма Сити',  'Алтын Орда 6/40а']
+  ];
+  function numOf(s){ var m = String(s || '').match(/\d+/); return m ? +m[0] : 0; }
+
+  function ask(from, to){
+    return fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'board', key: KEY, from: from, to: to })
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var j = null;
+      try{ j = JSON.parse(t); }catch(e){}
+      if (!j) throw new Error('приёмник ответил не по делу');
+      if (j.error) throw new Error(j.error);
+      return j;
+    });
+  }
+
+  /* Состояние — только то, что сотрудник набрал руками, плюс его имя.
+     Корзина живёт в пределах одного филиала: за полцены едут в одно место,
+     а не собирают заказ по всему городу. */
+  var DAY = '', ROWS = [], BOOKS = [], STAFF = [], ME = '';
+  var CART = {};          // «филиал|блюдо» → сколько беру
+  try{ ME = localStorage.getItem('tt_vitrina_me') || ''; }catch(e){}
+
+  function ck(br, dish){ return br + '|' + dish; }
+  function bookedBy(br, dish){
+    var m = {}, mine = 0;
+    BOOKS.forEach(function(b){
+      if (b.day !== DAY || b.branch !== br || b.dish !== dish) return;
+      m[b.who] = (m[b.who] || 0) + (+b.qty || 0);
+      if (b.who === ME) mine += (+b.qty || 0);
+    });
+    return { map: m, mine: mine };
+  }
+  function cartOf(br){
+    var out = [];
+    Object.keys(CART).forEach(function(k){
+      if (k.indexOf(br + '|') !== 0 || !(CART[k] > 0)) return;
+      out.push({ dish: k.slice(br.length + 1), qty: CART[k] });
+    });
+    return out;
+  }
+
+  function render(day, rows){
+    DAY = day; ROWS = rows;
+    el('when').textContent = human(day);
+
+    var byShop = {};
+    rows.forEach(function(r){
+      var n = numOf(r.branch);
+      (byShop[n] = byShop[n] || []).push(r);
+    });
+
+    var full = [], empty = [];
+    SHOPS.forEach(function(s){
+      var n = numOf(s[0]), list = byShop[n];
+      if (list && list.length) full.push([s, list]); else empty.push(s);
+    });
+
+    var h = '';
+    if (!full.length){
+      h += '<div class="note"><b>Списка пока нет.</b><br>' +
+           'Филиалы отмечают продукцию вечером. Загляните попозже.</div>';
+    }
+    full.forEach(function(x){
+      var s = x[0];
+      var list = x[1].slice().sort(function(a, b){
+        return String(a.dish) < String(b.dish) ? -1 : 1;
+      });
+      var br = list[0].branch;
+      var tot = list.reduce(function(a, r){ return a + (+r.qty || 0); }, 0);
+      h += '<section class="shop"><h2>' + esc(s[0] + ' ' + s[1]) +
+           '<span class="cnt">' + esc(s[2]) + ' · ' + tot + ' шт</span></h2><ul>';
+      list.forEach(function(r){
+        var have = +r.qty || 0;
+        var bk = bookedBy(br, r.dish);
+        var taken = 0;
+        Object.keys(bk.map).forEach(function(w){ taken += bk.map[w]; });
+        var mine = CART[ck(br, r.dish)] || bk.mine || 0;
+        var left = have - taken + (bk.mine || 0);
+        var names = Object.keys(bk.map).filter(function(w){ return w !== ME; });
+        h += '<li class="' + (left <= 0 && !mine ? 'gone' : 'pick') +
+             (mine ? ' on' : '') + '" data-br="' + esc(br) + '" data-d="' + esc(r.dish) + '">' +
+          '<span class="nm">' + esc(r.dish) +
+            '<span class="qt">всего ' + have + ' шт' +
+              (left <= 0 && !mine ? ' · разобрали' : '') + '</span>' +
+            (names.length ? '<span class="who">взяли: ' + esc(names.join(', ')) + '</span>' : '') +
+          '</span>' +
+          '<span class="take">' + (mine ? mine + ' шт' : (left > 0 ? '+' : '—')) + '</span></li>';
+      });
+      h += '</ul>';
+      var cart = cartOf(br), n = cart.reduce(function(a, i){ return a + i.qty; }, 0);
+      var had = BOOKS.some(function(b){
+        return b.day === DAY && b.branch === br && b.who === ME; });
+      if (n || had)
+        h += '<div class="shopfoot">' +
+             '<button type="button" class="clear" data-clear="' + esc(br) + '">Снять</button>' +
+             '<button type="button" data-book="' + esc(br) + '" style="flex:1">' +
+             (n ? 'Забронировать ' + n + ' шт' : 'Отменить бронь') + '</button></div>';
+      h += '</section>';
+    });
+    if (empty.length && full.length){
+      h += '<div class="quiet"><b>Список ещё не прислали</b>' +
+           empty.map(function(s){ return esc(s[0] + ' ' + s[1]); }).join(' · ') + '</div>';
+    }
+    el('out').innerHTML = h;
+
+    var t = new Date();
+    el('foot').textContent = (ME ? ME + ' · ' : '') + 'Обновлено в ' +
+      String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') +
+      '. Нажмите на продукцию, чтобы отложить её себе.';
+  }
+
+  /* ─── нажатия по списку ─── */
+  el('out').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-book]');
+    if (b) return startBooking(b.getAttribute('data-book'));
+    var c = e.target.closest('button[data-clear]');
+    if (c){
+      var br = c.getAttribute('data-clear');
+      Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
+      return render(DAY, ROWS);
+    }
+    var li = e.target.closest('li.pick');
+    if (!li) return;
+    var brn = li.getAttribute('data-br'), dish = li.getAttribute('data-d');
+    var row = ROWS.filter(function(r){ return r.branch === brn && r.dish === dish; })[0];
+    var have = row ? (+row.qty || 0) : 0;
+    var bk = bookedBy(brn, dish), taken = 0;
+    Object.keys(bk.map).forEach(function(w){ taken += bk.map[w]; });
+    var max = have - taken + (bk.mine || 0);
+    var k = ck(brn, dish), cur = CART[k] !== undefined ? CART[k] : (bk.mine || 0);
+    CART[k] = cur >= max ? 0 : cur + 1;      // по кругу: дошли до конца — сняли
+    render(DAY, ROWS);
+  });
+
+  /* ─── бронь в два вопроса ───
+     Пожилому человеку нельзя давать форму. Даём два экрана подряд, на каждом
+     только крупные кнопки: кто берёт и где заберёт. Имя запоминается, поэтому
+     со второго раза остаётся один вопрос. */
+  var PICK = null;
+  function sheetShow(title, sub, items, back){
+    PICK = { back: back };
+    el('pickT').textContent = title;
+    el('pickP').textContent = sub || '';
+    el('pickB').innerHTML = items.map(function(it){
+      return '<button type="button" data-v="' + esc(it.v) + '"' +
+             (it.mine ? ' class="mine"' : '') + '>' + esc(it.t) +
+             (it.s ? '<small>' + esc(it.s) + '</small>' : '') + '</button>';
+    }).join('');
+    el('pick').hidden = false;
+    el('pickB').scrollTop = 0;
+  }
+  function sheetHide(){ el('pick').hidden = true; PICK = null; }
+  el('pickX').onclick = function(){
+    var b = PICK && PICK.back; sheetHide(); if (b) b();
+  };
+  el('pickB').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-v]'); if (!b || !PICK) return;
+    var f = PICK.pick; sheetHide(); if (f) f(b.getAttribute('data-v'));
+  });
+
+  function shopTitle(br){
+    var n = numOf(br);
+    for (var i = 0; i < SHOPS.length; i++) if (numOf(SHOPS[i][0]) === n)
+      return SHOPS[i][0] + ' ' + SHOPS[i][1];
+    return br;
+  }
+
+  function startBooking(br){
+    var items = cartOf(br);
+    if (!ME || !STAFF.length) return askWho(br, items);
+    askWhere(br, items);
+  }
+  function askWho(br, items){
+    if (!STAFF.length){
+      alert('Список сотрудников ещё не загружен в таблицу. Скажите бухгалтерии.');
+      return;
+    }
+    sheetShow('Кто берёт?', 'Нажмите своё имя — телефон запомнит',
+      STAFF.map(function(n){ return { v: n, t: n, mine: n === ME }; }), null);
+    PICK.pick = function(v){
+      ME = v;
+      try{ localStorage.setItem('tt_vitrina_me', ME); }catch(e){}
+      askWhere(br, items);
+    };
+  }
+  function askWhere(br, items){
+    var here = shopTitle(br);
+    var list = [{ v: br, t: 'Заберу здесь', s: here, mine: true }];
+    SHOPS.forEach(function(s){
+      if (numOf(s[0]) === numOf(br)) return;
+      list.push({ v: s[0] + ' ' + s[1], t: 'Привезти в ' + s[0] + ' ' + s[1], s: s[2] });
+    });
+    sheetShow('Где заберёте?', ME + ' · ' + here,
+      list, function(){ askWho(br, items); });
+    PICK.pick = function(v){ send(br, items, v); };
+  }
+
+  function send(br, items, dest){
+    el('out').insertAdjacentHTML('afterbegin',
+      '<div class="note" id="sending">Отправляю бронь…</div>');
+    fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: br,
+                             who: ME, dest: dest, items: items })
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var j = null; try{ j = JSON.parse(t); }catch(e){}
+      if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
+      Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
+      var msg = j.saved
+        ? '<div class="done"><b>Отложили ' + j.saved + ' позиций</b>' +
+          shopTitle(br) + ' → ' + esc(dest) + ', на ' + human(DAY) + '.<br>' +
+          'Филиал увидит это на своём экране.</div>'
+        : '<div class="done"><b>Бронь снята</b>Ничего откладывать не будем.</div>';
+      load(msg);
+    }).catch(function(e){
+      var s = el('sending'); if (s) s.outerHTML =
+        '<div class="note"><b>Бронь не ушла.</b><br>' + esc(e.message) +
+        '<br><br>Проверьте интернет и нажмите ещё раз.</div>';
+    });
+  }
+
+  function fail(msg){
+    el('when').textContent = 'не получилось';
+    el('out').innerHTML = '<div class="note"><b>Список не загрузился.</b><br>' +
+      esc(msg) + '<br><br>Проверьте интернет и нажмите «Обновить список».</div>';
+    el('foot').textContent = '';
+  }
+
+  function load(note){
+    var b = el('upd');
+    b.disabled = true; b.textContent = 'Загружаю…';
+    if (!KEY){
+      fail('Откройте ссылку, которую прислала бухгалтерия, — в ней ключ.');
+      b.disabled = false; b.textContent = 'Обновить список';
+      return;
+    }
+    var now = new Date();
+    var today = iso(now);
+    var tm = new Date(now.getTime()); tm.setDate(tm.getDate() + 1);
+    var tomorrow = iso(tm);
+
+    /* Просим сразу два дня. Завтрашние списки филиалы присылают вечером, и
+       днём их ещё нет — тогда показываем сегодняшний, а не пустой экран.
+       Что именно показано, написано крупно под заголовком. */
+    ask(today, tomorrow).then(function(res){
+      var rows = res.rows || [];
+      BOOKS = res.books || [];
+      STAFF = res.staff || [];
+      if (ME && STAFF.length && STAFF.indexOf(ME) < 0) ME = '';   // человека убрали из списка
+      var t = rows.filter(function(r){ return r.day === tomorrow; });
+      if (t.length) render(tomorrow, t);
+      else render(today, rows.filter(function(r){ return r.day === today; }));
+      if (note) el('out').insertAdjacentHTML('afterbegin', note);
+      b.disabled = false; b.textContent = 'Обновить список';
+    }).catch(function(e){
+      fail(e.message || String(e));
+      b.disabled = false; b.textContent = 'Обновить список';
+    });
+  }
+
+  el('upd').onclick = function(){ load(); };
+  load();
+  // экран могли оставить включённым — освежаем сами, но редко
+  setInterval(function(){ if (!document.hidden) load(); }, 15 * 60 * 1000);
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
