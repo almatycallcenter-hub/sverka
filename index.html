@@ -263,6 +263,12 @@
     box-shadow:0 0 0 3px rgba(24,24,27,.06)}
   textarea{min-height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
   label.lbl{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+  /* Ключи прячем точками, но НЕ через type="password". Увидев на странице
+     поле пароля, Chrome считает её формой входа и лезет подставлять
+     сохранённый «логин» в первое текстовое поле — у филиала это поле поиска,
+     и список продукции пропадает на ровном месте. Точки рисуем стилем:
+     на экране то же самое, а менеджер паролей страницу больше не узнаёт. */
+  input.secret{-webkit-text-security:disc;text-security:disc}
 
   button{background:var(--txt);color:var(--card);border:1px solid var(--txt);border-radius:8px;
     padding:7px 14px;font-size:13px;font-weight:500;cursor:pointer;box-shadow:var(--sh);
@@ -713,7 +719,8 @@
           <p class="lead">Заявки филиалов приезжают сюда одной кнопкой.</p>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 220px"><label class="lbl">Ключ на чтение</label>
-              <input type="password" id="apiKey" placeholder="READ_KEY"></div>
+              <input type="text" class="secret" id="apiKey" placeholder="READ_KEY"
+                autocomplete="off" spellcheck="false"></div>
             <div><label class="lbl">с</label><input type="date" id="apiFrom"></div>
             <div><label class="lbl">по</label><input type="date" id="apiTo"></div>
             <button id="btnPull">Забрать</button>
@@ -734,7 +741,8 @@
           <p class="lead">Каждому филиалу — своя ссылка, отправьте её один раз.</p>
           <div class="row" style="margin-top:10px">
             <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
-              <input type="password" id="lnkKey" placeholder="SEND_KEY"></div>
+              <input type="text" class="secret" id="lnkKey" placeholder="SEND_KEY"
+                autocomplete="off" spellcheck="false"></div>
             <button id="btnLinks">Собрать ссылки</button>
             <button class="sec" id="btnUnlock" style="display:none">Снять режим филиала</button>
           </div>
