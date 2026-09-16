@@ -146,6 +146,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 .tot{display:flex;justify-content:space-between;font-size:16px;padding-top:4px}
 .tot b{font-weight:700}
 .mini{font-size:14px;color:var(--mut);margin:8px 0 0}
+.warn{font-size:14px;line-height:1.45;margin:10px 0 0;padding:10px 12px;border-radius:10px;
+  background:#fff6e5;color:#7a4a00;border:1px solid #f0d9ad}
 .note{background:#FFF7E8;border:1px solid #EBD9AE;border-radius:12px;
   padding:14px;margin-bottom:14px;font-size:16px}
 
@@ -282,8 +284,29 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     ['ТТ10', 'Шұғыла',     'Шугыла 340/35к15'],
     ['ТТ11', 'Алма Сити',  'Алтын Орда 6/40а']
   ];
+  /* Цех — такой же адресат, как филиал, но без номера. Сопоставление и здесь,
+     и на сервере идёт по номеру, поэтому ЦЕХ ни с одним филиалом не спутается. */
+  var CEH = 'ЦЕХ';
+  /* Везут первым рейсом, он приходит к 8:00. Значит бронить «привезти» можно
+     с вечера до 07:00; «заберу здесь» никуда не едет и открыто всегда.
+     Часы у сервера свои — эта проверка только чтобы не давать нажать зря. */
+  var BOOK_OPEN = 21, BOOK_CLOSE = 7;
+  function bookOpen(){
+    var h = new Date().getHours();
+    return BOOK_OPEN <= BOOK_CLOSE ? (h >= BOOK_OPEN && h < BOOK_CLOSE)
+                                   : (h >= BOOK_OPEN || h < BOOK_CLOSE);
+  }
+  function hhmm(h){ return (h < 10 ? '0' : '') + h + ':00'; }
   function numOf(s){ var m = String(s || '').match(/\d+/); return m ? +m[0] : 0; }
+  /* Так же, как на сервере: есть номера — сравниваем номера, нет — текст.
+     Иначе «ЦЕХ» и филиал без номера оба дали бы 0 и слиплись бы в одну точку. */
+  function sameSpot(a, b){
+    var na = numOf(a), nb = numOf(b);
+    if (na && nb) return na === nb;
+    return nrm(a) === nrm(b);
+  }
   function shopTitle(br){
+    if (nrm(br) === nrm(CEH)) return 'Цех';
     var n = numOf(br);
     for (var i = 0; i < SHOPS.length; i++) if (numOf(SHOPS[i][0]) === n)
       return SHOPS[i][0] + ' ' + SHOPS[i][1];
@@ -430,7 +453,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   function drawCart(){
     var items = cartItems();
     var c = cartCount();
-    var here = DEST && numOf(DEST) === numOf(BR);
+    var here = DEST && sameSpot(DEST, BR);
+    var shut = !!DEST && !here && !bookOpen();
     el('app').innerHTML =
       '<div class="card"><h2>Забираю</h2>' +
         '<div class="sub" style="color:var(--mut);font-size:14px;margin-bottom:8px">' +
@@ -464,6 +488,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
               '<span>' + esc(TRIP || 'Выберите рейс') + '</span><span class="go">›</span>' +
             '</button>'
           : '') +
+        /* Закрытое окно объясняем здесь же, а не в момент нажатия: человек
+           должен понять причину до того, как наберёт корзину и упрётся. */
+        (shut ? '<p class="warn">Везут первым рейсом — он приходит к 8:00. ' +
+                'Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
+                '. Сейчас можно выбрать «Заберу здесь».</p>' : '') +
       '</div>' +
 
       '<div class="card"><div class="tot"><span>Итого</span>' +
@@ -473,9 +502,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     el('bar').hidden = false;
     /* В панели держим короткую строку: длинная переносится в три ряда и
        выдавливает кнопку к краю экрана. */
-    el('barTxt').innerHTML = '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>проверьте и подтвердите';
+    el('barTxt').innerHTML = shut
+      ? '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>доставку забронируют с ' + hhmm(BOOK_OPEN)
+      : '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>проверьте и подтвердите';
     el('barBtn').textContent = 'Подтвердить';
-    el('barBtn').disabled = false;
+    el('barBtn').disabled = shut;
 
     el('me').oninput = function(){ ME = this.value; };
     if (el('pickMe')) el('pickMe').onclick = askWho;
@@ -606,9 +637,10 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       if (numOf(s[0]) === numOf(BR)) return;
       list.push({ v: s[0] + ' ' + s[1], t: 'Привезти в ' + s[0] + ' ' + s[1], s: s[2] });
     });
+    list.push({ v: CEH, t: 'Отвезти в цех', s: 'производство' });
     sheet('Где заберёте?', list, function(v){
       DEST = v;
-      if (numOf(v) === numOf(BR)) TRIP = '';
+      if (sameSpot(v, BR)) TRIP = '';
       drawCart();
     });
   }
@@ -624,7 +656,13 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     ME = String(ME || '').replace(/\s+/g, ' ').trim();
     if (!ME){ alert('Напишите, кто берёт.'); var m = el('me'); if (m) m.focus(); return; }
     if (!DEST) DEST = BR;
-    var here = numOf(DEST) === numOf(BR);
+    var here = sameSpot(DEST, BR);
+    if (!here && !bookOpen()){
+      alert('Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
+            ': везут первым рейсом, он приходит к 8:00.\n\n' +
+            'Сейчас можно выбрать «Заберу здесь».');
+      return;
+    }
     if (!here && TRIPS.length && !TRIP){ askTrip(); return; }
 
     try{ localStorage.setItem(MEKEY, ME); }catch(e){}

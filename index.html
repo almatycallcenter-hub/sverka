@@ -573,6 +573,7 @@
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
       <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
+      <a data-page="off"><span class="ic">🗑️</span>Списание завтра</a>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
@@ -677,6 +678,49 @@
               autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
             <div class="zCats" id="zCats"></div>
             <div class="zPad" id="zPad"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─── Списание завтра ──────────────────────────── -->
+      <section class="page wide" id="pg-off">
+        <div class="card noprint">
+          <h2>Что завтра снимают с продажи</h2>
+          <details class="tip"><summary>Чем это отличается от уценки</summary>
+            <p><b>Уценка</b> — продукция ещё продаётся, только по 20-50%, и её может
+              выкупить сотрудник. <b>Списание</b> — продукция с продажи уходит: часть
+              возвращается на склад по срокам, часть списывается на месте.</p>
+            <p>Здесь нужно только количество. Куда именно она уйдёт, филиал
+              оформляет у себя как обычно — этот список нужен, чтобы в офисе знали
+              о списании заранее, а не постфактум.</p>
+            <p><b>Дата — день списания, а не день заполнения.</b> Поэтому в поле сразу
+              стоит завтрашнее число. Повторная отправка за тот же день заменяет
+              список целиком.</p>
+          </details>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 240px"><label class="lbl">Филиал</label>
+              <select id="oWh"></select></div>
+            <div><label class="lbl">Списание на</label><input type="date" id="oDay"></div>
+            <button class="sec" id="oClear">Очистить</button>
+          </div>
+          <div class="msg" id="m9"></div>
+        </div>
+
+        <div class="zGrid">
+          <div class="card zLeft">
+            <div class="zHead"><b>К списанию</b><span id="oCnt" class="cnt"></span></div>
+            <div class="zList" id="oList"></div>
+            <div class="zActions">
+              <button id="oSend">Отправить</button>
+            </div>
+            <div class="hint">Набранное не пропадёт, если закрыть страницу — вернётся
+              само для того же филиала и той же даты.</div>
+          </div>
+          <div class="card zRight">
+            <input type="text" id="oQ" placeholder="Поиск по названию"
+              autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
+            <div class="zCats" id="oCats"></div>
+            <div class="zPad" id="oPad"></div>
           </div>
         </div>
       </section>
@@ -3322,7 +3366,7 @@ var ROUTES_V = 2;      // подняли версию — старые сохр�
 function refresh(){
   var bs = branches();
   var saved = ''; try{ saved = localStorage.getItem('sverka20_branch') || ''; }catch(e){}
-  [['branch', bs], ['defBranch', bs], ['zWh', whList()]].forEach(function(pair){
+  [['branch', bs], ['defBranch', bs], ['zWh', whList()], ['oWh', whList()]].forEach(function(pair){
     var el = $(pair[0]); if (!el) return;
     /* При первой сборке списка берём филиал из памяти браузера, дальше —
        тот, что выбран сейчас. Иначе выбранные «все филиалы» на каждом
@@ -5707,6 +5751,168 @@ $('zXlsx').onclick = function(){
   msg('m7','Файл готов — отправьте его в WhatsApp тому, кто сводит отчёт.','ok');
 };
 
+
+/* ═════════ экран списания: то же набирание пальцем, другой смысл ═════════
+   Уценку сотрудник может выкупить, списание — нет. Поэтому отдельный экран,
+   отдельный черновик и отдельный лист в таблице: перепутать эти два списка
+   значит однажды выложить на витрину то, что уже сняли с продажи. */
+var OFF = { cat: '', items: {} };
+
+/* Списать можно и то, что на уценку не отправляют: скидка тут ни при чём,
+   важен только срок. Не-еду (свечи, посуду) по-прежнему не показываем. */
+function offList(){
+  return Object.keys(SPR).filter(function(k){
+    var sp = SPR[k];
+    if (!sp.srok) return false;
+    if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    return true;
+  });
+}
+function offCats(){
+  var c = {};
+  offList().forEach(function(k){ c[SPR[k].kat || 'прочее'] = 1; });
+  return Object.keys(c).sort();
+}
+function offRender(){
+  var q = nrm($('oQ').value), cats = offCats();
+  if (OFF.cat && cats.indexOf(OFF.cat) < 0) OFF.cat = '';
+  $('oCats').innerHTML = '<button class="zCat' + (OFF.cat ? '' : ' on') + '" data-c="">все</button>' +
+    cats.map(function(c){
+      return '<button class="zCat' + (OFF.cat === c ? ' on' : '') + '" data-c="' + esc(c) + '">' +
+             esc(c) + '</button>'; }).join('');
+
+  var keys = offList().filter(function(k){
+    if (OFF.cat && (SPR[k].kat || 'прочее') !== OFF.cat) return false;
+    return !q || k.indexOf(q) >= 0;
+  }).sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
+
+  $('oPad').innerHTML = keys.length ? keys.map(function(k){
+    var n = OFF.items[k] || 0;
+    return '<button class="zItem' + (n ? ' has' : '') + '" data-k="' + esc(k) + '">' +
+      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч</span>' +
+      (n ? '<span class="n">' + fmtQ(n) + '</span>' : '') + '</button>';
+  }).join('')
+    : '<div class="zEmpty">' +
+      (q ? 'По запросу «' + esc(S($('oQ').value).trim()) + '» ничего не нашлось.'
+         : OFF.cat ? 'В категории «' + esc(OFF.cat) + '» пусто.'
+         : 'Список продукции пуст.') +
+      '<br><button class="sec" type="button" id="oAll" style="margin-top:10px">' +
+      'Показать всю продукцию</button></div>';
+
+  offLeft();
+}
+function offMark(k){
+  var b = $('oPad').querySelector('.zItem[data-k="' + (window.CSS && CSS.escape
+          ? CSS.escape(k) : k.replace(/"/g, '\\"')) + '"]');
+  if (!b) return;
+  var n = OFF.items[k] || 0;
+  b.classList.toggle('has', !!n);
+  var badge = b.querySelector('.n');
+  if (!n){ if (badge) badge.remove(); return; }
+  if (!badge){ badge = document.createElement('span'); badge.className = 'n'; b.appendChild(badge); }
+  badge.textContent = fmtQ(n);
+}
+function offLeft(){
+  var picked = Object.keys(OFF.items).filter(function(k){ return OFF.items[k] > 0; })
+                     .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
+  $('oList').innerHTML = picked.length ? picked.map(function(k){
+    return '<div class="zRow"><span class="nm">' + esc(SPR[k].name) + '</span>' +
+      '<button class="zBtn" data-m="' + esc(k) + '">−</button>' +
+      '<span class="q">' + fmtQ(OFF.items[k]) + '</span>' +
+      '<button class="zBtn" data-p="' + esc(k) + '">+</button>' +
+      '<button class="zBtn del" data-x="' + esc(k) + '">×</button></div>';
+  }).join('') : '<div class="zEmpty">Пока пусто. Нажимайте на продукцию справа — ' +
+                'она появится здесь.</div>';
+  var tot = picked.reduce(function(a, k){ return a + OFF.items[k]; }, 0);
+  $('oCnt').textContent = picked.length ? picked.length + ' позиций · ' + fmtQ(tot) + ' шт' : '';
+}
+function offAdd(k, d){
+  var v = (OFF.items[k] || 0) + d;
+  if (v <= 0) delete OFF.items[k]; else OFF.items[k] = v;
+  offMark(k); offLeft(); offDraftSave();
+}
+
+var OFF_DRAFT = 'sverka20_off_draft';
+function offDraftSave(){
+  try{
+    var wh = $('oWh').value, d = D($('oDay').value);
+    if (!wh || !d) return;
+    localStorage.setItem(OFF_DRAFT, JSON.stringify({ wh: wh, day: d, items: OFF.items }));
+  }catch(e){}
+}
+function offDraftLoad(){
+  OFF.items = {};
+  try{
+    var wh = $('oWh').value, d = D($('oDay').value);
+    if (!wh || !d) return 0;
+    var j = JSON.parse(localStorage.getItem(OFF_DRAFT) || 'null');
+    if (!j || j.wh !== wh || j.day !== d) return 0;
+    var n = 0;
+    Object.keys(j.items || {}).forEach(function(k){
+      if (!SPR[k] || !(j.items[k] > 0)) return;
+      OFF.items[k] = j.items[k]; n++;
+    });
+    return n;
+  }catch(e){ return 0; }
+}
+function offDraftClear(){ try{ localStorage.removeItem(OFF_DRAFT); }catch(e){} }
+function offLoad(){ var n = offDraftLoad(); offRender(); return n; }
+function offRows(){
+  return Object.keys(OFF.items).filter(function(k){ return OFF.items[k] > 0; })
+    .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; })
+    .map(function(k){ return { dish: SPR[k].name, qty: OFF.items[k],
+                               cat: S(SPR[k].kat) || 'прочее' }; });
+}
+
+$('oWh').onchange = function(){ offLoad(); };
+$('oDay').onchange = function(){ offLoad(); };
+$('oQ').oninput = function(){ offRender(); };
+$('oCats').onclick = function(e){
+  var b = e.target.closest('.zCat'); if (!b) return;
+  OFF.cat = b.dataset.c; offRender();
+};
+$('oPad').addEventListener('click', function(e){
+  if (!e.target.closest || !e.target.closest('#oAll')) return;
+  $('oQ').value = ''; OFF.cat = ''; offRender();
+}, false);
+$('oPad').onclick = function(e){
+  var b = e.target.closest('.zItem'); if (!b) return;
+  offAdd(b.dataset.k, 1);
+};
+$('oList').onclick = function(e){
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.p) offAdd(b.dataset.p, 1);
+  else if (b.dataset.m) offAdd(b.dataset.m, -1);
+  else if (b.dataset.x){ var k = b.dataset.x; delete OFF.items[k];
+                         offMark(k); offLeft(); offDraftSave(); }
+};
+$('oClear').onclick = function(){
+  if (!Object.keys(OFF.items).length) return;
+  if (!confirm('Очистить набранный список списания?')) return;
+  OFF.items = {}; offDraftClear(); offRender(); msg('m9','Список очищен.','wait');
+};
+
+$('oSend').onclick = async function(){
+  var b = this, wh = $('oWh').value, d = D($('oDay').value), rows = offRows();
+  var c = apiCfg();
+  if (!c.url || !c.send)
+    return msg('m9','Отправка не настроена. Откройте ссылку, которую прислала бухгалтерия.','err');
+  if (!wh) return msg('m9','Сначала выберите филиал.','err');
+  if (!d)  return msg('m9','Укажите дату.','err');
+  if (!rows.length) return msg('m9','Список пустой — нечего отправлять.','err');
+  b.disabled = true; msg('m9','Отправляю…','wait');
+  try{
+    var res = await apiCall('off', { key: c.send, day: d, branch: wh, items: rows });
+    offDraftClear();
+    msg('m9','Отправлено: ' + res.saved + ' позиций на списание ' + ru(d) + '. ' +
+        'Повторная отправка за этот день заменит список — можно дополнить и отправить снова.','ok');
+  }catch(e){
+    msg('m9','Не отправилось: ' + e.message + '. Набранное осталось у вас — ' +
+        'попробуйте ещё раз, когда появится связь.','err');
+  }
+  b.disabled = false;
+};
+
 /* ═════════ приёмник заявок на Cloudflare ═════════
    Страница лежит в публичном репозитории, поэтому ни адреса приёмника, ни
    ключей в её коде нет: их вводят один раз, и они остаются в этом браузере.
@@ -6152,6 +6358,7 @@ function showFresh(){
     rep: ['Сверка',''],
     chr: ['Аналитика','как продаётся и где теряется'],
     heat:['Тепловая карта','когда уходит продукция со скидкой'],
+    off: ['Списание завтра','что филиал снимает с продажи'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
@@ -6212,6 +6419,24 @@ function showFresh(){
                          'нет — выберите вручную и скажите бухгалтерии поправить ссылку.'
         : (c.url && c.send) ? 'Отправка настроена: заявка уйдёт в общий приёмник.'
         : 'Отправка не настроена — пока пользуйтесь кнопкой «Файлом».';
+    }
+    if (p === 'off'){
+      /* Тот же приём, что и на уценке: день списания — завтрашний, филиал берём
+         из ссылки. Экран другой, а логика «чей это телефон» — общая. */
+      if (!el('oDay').value) el('oDay').value = shift(isoToday(), 1);
+      var co = (typeof apiCfg === 'function') ? apiCfg() : {};
+      if (co.wh){
+        var so = el('oWh'), k;
+        var hito = '';
+        for (k = 0; k < so.options.length; k++)
+          if (so.options[k].value === co.wh){ hito = co.wh; break; }
+        if (!hito && typeof sameBranch === 'function')
+          for (k = 0; k < so.options.length; k++)
+            if (sameBranch(co.wh, so.options[k].value)){ hito = so.options[k].value; break; }
+        if (hito) so.value = hito;
+        so.disabled = !!(co.lock && hito);
+      }
+      if (typeof offLoad === 'function') offLoad();
     }
     if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();
@@ -6285,6 +6510,7 @@ function showFresh(){
      На открытии страницы чистим его один раз: свой поиск человек наберёт
      заново, а чужой мусор не спрячет весь список. */
   try{ var q0 = el('zQ'); if (q0) q0.value = ''; }catch(e){}
+  try{ var q1 = el('oQ'); if (q1) q1.value = ''; }catch(e){}
   go(startPage());
   var w = el('jsWarn'); if (w) w.style.display = 'none';
 })();
