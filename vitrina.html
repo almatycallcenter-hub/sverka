@@ -140,6 +140,19 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
 }
 .sheet .body button.mine{border-color:var(--ok);background:#F1F7F2}
 .sheet .body button small{display:block;font-size:16px;font-weight:600;color:var(--mut);margin-top:2px}
+/* Поле имени. Крупное, потому что набирают его пожилые люди и один раз —
+   дальше имя уже лежит в подсказках и выбирается нажатием. */
+/* Поле и кнопка — друг под другом во всю ширину: так в них попадают пальцем
+   с первого раза, и ничего не уезжает за край экрана. */
+.nameBox{margin-bottom:18px}
+.nameBox input{
+  display:block;width:100%;box-sizing:border-box;font:inherit;font-size:22px;
+  padding:18px 16px;border:2px solid var(--line);border-radius:14px;
+  background:var(--card);color:var(--ink);
+}
+.nameBox input:focus{outline:none;border-color:var(--ok)}
+.nameBox button{width:100%;margin-top:10px;min-height:66px;font-size:21px;text-align:center}
+.nameHint{margin:0 0 10px;font-size:17px;color:var(--mut)}
 .sheet .bot{padding:12px 16px 16px;max-width:760px;width:100%;margin:0 auto}
 .sheet .bot button{background:var(--mut)}
 .done{
@@ -236,6 +249,11 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     ['ТТ11', 'Алма Сити',  'Алтын Орда 6/40а']
   ];
   function numOf(s){ var m = String(s || '').match(/\d+/); return m ? +m[0] : 0; }
+  /* Для поиска по подсказкам: регистр и ё/е не должны мешать найти себя. */
+  function nrmName(s){
+    return String(s == null ? '' : s).replace(/[ёЁ]/g, 'е')
+           .replace(/\s+/g, ' ').trim().toLowerCase();
+  }
 
   function ask(from, to){
     return fetch(API, {
@@ -254,7 +272,7 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
   /* Состояние — только то, что сотрудник набрал руками, плюс его имя.
      Корзина живёт в пределах одного филиала: за полцены едут в одно место,
      а не собирают заказ по всему городу. */
-  var DAY = '', ROWS = [], BOOKS = [], STAFF = [], ME = '';
+  var DAY = '', ROWS = [], BOOKS = [], STAFF = [], TRIPS = [], ME = '';
   var CART = {};          // «филиал|блюдо» → сколько беру
   try{ ME = localStorage.getItem('tt_vitrina_me') || ''; }catch(e){}
 
@@ -405,22 +423,56 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
 
   function startBooking(br){
     var items = cartOf(br);
-    if (!ME || !STAFF.length) return askWho(br, items);
+    if (!ME) return askWho(br, items);
     askWhere(br, items);
   }
+
+  /* Имя человек пишет сам. Список сотрудников из iiko приходит подсказками, но
+     ждать его не нужно: новый человек должен уметь забронировать в первый же
+     день, а не после ближайшей выгрузки. Набранное имя телефон запоминает,
+     поэтому со второго раза это один тап по своей же строке. */
   function askWho(br, items){
-    if (!STAFF.length){
-      alert('Список сотрудников ещё не загружен в таблицу. Скажите бухгалтерии.');
-      return;
-    }
-    sheetShow('Кто берёт?', 'Нажмите своё имя — телефон запомнит',
-      STAFF.map(function(n){ return { v: n, t: n, mine: n === ME }; }), null);
-    PICK.pick = function(v){
+    PICK = { back: null };
+    el('pickT').textContent = 'Кто берёт?';
+    el('pickP').textContent = ME ? 'Сейчас: ' + ME : 'Напишите себя один раз — телефон запомнит';
+    el('pick').hidden = false;
+
+    function take(v){
+      v = String(v || '').replace(/\s+/g, ' ').trim();
+      if (!v) return;
       ME = v;
       try{ localStorage.setItem('tt_vitrina_me', ME); }catch(e){}
+      sheetHide();
       askWhere(br, items);
-    };
+    }
+    function draw(q){
+      var n = nrmName(q);
+      var f = STAFF.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
+      el('pickB').innerHTML =
+        '<div class="nameBox">' +
+          '<input id="nameIn" type="text" autocomplete="name" autocapitalize="words" ' +
+            'placeholder="Имя и фамилия" value="' + esc(q) + '">' +
+          '<button type="button" id="nameOk">Готово</button>' +
+        '</div>' +
+        (f.length
+          ? '<p class="nameHint">' + (q ? 'Подходит:' : 'Или выберите себя:') + '</p>' +
+            f.slice(0, 40).map(function(x){
+              return '<button type="button" data-v="' + esc(x) + '"' +
+                     (x === ME ? ' class="mine"' : '') + '>' + esc(x) + '</button>';
+            }).join('')
+          : (q ? '<p class="nameHint">Такого имени ещё не было — ничего страшного, ' +
+                 'нажмите «Готово».</p>' : ''));
+      var inp = el('nameIn');
+      inp.oninput = function(){ var v = this.value, p = this.selectionStart;
+        draw(v); var i2 = el('nameIn'); i2.focus(); try{ i2.setSelectionRange(p, p); }catch(e){} };
+      inp.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); take(this.value); } };
+      el('nameOk').onclick = function(){ take(el('nameIn').value); };
+    }
+    draw(ME);
+    el('pickB').scrollTop = 0;
+    PICK.pick = function(v){ take(v); };
   }
+
   function askWhere(br, items){
     var here = shopTitle(br);
     var list = [{ v: br, t: 'Заберу здесь', s: here, mine: true }];
@@ -430,24 +482,38 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     });
     sheetShow('Где заберёте?', ME + ' · ' + here,
       list, function(){ askWho(br, items); });
-    PICK.pick = function(v){ send(br, items, v); };
+    PICK.pick = function(v){
+      /* Забираю здесь — везти некуда, про рейс спрашивать незачем. */
+      if (numOf(v) === numOf(br) || !TRIPS.length) return send(br, items, v, '');
+      askTrip(br, items, v);
+    };
   }
 
-  function send(br, items, dest){
+  /* Третий вопрос только для тех, кому везут: филиалу утром нужно знать не
+     только куда, но и чем — он грузит машины, а не читает таблицу. */
+  function askTrip(br, items, dest){
+    sheetShow('Каким рейсом везти?', ME + ' → ' + dest,
+      TRIPS.map(function(t){ return { v: t, t: t }; }),
+      function(){ askWhere(br, items); });
+    PICK.pick = function(v){ send(br, items, dest, v); };
+  }
+
+  function send(br, items, dest, trip){
     el('out').insertAdjacentHTML('afterbegin',
       '<div class="note" id="sending">Отправляю бронь…</div>');
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: br,
-                             who: ME, dest: dest, items: items })
+                             who: ME, dest: dest, trip: trip || '', items: items })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
       Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
       var msg = j.saved
         ? '<div class="done"><b>Отложили ' + j.saved + ' позиций</b>' +
-          shopTitle(br) + ' → ' + esc(dest) + ', на ' + human(DAY) + '.<br>' +
-          'Филиал увидит это на своём экране.</div>'
+          shopTitle(br) + ' → ' + esc(dest) +
+          (trip ? ', ' + esc(trip) : '') + ', на ' + human(DAY) + '.<br>' +
+          'Филиал увидит, кто вы и куда везти.</div>'
         : '<div class="done"><b>Бронь снята</b>Ничего откладывать не будем.</div>';
       load(msg);
     }).catch(function(e){
@@ -483,8 +549,13 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     ask(today, tomorrow).then(function(res){
       var rows = res.rows || [];
       BOOKS = res.books || [];
+      /* Имена — это подсказка, а не пропуск. Человек пишет себя сам, а список
+         нужен, чтобы со второго раза не набирать и чтобы «Асель» и «Әсел» не
+         разъехались в двух разных людей. Поэтому имя, которого нет в списке,
+         больше не стирается: новый сотрудник должен уметь забронировать
+         в первый же день. */
       STAFF = res.staff || [];
-      if (ME && STAFF.length && STAFF.indexOf(ME) < 0) ME = '';   // человека убрали из списка
+      TRIPS = res.trips || [];
       var t = rows.filter(function(r){ return r.day === tomorrow; });
       if (t.length) render(tomorrow, t);
       else render(today, rows.filter(function(r){ return r.day === today; }));

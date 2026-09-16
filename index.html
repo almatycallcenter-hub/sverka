@@ -5797,7 +5797,9 @@ function bookHtml(rows, wh, day){
   function block(title, list, withDest){
     var by = {};
     list.forEach(function(r){
-      var k = r.who + (withDest ? ' → ' + r.dest : '');
+      /* Рейс идёт рядом с адресом: утром филиал грузит машины по этой строке,
+         и «куда» без «чем» ему бесполезно. */
+      var k = r.who + (withDest ? ' → ' + r.dest + (r.trip ? ' · ' + r.trip : '') : '');
       (by[k] = by[k] || []).push(r);
     });
     return '<div class="bkSec"><b>' + esc(title) + '</b>' +
@@ -5812,7 +5814,8 @@ function bookHtml(rows, wh, day){
     (here.length ? block('Отложить у себя', here, false) : '') +
     (away.length ? block('Переместить в другой филиал', away, true) : '') +
     '<div class="hint" style="margin-top:8px">Это сотрудники, которые выкупят продукцию ' +
-    'по 50%. Переместите её на склад 50% и отложите.</div></div>';
+    'по 50%. Переместите её на склад 50% и отложите, а то, что увозите, ' +
+    'отправьте указанным рейсом.</div></div>';
 }
 async function zayBooks(){
   var box = $('zBook'); if (!box) return;
