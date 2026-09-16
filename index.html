@@ -667,7 +667,8 @@
             <div id="zBook"></div>
           </div>
           <div class="card zRight">
-            <input type="text" id="zQ" placeholder="Поиск по названию">
+            <input type="text" id="zQ" placeholder="Поиск по названию"
+              autocomplete="off" autocorrect="off" spellcheck="false" inputmode="search">
             <div class="zCats" id="zCats"></div>
             <div class="zPad" id="zPad"></div>
           </div>
@@ -735,6 +736,7 @@
             <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
               <input type="password" id="lnkKey" placeholder="SEND_KEY"></div>
             <button id="btnLinks">Собрать ссылки</button>
+            <button class="sec" id="btnUnlock" style="display:none">Снять режим филиала</button>
           </div>
           <div id="lnkOut"></div>
           <details class="tip"><summary>Что внутри ссылки</summary>
@@ -5537,7 +5539,17 @@ function zayRender(){
     return '<button class="zItem' + (n ? ' has' : '') + '" data-k="' + esc(k) + '">' +
       esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч</span>' +
       (n ? '<span class="n">' + fmtQ(n) + '</span>' : '') + '</button>';
-  }).join('') : '<div class="zEmpty">Ничего не нашлось. Проверьте поиск или выберите другую категорию.</div>';
+  }).join('')
+    /* Пустой экран обязан объяснять себя. Браузер умеет сам подставить в поиск
+       что-нибудь из своей памяти — человек этого не заметит, а увидит пустой
+       список и решит, что сломалось. Поэтому говорим, что именно ищем, и рядом
+       кладём кнопку, которая всё это снимает. */
+    : '<div class="zEmpty">' +
+      (q ? 'По запросу «' + esc(S($('zQ').value).trim()) + '» ничего не нашлось.'
+         : ZAY.cat ? 'В категории «' + esc(ZAY.cat) + '» пусто.'
+         : 'Список продукции пуст.') +
+      '<br><button class="sec" type="button" id="zAll" style="margin-top:10px">' +
+      'Показать всю продукцию</button></div>';
 
   zayLeft();
 }
@@ -5635,6 +5647,10 @@ $('zCats').onclick = function(e){
   var b = e.target.closest('.zCat'); if (!b) return;
   ZAY.cat = b.dataset.c; zayRender();
 };
+$('zPad').addEventListener('click', function(e){
+  if (!e.target.closest || !e.target.closest('#zAll')) return;
+  $('zQ').value = ''; ZAY.cat = ''; zayRender();
+}, false);
 $('zPad').onclick = function(e){
   var b = e.target.closest('.zItem'); if (!b) return;
   zayAdd(b.dataset.k, 1);
@@ -6041,6 +6057,24 @@ $('btnLinks').onclick = function(){
   msg('m2d','Готово: ' + list.length + ' ссылок. Отправьте каждому филиалу его строку — ' +
       'чужую открывать нельзя, она запирает на чужом складе.','ok');
 };
+/* Свою же ссылку легко открыть на рабочем компьютере — проверить, как она
+   выглядит. После этого страница считает браузер филиальским: открывается на
+   заявке и не даёт сменить склад. Выхода из этого не было вовсе, поэтому
+   кнопка появляется ровно тогда, когда замок стоит. */
+function unlockShow(){
+  var b = $('btnUnlock'); if (!b) return;
+  b.style.display = apiCfg().lock ? '' : 'none';
+}
+$('btnUnlock').onclick = function(){
+  var c = apiCfg();
+  delete c.lock; delete c.wh;
+  apiSave(c);
+  var sel = $('zWh'); if (sel) sel.disabled = false;
+  unlockShow();
+  msg('m2d','Режим филиала снят: склад снова можно выбирать, а страница ' +
+      'открывается с отчёта. Ссылки филиалов это не затрагивает.','ok');
+};
+
 $('lnkOut').onclick = async function(e){
   var b = e.target.closest('button[data-lnk]'); if (!b) return;
   var t = b.textContent;
@@ -6173,6 +6207,7 @@ function showFresh(){
     }
     if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();
+    if (p === 'sp' && typeof unlockShow === 'function') unlockShow();
     if (p === 'sp' && typeof apiCfg === 'function'){
       var a = apiCfg();
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
@@ -6237,6 +6272,11 @@ function showFresh(){
     return (DB.mov && DB.mov.length) ? 'rep' : 'up';
   }
   window.STARTPAGE = startPage;
+  /* Поле поиска браузер умеет заполнить сам — восстановлением формы или
+     автозаполнением. Для филиала это выглядит так, будто продукция пропала.
+     На открытии страницы чистим его один раз: свой поиск человек наберёт
+     заново, а чужой мусор не спрячет весь список. */
+  try{ var q0 = el('zQ'); if (q0) q0.value = ''; }catch(e){}
   go(startPage());
   var w = el('jsWarn'); if (w) w.style.display = 'none';
 })();
