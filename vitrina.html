@@ -89,6 +89,16 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 .row .txt{flex:1;min-width:0}
 .row .nm{font-size:17px;line-height:1.3;overflow-wrap:break-word}
 .row .sub{font-size:14px;color:var(--mut);margin-top:2px}
+/* Своя бронь на экране филиалов и плашка правки — один и тот же зелёный:
+   человек должен узнавать «это про меня» с одного взгляда. */
+.row .mine{font-size:14px;color:var(--ok);font-weight:600;margin-top:4px}
+.edit{background:#EAF6EE;border:1px solid #BFE0CB;border-radius:12px;
+  padding:12px 14px;margin:0 0 12px;font-size:15px;line-height:1.45;color:#1d4d31}
+.edit button,.drop{display:block;width:100%;margin-top:10px;padding:11px 14px;
+  border:1px solid #D9B4B4;border-radius:10px;background:#fff;color:#9B2C2C;
+  font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+.drop{margin-top:14px}
+.edit button:active,.drop:active{background:#FBEDED}
 .row .go{flex:0 0 auto;color:var(--mut);font-size:20px}
 /* Строка-кнопка не должна выглядеть кнопкой: у <button> своя рамка, и она
    обводила каждый филиал жирным прямоугольником. Оставляем только разделитель. */
@@ -325,6 +335,10 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   var VIEW = 'shops';        // shops | items | cart | done
   var DAY = '', ROWS = [], BOOKS = [], STAFF = [], TRIPS = [];
   var BR = '', CAT = '', Q = '', CART = {}, ME = '', DEST = '', TRIP = '', RES = null;
+  /* Номер брони, которую человек сейчас правит, или '' — если бронирует заново.
+     Отличать обязательно: «подтвердить» и «сохранить изменения» — разные слова,
+     а снять бронь можно только ту, что уже есть. */
+  var EDIT = '';
   try{ ME = localStorage.getItem(MEKEY) || ''; }catch(e){}
 
   function rowsOf(br){
@@ -342,6 +356,33 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     return t;
   }
   function leftOf(br, dish, have){ return Math.max(0, have - takenOf(br, dish)); }
+  /* Своя бронь в этом филиале на этот день. Берём из того же ответа, что и
+     остатки, — отдельный запрос с телефона это лишняя секунда ожидания. */
+  function myBook(br){
+    if (!ME) return null;
+    var items = {}, n = 0, dest = '', trip = '', num = '';
+    BOOKS.forEach(function(b){
+      if (b.day !== DAY || !sameSpot(b.branch, br) || nrm(b.who) !== nrm(ME)) return;
+      items[b.dish] = (items[b.dish] || 0) + (+b.qty || 0); n++;
+      if (b.dest) dest = b.dest;
+      if (b.trip) trip = b.trip;
+      if (b.num)  num  = String(b.num);
+    });
+    return n ? { items: items, dest: dest, trip: trip, num: num, pos: n } : null;
+  }
+  /* Вход в филиал: если бронь уже есть — открываем её же, а не пустую корзину.
+     Иначе «изменить» выглядело бы как «забронировать ещё раз сверху». */
+  function openShop(br){
+    BR = br; Q = ''; CAT = '';
+    var mb = myBook(br);
+    CART = {};
+    if (mb){
+      EDIT = mb.num || '—';
+      Object.keys(mb.items).forEach(function(d){ CART[d] = mb.items[d]; });
+      DEST = mb.dest || br; TRIP = mb.trip || '';
+    } else { EDIT = ''; DEST = ''; TRIP = ''; }
+    go('items');
+  }
   function cartCount(){
     var pos = 0, qty = 0;
     Object.keys(CART).forEach(function(k){ if (CART[k] > 0){ pos++; qty += CART[k]; } });
@@ -364,10 +405,17 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       var sub = !rs.length ? 'список ещё не прислали'
               : q ? (n + ' ' + plural(n, 'совпадение', 'совпадения', 'совпадений'))
               : (n + ' ' + plural(n, 'позиция', 'позиции', 'позиций'));
+      /* Свою бронь показываем прямо здесь. Без этого «изменить» негде найти:
+         человек видит список филиалов и не догадывается, что надо зайти внутрь. */
+      var mb = myBook(br);
       return '<button class="row tap' + (rs.length ? '' : ' off') + '" type="button" ' +
              'data-shop="' + esc(br) + '"' + (rs.length ? '' : ' disabled') + '>' +
         '<div class="txt"><div class="nm">' + esc(br) + '</div>' +
-        '<div class="sub">' + esc(sub) + (rs.length ? ' · ' + esc(s[2]) : '') + '</div></div>' +
+        '<div class="sub">' + esc(sub) + (rs.length ? ' · ' + esc(s[2]) : '') + '</div>' +
+        (mb ? '<div class="mine">Ваша бронь' + (mb.num ? ' №' + esc(mb.num) : '') +
+              ' · ' + mb.pos + ' ' + plural(mb.pos, 'позиция', 'позиции', 'позиций') +
+              ' — нажмите, чтобы изменить</div>' : '') +
+        '</div>' +
         (rs.length ? '<div class="go">›</div>' : '') + '</button>';
     }).join('');
 
@@ -418,6 +466,12 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     }
 
     el('app').innerHTML =
+      (EDIT
+        ? '<div class="edit">Вы меняете свою бронь' +
+          (EDIT !== '—' ? ' №' + esc(EDIT) : '') + '. Убавьте или добавьте что нужно ' +
+          'и подтвердите заново — в брони останется то, что осталось в списке.' +
+          '<button type="button" id="dropBook">Снять бронь целиком</button></div>'
+        : '') +
       '<input class="find" id="q" type="text" placeholder="Поиск по названию" ' +
         'autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(Q) + '">' +
       (catList.length > 1
@@ -444,7 +498,9 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     el('barTxt').innerHTML = c.pos
       ? '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + '</b>' +
         fmtQ(c.qty) + ' ' + plural(c.qty, 'штука', 'штуки', 'штук')
-      : '<b>Выберите продукцию</b>нажимайте + у нужных позиций';
+      : EDIT
+        ? '<b>В брони пусто</b>снимите бронь или верните позиции'
+        : '<b>Выберите продукцию</b>нажимайте + у нужных позиций';
     el('barBtn').textContent = 'Продолжить';
     el('barBtn').disabled = !c.pos;
   }
@@ -454,9 +510,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     var items = cartItems();
     var c = cartCount();
     var here = DEST && sameSpot(DEST, BR);
-    var shut = !!DEST && !here && !bookOpen();
+    /* Убавление брони окно не закрывает — иначе человек, снявший одну позицию,
+       упёрся бы в погашенную кнопку и снял бы всю бронь целиком. */
+    var shut = !!DEST && !here && !bookOpen() && !onlyLess(items);
     el('app').innerHTML =
-      '<div class="card"><h2>Забираю</h2>' +
+      '<div class="card"><h2>' + (EDIT ? 'Остаётся в брони' : 'Забираю') + '</h2>' +
         '<div class="sub" style="color:var(--mut);font-size:14px;margin-bottom:8px">' +
           esc(shopTitle(BR)) + '</div>' +
         items.map(function(i){
@@ -497,15 +555,19 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
       '<div class="card"><div class="tot"><span>Итого</span>' +
         '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') +
-        ' · ' + fmtQ(c.qty) + ' шт</b></div></div>';
+        ' · ' + fmtQ(c.qty) + ' шт</b></div>' +
+        (EDIT ? '<button type="button" class="drop" id="dropBook">Снять бронь целиком</button>'
+              : '') +
+      '</div>';
 
     el('bar').hidden = false;
     /* В панели держим короткую строку: длинная переносится в три ряда и
        выдавливает кнопку к краю экрана. */
     el('barTxt').innerHTML = shut
       ? '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>доставку забронируют с ' + hhmm(BOOK_OPEN)
-      : '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>проверьте и подтвердите';
-    el('barBtn').textContent = 'Подтвердить';
+      : '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>' +
+        (EDIT ? 'старая бронь заменится этой' : 'проверьте и подтвердите');
+    el('barBtn').textContent = EDIT ? 'Сохранить' : 'Подтвердить';
     el('barBtn').disabled = shut;
 
     el('me').oninput = function(){ ME = this.value; };
@@ -517,19 +579,27 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   /* ─── экран 4: готово ─── */
   function drawDone(){
     var r = RES || {};
+    var off = r.mode === 'off';
     el('app').innerHTML =
-      '<div class="done"><h2>Бронь оформлена ✓</h2>' +
-        (r.num ? '<div class="num">№' + esc(r.num) + '</div>' : '') +
+      '<div class="done"><h2>' +
+        (off ? 'Бронь снята' : r.mode === 'edit' ? 'Бронь изменена ✓' : 'Бронь оформлена ✓') +
+      '</h2>' +
+        (!off && r.num ? '<div class="num">№' + esc(r.num) + '</div>' : '') +
         '<p>' + esc(r.who) + '</p>' +
-        '<p>Получение: <b>' + esc(r.destTitle) + '</b>' + (r.trip ? ', ' + esc(r.trip) : '') + '</p>' +
-        '<p>Дата: ' + esc(human(r.day)) + '</p>' +
-        '<p>Позиций: ' + r.pos + ' · ' + fmtQ(r.qty) + ' шт</p>' +
+        (off
+          ? '<p>Филиал: <b>' + esc(r.destTitle) + '</b></p>' +
+            '<p>Продукция снова доступна остальным.</p>'
+          : '<p>Получение: <b>' + esc(r.destTitle) + '</b>' +
+            (r.trip ? ', ' + esc(r.trip) : '') + '</p>' +
+            '<p>Дата: ' + esc(human(r.day)) + '</p>' +
+            '<p>Позиций: ' + r.pos + ' · ' + fmtQ(r.qty) + ' шт</p>') +
         '<p class="mini" style="margin-top:10px">' +
-          (r.told ? 'Филиал получил уведомление.' : 'Филиал увидит бронь на своём экране.') +
+          (r.told ? 'Филиал получил уведомление.' : 'Филиал увидит это на своём экране.') +
         '</p>' +
       '</div>';
     el('bar').hidden = false;
-    el('barTxt').innerHTML = '<b>Готово</b>можно взять ещё';
+    el('barTxt').innerHTML = off ? '<b>Готово</b>бронь снята'
+                                 : '<b>Готово</b>можно взять ещё';
     el('barBtn').textContent = 'К филиалам';
     el('barBtn').disabled = false;
   }
@@ -575,14 +645,14 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       go('cart');
     }
     else if (VIEW === 'cart') send();
-    else { CART = {}; BR = ''; Q = ''; CAT = ''; DEST = ''; TRIP = ''; load(); }
+    else { CART = {}; BR = ''; Q = ''; CAT = ''; DEST = ''; TRIP = ''; EDIT = ''; load(); }
   };
 
   document.addEventListener('click', function(e){
     var t = e.target;
     var shop = t.closest && t.closest('[data-shop]');
-    if (shop){ BR = shop.getAttribute('data-shop'); CART = {}; CAT = ''; Q = '';
-               DEST = ''; TRIP = ''; go('items'); return; }
+    if (shop){ openShop(shop.getAttribute('data-shop')); return; }
+    if (t.closest && t.closest('#dropBook')){ cancelBook(); return; }
     var chip = t.closest && t.closest('[data-c]');
     if (chip && VIEW === 'items'){ CAT = chip.getAttribute('data-c'); drawItems(); return; }
     var plus = t.closest && t.closest('[data-p]');
@@ -650,6 +720,25 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   }
 
   /* ─── отправка ─── */
+  /* Снять бронь целиком — тот же запрос, только с пустым списком. Спрашиваем
+     один раз: отменённую бронь обратно не вернуть, её разберут другие. */
+  function cancelBook(){
+    if (!EDIT) return;
+    if (!confirm('Снять бронь' + (EDIT !== '—' ? ' №' + EDIT : '') + ' целиком?\n\n' +
+                 'Продукция вернётся в общий список, и её смогут взять другие.')) return;
+    post([], 'off');
+  }
+
+  /* Ничего не прибавилось и ничего нового не появилось — значит бронь только
+     убавили. Сравниваем с той, что лежит в таблице, а не с началом сеанса. */
+  function onlyLess(items){
+    var mb = myBook(BR);
+    if (!EDIT || !mb || !sameSpot(DEST, mb.dest || BR)) return false;
+    for (var i = 0; i < items.length; i++)
+      if (!((mb.items[items[i].dish] || 0) >= items[i].qty)) return false;
+    return true;
+  }
+
   function send(){
     var items = cartItems();
     if (!items.length) return;
@@ -657,17 +746,32 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     if (!ME){ alert('Напишите, кто берёт.'); var m = el('me'); if (m) m.focus(); return; }
     if (!DEST) DEST = BR;
     var here = sameSpot(DEST, BR);
-    if (!here && !bookOpen()){
+    /* Убавить бронь можно и днём: это только освобождает продукцию. А вот
+       добавить — нет, филиал уже собрал коробку под первый рейс. Считаем то
+       же самое, что и приёмник, чтобы человек узнал об отказе до отправки. */
+    if (!here && !bookOpen() && !onlyLess(items)){
       alert('Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
             ': везут первым рейсом, он приходит к 8:00.\n\n' +
-            'Сейчас можно выбрать «Заберу здесь».');
+            (EDIT ? 'Сейчас можно только убавить бронь или снять её целиком.'
+                  : 'Сейчас можно выбрать «Заберу здесь».'));
       return;
     }
     if (!here && TRIPS.length && !TRIP){ askTrip(); return; }
 
+    post(items, EDIT ? 'edit' : 'new');
+  }
+
+  /* Одна дорога наружу для всех трёх случаев: новая бронь, правка и снятие.
+     Приёмник и так перезаписывает бронь человека за день целиком, поэтому
+     «изменить» — это просто отправить новый список. */
+  function post(items, mode){
+    ME = String(ME || '').replace(/\s+/g, ' ').trim();
+    if (!ME) return;
+    if (!DEST) DEST = BR;
+    var here = sameSpot(DEST, BR);
     try{ localStorage.setItem(MEKEY, ME); }catch(e){}
-    var btn = el('barBtn');
-    btn.disabled = true; btn.textContent = 'Отправляю…';
+    var btn = el('barBtn'), was = btn.textContent;
+    btn.disabled = true; btn.textContent = mode === 'off' ? 'Снимаю…' : 'Отправляю…';
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
@@ -676,16 +780,18 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
       var c = cartCount();
-      RES = { num: j.num || '', who: ME, day: DAY, told: j.told,
-              destTitle: here ? shopTitle(BR) : shopTitle(DEST),
+      RES = { mode: mode, num: j.num || EDIT, who: ME, day: DAY, told: j.told,
+              destTitle: mode === 'off' ? shopTitle(BR)
+                       : here ? shopTitle(BR) : shopTitle(DEST),
               trip: here ? '' : TRIP, pos: c.pos, qty: c.qty };
-      CART = {};
+      CART = {}; EDIT = '';
       go('done');
       load(true);            // тихо обновляем остатки под новым состоянием
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = 'Подтвердить бронь';
+      btn.disabled = false; btn.textContent = was;
       el('app').insertAdjacentHTML('afterbegin',
-        '<div class="note"><b>Бронь не ушла.</b><br>' + esc(e.message) +
+        '<div class="note"><b>' + (mode === 'off' ? 'Бронь не снялась.' : 'Бронь не ушла.') +
+        '</b><br>' + esc(e.message) +
         '<br>Проверьте интернет и нажмите ещё раз.</div>');
       window.scrollTo(0, 0);
     });
