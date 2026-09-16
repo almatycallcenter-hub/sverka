@@ -475,19 +475,24 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     }
     function draw(q){
       var n = nrmName(q);
-      /* Имя из Телеграма — подсказка, а не подпись: в учёте человек может
-         значиться иначе, чем в своём профиле. Поэтому оно просто стоит в поле,
-         и «Готово» человек всё равно нажимает сам. */
-      var all = STAFF.slice();
-      if (TG_NAME && !all.some(function(x){ return nrmName(x) === nrmName(TG_NAME); }))
-        all.unshift(TG_NAME);
-      var f = all.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
+      var f = STAFF.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
+      /* Имя из Телеграма подставлять в поле НЕЛЬЗЯ. В профиле у человека может
+         стоять что угодно — название компании, прозвище, — а человек, увидев
+         заполненное поле, просто жмёт «Готово», и бронь уходит не на того.
+         Поэтому поле пустое, а профильное имя лежит отдельной кнопкой: взять
+         его — это осознанное нажатие, а не согласие с подставленным. */
+      var tgBtn = (TG_NAME && !n &&
+                   !STAFF.some(function(x){ return nrmName(x) === nrmName(TG_NAME); }))
+        ? '<p class="nameHint">Из вашего профиля в Телеграме:</p>' +
+          '<button type="button" data-v="' + esc(TG_NAME) + '">' + esc(TG_NAME) +
+          '<small>проверьте: в учёте вы можете значиться иначе</small></button>'
+        : '';
       el('pickB').innerHTML =
         '<div class="nameBox">' +
-          '<input id="nameIn" type="text" autocomplete="name" autocapitalize="words" ' +
+          '<input id="nameIn" type="text" autocomplete="off" autocapitalize="words" ' +
             'placeholder="Имя и фамилия" value="' + esc(q) + '">' +
           '<button type="button" id="nameOk">Готово</button>' +
-        '</div>' +
+        '</div>' + tgBtn +
         (f.length
           ? '<p class="nameHint">' + (q ? 'Подходит:' : 'Или выберите себя:') + '</p>' +
             f.slice(0, 40).map(function(x){
@@ -502,7 +507,7 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
       inp.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); take(this.value); } };
       el('nameOk').onclick = function(){ take(el('nameIn').value); };
     }
-    draw(ME || TG_NAME);
+    draw(ME);
     el('pickB').scrollTop = 0;
     PICK.pick = function(v){ take(v); };
   }
@@ -544,10 +549,12 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
       Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
       var msg = j.saved
+        /* Имя в подтверждении — не украшение. Если человек ошибся на первом
+           экране, он должен увидеть это сразу, а не через сутки в таблице. */
         ? '<div class="done"><b>Отложили ' + j.saved + ' позиций</b>' +
-          shopTitle(br) + ' → ' + esc(dest) +
+          esc(ME) + '<br>' + shopTitle(br) + ' → ' + esc(dest) +
           (trip ? ', ' + esc(trip) : '') + ', на ' + human(DAY) + '.<br>' +
-          'Филиал увидит, кто вы и куда везти.</div>'
+          'Не вы? Нажмите «Обновить список» и забронируйте заново.</div>'
         : '<div class="done"><b>Бронь снята</b>Ничего откладывать не будем.</div>';
       load(msg);
     }).catch(function(e){
