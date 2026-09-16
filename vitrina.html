@@ -3,243 +3,239 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f7f5f0">
+<meta name="theme-color" content="#F7F5F0">
 <title>Что со скидкой — Тәп-Тәтті</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8892b'/%3E%3Ctext x='32' y='44' font-family='sans-serif' font-size='30' font-weight='700' fill='%23fff' text-anchor='middle'%3E50%25%3C/text%3E%3C/svg%3E">
 <style>
-/* Страницу открывают сотрудники, среди них пожилые. Поэтому: крупный шрифт,
-   чёрным по светлому, никаких меню и фильтров, кнопка одна и большая.
-   Системные шрифты вместо загружаемых — на старом телефоне в мобильном
-   интернете страница должна появиться сразу, а не через три секунды. */
+/* Витрину открывают сотрудники, среди них пожилые. Отсюда всё остальное:
+   крупный шрифт, чёрным по светлому, одно решение на экран и единственная
+   кнопка внизу, до которой дотягивается большой палец.
+
+   Путь короткий и всегда один и тот же: филиал → продукция → корзина →
+   получение → готово. Раньше это была одна длинная лента всех филиалов
+   сразу — на телефоне она превращалась в отчёт об остатках, а должна
+   ощущаться как простой магазин. */
 :root{
   --bg:#F7F5F0;
   --card:#FFFFFF;
   --ink:#14110C;
-  --mut:#57503F;
-  --line:#E2DCCF;
+  --mut:#6B6559;
+  --line:#E6E3DD;      /* светло-серые разделители вместо бежевых рамок */
   --gold:#8A6516;
-  --goldbg:#F5EBD4;
   --ok:#2C6B3F;
+  --okBg:#EDF5EF;
+  --shadow:0 1px 0 rgba(20,17,12,.04);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;background:var(--bg);color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  font-size:20px;line-height:1.5;
-  padding:0;
+  font-size:17px;line-height:1.45;
+  padding:0 0 96px;                 /* место под нижнюю панель */
 }
-/* Заголовок не липкий: на телефоне он занимал почти половину экрана, и на
-   список оставалась узкая полоска. Липким сделано название филиала — при
-   прокрутке важно не «как называется страница», а «чей это список». */
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+
+/* ── шапка: одна строка, не липкая ── */
 .top{
-  background:var(--card);border-bottom:2px solid var(--line);
-  padding:18px 20px 16px;
+  background:var(--card);border-bottom:1px solid var(--line);
+  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  position:sticky;top:0;z-index:5;
 }
-.brand{font-size:15px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
-h1{font-size:27px;line-height:1.2;margin:0;font-weight:700}
-.when{
-  display:inline-block;margin-top:10px;background:var(--goldbg);color:var(--gold);
-  font-size:19px;font-weight:700;padding:6px 14px;border-radius:999px;
+.top .back{
+  flex:0 0 auto;width:40px;height:40px;border-radius:12px;
+  border:1px solid var(--line);background:var(--card);
+  font-size:22px;line-height:1;display:none;
 }
-main{padding:0 16px 8px;max-width:760px;margin:0 auto}
+.top .ttl{flex:1;min-width:0}
+.top h1{margin:0;font-size:17px;font-weight:600;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sub{font-size:14px;color:var(--mut);line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .upd{
+  flex:0 0 auto;width:40px;height:40px;border-radius:12px;
+  border:1px solid var(--line);background:var(--card);font-size:18px;line-height:1;
+}
+.top .upd[disabled]{opacity:.5}
 
-.note{
-  background:var(--card);border:2px solid var(--line);border-radius:14px;
-  padding:20px;margin:18px 0;font-size:19px;color:var(--mut);
-}
-.note b{color:var(--ink)}
+main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
-.shop{
-  background:var(--card);border:2px solid var(--line);border-radius:14px;
-  margin:18px 0;
+/* ── поиск ── */
+.find{
+  display:block;width:100%;padding:13px 14px;margin-bottom:12px;
+  border:1px solid var(--line);border-radius:12px;background:var(--card);
 }
-.shop > h2{
-  margin:0;padding:16px 20px;font-size:23px;line-height:1.25;
-  border-bottom:2px solid var(--line);background:#FBF9F5;
-  border-radius:12px 12px 0 0;
-  position:sticky;top:0;z-index:3;
-  display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;
-}
-.shop > ul > li:last-child{border-radius:0 0 12px 12px}
-.shop > h2 .cnt{font-size:17px;font-weight:600;color:var(--mut)}
-ul{list-style:none;margin:0;padding:0}
-li{
-  display:flex;align-items:center;gap:14px;
-  padding:14px 20px;border-bottom:1px solid var(--line);
-  font-size:21px;line-height:1.35;
-}
-li:last-child{border-bottom:0}
-/* Названия длинные, а экран узкий. Поэтому в строке только название и кнопка,
-   а «сколько есть» ушло второй строкой под название: иначе «Берлинер
-   таңқурайлы» рвалось посреди слова. */
-li .nm{flex:1;min-width:0;overflow-wrap:break-word;hyphens:none}
-li .qt{
-  display:block;margin-top:3px;font-weight:600;font-variant-numeric:tabular-nums;
-  color:var(--gold);font-size:17px;
-}
+.find:focus{outline:none;border-color:var(--ok)}
 
-.quiet{
-  margin:22px 0;padding:18px 20px;border:2px dashed var(--line);border-radius:14px;
-  font-size:18px;color:var(--mut);
+/* ── полоска категорий ── */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{
+  flex:0 0 auto;padding:8px 14px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);font-size:15px;white-space:nowrap;
 }
-.quiet b{display:block;color:var(--ink);font-size:19px;margin-bottom:6px}
+.chips button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
 
-/* Кнопка всегда под рукой: раньше до неё нужно было домотать список до конца,
-   а он на десять филиалов длинный. */
+/* ── список: филиалы и продукция одной разметкой ── */
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  overflow:hidden;box-shadow:var(--shadow);margin-bottom:14px}
+.row{
+  display:flex;align-items:center;gap:12px;padding:14px 16px;
+  border-top:1px solid var(--line);
+}
+.row:first-child{border-top:0}
+.row .txt{flex:1;min-width:0}
+.row .nm{font-size:17px;line-height:1.3;overflow-wrap:break-word}
+.row .sub{font-size:14px;color:var(--mut);margin-top:2px}
+.row .go{flex:0 0 auto;color:var(--mut);font-size:20px}
+/* Строка-кнопка не должна выглядеть кнопкой: у <button> своя рамка, и она
+   обводила каждый филиал жирным прямоугольником. Оставляем только разделитель. */
+.row.tap{width:100%;text-align:left;border:0;border-top:1px solid var(--line);
+  border-radius:0;background:var(--card);font:inherit;color:inherit}
+.row.tap:first-child{border-top:0}
+.row.tap:active{background:#FAF8F4}
+.row.off .nm{color:var(--mut)}
+.row.has{background:var(--okBg)}
+
+/* ── степпер ── */
+.st{flex:0 0 auto;display:flex;align-items:center;gap:2px}
+.st button{
+  width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);font-size:22px;line-height:1;font-weight:600;
+}
+.st button:disabled{opacity:.35}
+.st .n{min-width:34px;text-align:center;font-size:18px;font-weight:700}
+.st .n.zero{color:var(--mut);font-weight:400}
+
+/* ── нижняя панель ── */
 .bar{
-  position:sticky;bottom:0;z-index:6;
-  padding:10px 16px 14px;max-width:760px;margin:0 auto;
-  background:linear-gradient(to top, var(--bg) 70%, rgba(247,245,240,0));
+  position:fixed;left:0;right:0;bottom:0;z-index:6;
+  background:var(--card);border-top:1px solid var(--line);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom));
 }
-button{
-  width:100%;min-height:60px;font:inherit;font-size:21px;font-weight:700;
-  background:var(--ink);color:#fff;border:0;border-radius:14px;cursor:pointer;
-  padding:16px 20px;
+.bar .in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar .cnt{flex:1;min-width:0;font-size:14px;color:var(--mut);line-height:1.25;
+  overflow:hidden}
+.bar .cnt b{display:block;font-size:16px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar button{
+  flex:0 0 auto;padding:14px 22px;border-radius:12px;border:0;
+  background:var(--ok);color:#fff;font-size:17px;font-weight:600;
 }
-button:active{background:#000}
-button:focus-visible{outline:4px solid var(--gold);outline-offset:3px}
-button[disabled]{opacity:.55}
+.bar button:disabled{background:#CFCBC2;color:#6B6559}
 
-.foot{max-width:760px;margin:26px auto 0;padding:0 20px;font-size:16px;color:var(--mut)}
+/* ── экран оформления ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:16px;font-weight:600}
+.card .lbl{display:block;font-size:14px;color:var(--mut);margin:0 0 6px}
+.card input[type=text]{
+  display:block;width:100%;padding:14px;border:1px solid var(--line);
+  border-radius:12px;background:var(--card);font-size:17px;
+}
+.card input[type=text]:focus{outline:none;border-color:var(--ok)}
+.pickBtn{
+  display:flex;width:100%;align-items:center;gap:10px;text-align:left;
+  padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);
+  font-size:17px;
+}
+.pickBtn span{flex:1;min-width:0}
+.pickBtn.empty span{color:var(--mut)}
+.tot{display:flex;justify-content:space-between;font-size:16px;padding-top:4px}
+.tot b{font-weight:700}
+.mini{font-size:14px;color:var(--mut);margin:8px 0 0}
+.note{background:#FFF7E8;border:1px solid #EBD9AE;border-radius:12px;
+  padding:14px;margin-bottom:14px;font-size:16px}
 
-/* позиция превращается в кнопку: нажал — прибавилось */
-li.pick{cursor:pointer;-webkit-tap-highlight-color:transparent}
-li.pick:active{background:#FBF4E4}
-li .take{
-  flex:0 0 auto;min-width:54px;text-align:center;font-weight:700;font-size:19px;
-  border:2px solid var(--line);border-radius:10px;padding:6px 10px;color:var(--mut);
-}
-li.on .take{background:var(--ok);border-color:var(--ok);color:#fff}
-li.on .nm{font-weight:700}
-li.gone{opacity:.5}
-li.gone .qt{background:#EEE9DE;color:var(--mut)}
-.who{
-  display:block;font-size:16px;color:var(--ok);font-weight:600;margin-top:4px;
-}
-.shopfoot{padding:14px 16px;border-top:2px solid var(--line);display:flex;gap:10px;
-  flex-wrap:wrap}
-.shopfoot button{background:var(--ok)}
-.shopfoot .clear{background:none;color:var(--mut);border:2px solid var(--line);flex:0 0 40%}
+/* ── готово ── */
+.done{background:var(--okBg);border:1px solid #BFD9C6;border-radius:14px;
+  padding:20px;margin-bottom:14px}
+.done h2{margin:0 0 4px;font-size:20px}
+.done .num{font-size:28px;font-weight:700;margin:6px 0 10px}
+.done p{margin:4px 0;font-size:16px}
 
-/* экран выбора поверх всего: одно решение за раз, крупными кнопками */
-.sheet{
-  position:fixed;inset:0;z-index:20;background:var(--bg);
-  display:flex;flex-direction:column;
-}
+/* ── всплывающий выбор ── */
+.sheet{position:fixed;inset:0;z-index:20;background:var(--bg);
+  display:flex;flex-direction:column}
 .sheet[hidden]{display:none}
-.sheet .head{
-  background:var(--card);border-bottom:2px solid var(--line);padding:18px 20px;
+.sheet .h{background:var(--card);border-bottom:1px solid var(--line);padding:16px}
+.sheet .h h2{margin:0;font-size:19px}
+.sheet .b{flex:1;overflow:auto;padding:12px 16px;max-width:760px;width:100%;margin:0 auto}
+.sheet .b button{
+  display:block;width:100%;text-align:left;padding:16px;margin-bottom:10px;
+  border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:17px;
 }
-.sheet .head h2{margin:0;font-size:24px;line-height:1.2}
-.sheet .head p{margin:6px 0 0;font-size:17px;color:var(--mut)}
-.sheet .body{flex:1;overflow:auto;padding:14px 16px 20px;max-width:760px;width:100%;margin:0 auto}
-.sheet .body button{
-  background:var(--card);color:var(--ink);border:2px solid var(--line);
-  text-align:left;margin-bottom:12px;font-size:21px;min-height:66px;
-}
-.sheet .body button.mine{border-color:var(--ok);background:#F1F7F2}
-.sheet .body button small{display:block;font-size:16px;font-weight:600;color:var(--mut);margin-top:2px}
-/* Поле имени. Крупное, потому что набирают его пожилые люди и один раз —
-   дальше имя уже лежит в подсказках и выбирается нажатием. */
-/* Поле и кнопка — друг под другом во всю ширину: так в них попадают пальцем
-   с первого раза, и ничего не уезжает за край экрана. */
-.nameBox{margin-bottom:18px}
-.nameBox input{
-  display:block;width:100%;box-sizing:border-box;font:inherit;font-size:22px;
-  padding:18px 16px;border:2px solid var(--line);border-radius:14px;
-  background:var(--card);color:var(--ink);
-}
-.nameBox input:focus{outline:none;border-color:var(--ok)}
-.nameBox button{width:100%;margin-top:10px;min-height:66px;font-size:21px;text-align:center}
-.nameHint{margin:0 0 10px;font-size:17px;color:var(--mut)}
-.sheet .bot{padding:12px 16px 16px;max-width:760px;width:100%;margin:0 auto}
-.sheet .bot button{background:var(--mut)}
-.done{
-  background:#F1F7F2;border:2px solid var(--ok);border-radius:14px;
-  padding:20px;margin:18px 0;font-size:20px;
-}
-.done b{display:block;font-size:22px;margin-bottom:6px}
+.sheet .b button small{display:block;font-size:14px;color:var(--mut);margin-top:2px}
+.sheet .f{padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+  max-width:760px;width:100%;margin:0 auto}
+.sheet .f button{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
+  background:var(--card);font-size:17px}
 
-@media (min-width:620px){
-  body{font-size:21px}
-  h1{font-size:32px}
-  li{font-size:22px}
-}
-/* Внутри Телеграма сверху уже есть его собственная шапка с названием бота —
-   строка «Тәп-Тәтті» её просто дублирует. День и заголовок оставляем: без них
-   человек не поймёт, на какое число смотрит. */
-.in-tg .top .brand{display:none}
+/* Внутри Телеграма своя шапка сверху — наша строка с брендом её дублирует. */
+.in-tg .brandline{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
 
 <div class="top">
-  <p class="brand">Тәп-Тәтті</p>
-  <h1>Что уходит со скидкой</h1>
-  <div class="when" id="when">загружаю…</div>
+  <button class="back" id="back" type="button" aria-label="Назад">‹</button>
+  <div class="ttl">
+    <h1 id="ttl">Что уходит со скидкой</h1>
+    <div class="sub" id="sub">загружаю…</div>
+  </div>
+  <button class="upd" id="upd" type="button" aria-label="Обновить">⟳</button>
 </div>
 
-<main>
-  <div id="out">
-    <div class="note">Минутку, забираю список из филиалов…</div>
+<main id="app"></main>
+
+<div class="bar" id="bar" hidden>
+  <div class="in">
+    <div class="cnt" id="barTxt"></div>
+    <button id="barBtn" type="button">Продолжить</button>
   </div>
-
-  <div class="foot" id="foot"></div>
-</main>
-
-<div class="bar"><button id="upd" type="button">Обновить список</button></div>
+</div>
 
 <div class="sheet" id="pick" hidden>
-  <div class="head">
-    <h2 id="pickT">Кто берёт?</h2>
-    <p id="pickP"></p>
-  </div>
-  <div class="body" id="pickB"></div>
-  <div class="bot"><button type="button" id="pickX">Назад</button></div>
+  <div class="h"><h2 id="pickT"></h2></div>
+  <div class="b" id="pickB"></div>
+  <div class="f"><button type="button" id="pickX">Отмена</button></div>
 </div>
 
-<!-- Скрипт Телеграма. Вне Телеграма он просто не создаёт объект, и страница
-     работает как обычная — поэтому грузим его всегда и ничего не ломаем. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 (function(){
   'use strict';
 
   /* ─── запуск внутри Телеграма ───
-     Витрина умеет открываться двумя путями: обычной ссылкой в браузере и
-     мини-приложением прямо внутри Телеграма. Код один и тот же — Телеграм лишь
-     добавляет три вещи: ключ можно передать в startapp, имя человека уже
-     известно, и окно надо развернуть на весь экран. */
+     Витрина открывается двумя путями: обычной ссылкой в браузере и
+     мини-приложением внутри Телеграма. Код один; Телеграм добавляет ключ в
+     startapp, имя из профиля и требует развернуть окно. */
   var TG = null, TG_NAME = '';
-  try{ TG = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined)
+  try{ TG = (window.Telegram && window.Telegram.WebApp &&
+             window.Telegram.WebApp.initData !== undefined)
             ? window.Telegram.WebApp : null; }catch(e){}
   if (TG){
     try{
-      TG.ready();
-      TG.expand();
+      TG.ready(); TG.expand();
       document.documentElement.classList.add('in-tg');
       var u = TG.initDataUnsafe && TG.initDataUnsafe.user;
       if (u) TG_NAME = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
     }catch(e){}
   }
 
-  /* Адрес приёмника — тот же, что у сверки. Ключ витрины приходит в ссылке и
-     сразу убирается из адресной строки, чтобы не мозолил глаза и не уезжал
-     в историю. Он умеет ровно одно: показать список на день. */
   var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
-  var STORE = 'tt_vitrina_key';
+  var STORE = 'tt_vitrina_key', MEKEY = 'tt_vitrina_me';
   var KEY = '';
   try{
-    var p = new URLSearchParams(location.search);
-    /* Внутри Телеграма адрес задан в настройках бота и не меняется, поэтому ключ
-       приходит отдельным параметром startapp. Снаружи — как раньше, в ссылке. */
+    var qp = new URLSearchParams(location.search);
     var fromTg = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
-    if (p.get('k') || fromTg){
-      KEY = p.get('k') || fromTg;
+    if (qp.get('k') || fromTg){
+      KEY = qp.get('k') || fromTg;
       localStorage.setItem(STORE, KEY);
-      if (p.get('k')) history.replaceState(null, '', location.pathname);
+      if (qp.get('k')) history.replaceState(null, '', location.pathname);
     } else {
       KEY = localStorage.getItem(STORE) || '';
     }
@@ -253,18 +249,28 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
            '-' + String(d.getDate()).padStart(2,'0');
   }
   function human(s){
-    var p = s.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
+    var p = String(s).split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
     return DOW[d.getDay()] + ', ' + (+p[2]) + ' ' + MON[+p[1]-1];
   }
   function esc(s){
     return String(s == null ? '' : s)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
   function el(id){ return document.getElementById(id); }
+  function nrm(s){
+    return String(s == null ? '' : s).replace(/[ёЁ]/g,'е')
+           .replace(/\s+/g,' ').trim().toLowerCase();
+  }
+  function plural(n, a, b, c){
+    var m = n % 100;
+    if (m > 10 && m < 20) return c;
+    m = n % 10;
+    return m === 1 ? a : (m > 1 && m < 5 ? b : c);
+  }
+  function fmtQ(n){ return Math.round(n * 100) / 100; }
 
   /* Филиалы перечислены здесь, чтобы показать и тех, кто список ещё не прислал:
-     пустая строка «не прислали» — это тоже нужная сотруднику информация.
-     Порядок — по номеру, как везде. */
+     пустая строка «не прислали» — тоже нужная сотруднику информация. */
   var SHOPS = [
     ['ТТ1',  'Атакент',    'Тимирязева 38/1'],
     ['ТТ2',  'Сарыарка',   '4 мкр, 28/1'],
@@ -277,342 +283,425 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     ['ТТ11', 'Алма Сити',  'Алтын Орда 6/40а']
   ];
   function numOf(s){ var m = String(s || '').match(/\d+/); return m ? +m[0] : 0; }
-  /* Для поиска по подсказкам: регистр и ё/е не должны мешать найти себя. */
-  function nrmName(s){
-    return String(s == null ? '' : s).replace(/[ёЁ]/g, 'е')
-           .replace(/\s+/g, ' ').trim().toLowerCase();
-  }
-
-  function ask(from, to){
-    return fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'board', key: KEY, from: from, to: to })
-    }).then(function(r){ return r.text(); }).then(function(t){
-      var j = null;
-      try{ j = JSON.parse(t); }catch(e){}
-      if (!j) throw new Error('приёмник ответил не по делу');
-      if (j.error) throw new Error(j.error);
-      return j;
-    });
-  }
-
-  /* Состояние — только то, что сотрудник набрал руками, плюс его имя.
-     Корзина живёт в пределах одного филиала: за полцены едут в одно место,
-     а не собирают заказ по всему городу. */
-  var DAY = '', ROWS = [], BOOKS = [], STAFF = [], TRIPS = [], ME = '';
-  var CART = {};          // «филиал|блюдо» → сколько беру
-  try{ ME = localStorage.getItem('tt_vitrina_me') || ''; }catch(e){}
-
-  function ck(br, dish){ return br + '|' + dish; }
-  function bookedBy(br, dish){
-    var m = {}, mine = 0;
-    BOOKS.forEach(function(b){
-      if (b.day !== DAY || b.branch !== br || b.dish !== dish) return;
-      m[b.who] = (m[b.who] || 0) + (+b.qty || 0);
-      if (b.who === ME) mine += (+b.qty || 0);
-    });
-    return { map: m, mine: mine };
-  }
-  function cartOf(br){
-    var out = [];
-    Object.keys(CART).forEach(function(k){
-      if (k.indexOf(br + '|') !== 0 || !(CART[k] > 0)) return;
-      out.push({ dish: k.slice(br.length + 1), qty: CART[k] });
-    });
-    return out;
-  }
-
-  function render(day, rows){
-    DAY = day; ROWS = rows;
-    el('when').textContent = human(day);
-
-    var byShop = {};
-    rows.forEach(function(r){
-      var n = numOf(r.branch);
-      (byShop[n] = byShop[n] || []).push(r);
-    });
-
-    var full = [], empty = [];
-    SHOPS.forEach(function(s){
-      var n = numOf(s[0]), list = byShop[n];
-      if (list && list.length) full.push([s, list]); else empty.push(s);
-    });
-
-    var h = '';
-    if (!full.length){
-      h += '<div class="note"><b>Списка пока нет.</b><br>' +
-           'Филиалы отмечают продукцию вечером. Загляните попозже.</div>';
-    }
-    full.forEach(function(x){
-      var s = x[0];
-      var list = x[1].slice().sort(function(a, b){
-        return String(a.dish) < String(b.dish) ? -1 : 1;
-      });
-      var br = list[0].branch;
-      var tot = list.reduce(function(a, r){ return a + (+r.qty || 0); }, 0);
-      h += '<section class="shop"><h2>' + esc(s[0] + ' ' + s[1]) +
-           '<span class="cnt">' + esc(s[2]) + ' · ' + tot + ' шт</span></h2><ul>';
-      list.forEach(function(r){
-        var have = +r.qty || 0;
-        var bk = bookedBy(br, r.dish);
-        var taken = 0;
-        Object.keys(bk.map).forEach(function(w){ taken += bk.map[w]; });
-        var mine = CART[ck(br, r.dish)] || bk.mine || 0;
-        var left = have - taken + (bk.mine || 0);
-        var names = Object.keys(bk.map).filter(function(w){ return w !== ME; });
-        h += '<li class="' + (left <= 0 && !mine ? 'gone' : 'pick') +
-             (mine ? ' on' : '') + '" data-br="' + esc(br) + '" data-d="' + esc(r.dish) + '">' +
-          '<span class="nm">' + esc(r.dish) +
-            '<span class="qt">всего ' + have + ' шт' +
-              (left <= 0 && !mine ? ' · разобрали' : '') + '</span>' +
-            (names.length ? '<span class="who">взяли: ' + esc(names.join(', ')) + '</span>' : '') +
-          '</span>' +
-          '<span class="take">' + (mine ? mine + ' шт' : (left > 0 ? '+' : '—')) + '</span></li>';
-      });
-      h += '</ul>';
-      var cart = cartOf(br), n = cart.reduce(function(a, i){ return a + i.qty; }, 0);
-      var had = BOOKS.some(function(b){
-        return b.day === DAY && b.branch === br && b.who === ME; });
-      if (n || had)
-        h += '<div class="shopfoot">' +
-             '<button type="button" class="clear" data-clear="' + esc(br) + '">Снять</button>' +
-             '<button type="button" data-book="' + esc(br) + '" style="flex:1">' +
-             (n ? 'Забронировать ' + n + ' шт' : 'Отменить бронь') + '</button></div>';
-      h += '</section>';
-    });
-    if (empty.length && full.length){
-      h += '<div class="quiet"><b>Список ещё не прислали</b>' +
-           empty.map(function(s){ return esc(s[0] + ' ' + s[1]); }).join(' · ') + '</div>';
-    }
-    el('out').innerHTML = h;
-
-    var t = new Date();
-    el('foot').textContent = (ME ? ME + ' · ' : '') + 'Обновлено в ' +
-      String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') +
-      '. Нажмите на продукцию, чтобы отложить её себе.';
-  }
-
-  /* ─── нажатия по списку ─── */
-  el('out').addEventListener('click', function(e){
-    var b = e.target.closest('button[data-book]');
-    if (b) return startBooking(b.getAttribute('data-book'));
-    var c = e.target.closest('button[data-clear]');
-    if (c){
-      var br = c.getAttribute('data-clear');
-      Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
-      return render(DAY, ROWS);
-    }
-    var li = e.target.closest('li.pick');
-    if (!li) return;
-    var brn = li.getAttribute('data-br'), dish = li.getAttribute('data-d');
-    var row = ROWS.filter(function(r){ return r.branch === brn && r.dish === dish; })[0];
-    var have = row ? (+row.qty || 0) : 0;
-    var bk = bookedBy(brn, dish), taken = 0;
-    Object.keys(bk.map).forEach(function(w){ taken += bk.map[w]; });
-    var max = have - taken + (bk.mine || 0);
-    var k = ck(brn, dish), cur = CART[k] !== undefined ? CART[k] : (bk.mine || 0);
-    CART[k] = cur >= max ? 0 : cur + 1;      // по кругу: дошли до конца — сняли
-    render(DAY, ROWS);
-  });
-
-  /* ─── бронь в два вопроса ───
-     Пожилому человеку нельзя давать форму. Даём два экрана подряд, на каждом
-     только крупные кнопки: кто берёт и где заберёт. Имя запоминается, поэтому
-     со второго раза остаётся один вопрос. */
-  var PICK = null;
-  function sheetShow(title, sub, items, back){
-    PICK = { back: back };
-    el('pickT').textContent = title;
-    el('pickP').textContent = sub || '';
-    el('pickB').innerHTML = items.map(function(it){
-      return '<button type="button" data-v="' + esc(it.v) + '"' +
-             (it.mine ? ' class="mine"' : '') + '>' + esc(it.t) +
-             (it.s ? '<small>' + esc(it.s) + '</small>' : '') + '</button>';
-    }).join('');
-    el('pick').hidden = false;
-    el('pickB').scrollTop = 0;
-  }
-  function sheetHide(){ el('pick').hidden = true; PICK = null; }
-  el('pickX').onclick = function(){
-    var b = PICK && PICK.back; sheetHide(); if (b) b();
-  };
-  el('pickB').addEventListener('click', function(e){
-    var b = e.target.closest('button[data-v]'); if (!b || !PICK) return;
-    var f = PICK.pick; sheetHide(); if (f) f(b.getAttribute('data-v'));
-  });
-
   function shopTitle(br){
     var n = numOf(br);
     for (var i = 0; i < SHOPS.length; i++) if (numOf(SHOPS[i][0]) === n)
       return SHOPS[i][0] + ' ' + SHOPS[i][1];
     return br;
   }
-
-  function startBooking(br){
-    var items = cartOf(br);
-    if (!ME) return askWho(br, items);
-    askWhere(br, items);
+  function shopAddr(br){
+    var n = numOf(br);
+    for (var i = 0; i < SHOPS.length; i++) if (numOf(SHOPS[i][0]) === n) return SHOPS[i][2];
+    return '';
   }
 
-  /* Имя человек пишет сам. Список сотрудников из iiko приходит подсказками, но
-     ждать его не нужно: новый человек должен уметь забронировать в первый же
-     день, а не после ближайшей выгрузки. Набранное имя телефон запоминает,
-     поэтому со второго раза это один тап по своей же строке. */
-  function askWho(br, items){
-    PICK = { back: null };
-    el('pickT').textContent = 'Кто берёт?';
-    el('pickP').textContent = ME ? 'Сейчас: ' + ME : 'Напишите себя один раз — телефон запомнит';
-    el('pick').hidden = false;
+  /* ─── состояние ───
+     Корзина живёт в пределах одного филиала: за полцены едут в одно место, а не
+     собирают заказ по всему городу. Ушёл в другой филиал — корзина начинается
+     заново, и это честно показано на экране. */
+  var VIEW = 'shops';        // shops | items | cart | done
+  var DAY = '', ROWS = [], BOOKS = [], STAFF = [], TRIPS = [];
+  var BR = '', CAT = '', Q = '', CART = {}, ME = '', DEST = '', TRIP = '', RES = null;
+  try{ ME = localStorage.getItem(MEKEY) || ''; }catch(e){}
 
-    function take(v){
-      v = String(v || '').replace(/\s+/g, ' ').trim();
-      if (!v) return;
-      ME = v;
-      try{ localStorage.setItem('tt_vitrina_me', ME); }catch(e){}
-      sheetHide();
-      askWhere(br, items);
-    }
-    function draw(q){
-      var n = nrmName(q);
-      var f = STAFF.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
-      /* Имя из Телеграма подставлять в поле НЕЛЬЗЯ. В профиле у человека может
-         стоять что угодно — название компании, прозвище, — а человек, увидев
-         заполненное поле, просто жмёт «Готово», и бронь уходит не на того.
-         Поэтому поле пустое, а профильное имя лежит отдельной кнопкой: взять
-         его — это осознанное нажатие, а не согласие с подставленным. */
-      var tgBtn = (TG_NAME && !n &&
-                   !STAFF.some(function(x){ return nrmName(x) === nrmName(TG_NAME); }))
-        ? '<p class="nameHint">Из вашего профиля в Телеграме:</p>' +
-          '<button type="button" data-v="' + esc(TG_NAME) + '">' + esc(TG_NAME) +
-          '<small>проверьте: в учёте вы можете значиться иначе</small></button>'
-        : '';
-      el('pickB').innerHTML =
-        '<div class="nameBox">' +
-          '<input id="nameIn" type="text" autocomplete="off" autocapitalize="words" ' +
-            'placeholder="Имя и фамилия" value="' + esc(q) + '">' +
-          '<button type="button" id="nameOk">Готово</button>' +
-        '</div>' + tgBtn +
-        (f.length
-          ? '<p class="nameHint">' + (q ? 'Подходит:' : 'Или выберите себя:') + '</p>' +
-            f.slice(0, 40).map(function(x){
-              return '<button type="button" data-v="' + esc(x) + '"' +
-                     (x === ME ? ' class="mine"' : '') + '>' + esc(x) + '</button>';
-            }).join('')
-          : (q ? '<p class="nameHint">Такого имени ещё не было — ничего страшного, ' +
-                 'нажмите «Готово».</p>' : ''));
-      var inp = el('nameIn');
-      inp.oninput = function(){ var v = this.value, p = this.selectionStart;
-        draw(v); var i2 = el('nameIn'); i2.focus(); try{ i2.setSelectionRange(p, p); }catch(e){} };
-      inp.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); take(this.value); } };
-      el('nameOk').onclick = function(){ take(el('nameIn').value); };
-    }
-    draw(ME);
-    el('pickB').scrollTop = 0;
-    PICK.pick = function(v){ take(v); };
+  function rowsOf(br){
+    return ROWS.filter(function(r){ return r.day === DAY && numOf(r.branch) === numOf(br); });
   }
-
-  function askWhere(br, items){
-    var here = shopTitle(br);
-    var list = [{ v: br, t: 'Заберу здесь', s: here, mine: true }];
-    SHOPS.forEach(function(s){
-      if (numOf(s[0]) === numOf(br)) return;
-      list.push({ v: s[0] + ' ' + s[1], t: 'Привезти в ' + s[0] + ' ' + s[1], s: s[2] });
+  /* Сколько уже забронировали другие. Имён не показываем: сотруднику нужно
+     знать, сколько осталось, а не кто взял. */
+  function takenOf(br, dish){
+    var t = 0;
+    BOOKS.forEach(function(b){
+      if (b.day !== DAY || numOf(b.branch) !== numOf(br) || b.dish !== dish) return;
+      if (nrm(b.who) === nrm(ME)) return;       // своё старое — не чужое
+      t += (+b.qty || 0);
     });
-    sheetShow('Где заберёте?', ME + ' · ' + here,
-      list, function(){ askWho(br, items); });
-    PICK.pick = function(v){
-      /* Забираю здесь — везти некуда, про рейс спрашивать незачем. */
-      if (numOf(v) === numOf(br) || !TRIPS.length) return send(br, items, v, '');
-      askTrip(br, items, v);
+    return t;
+  }
+  function leftOf(br, dish, have){ return Math.max(0, have - takenOf(br, dish)); }
+  function cartCount(){
+    var pos = 0, qty = 0;
+    Object.keys(CART).forEach(function(k){ if (CART[k] > 0){ pos++; qty += CART[k]; } });
+    return { pos: pos, qty: qty };
+  }
+  function cartItems(){
+    return Object.keys(CART).filter(function(k){ return CART[k] > 0; })
+      .sort().map(function(k){ return { dish: k, qty: CART[k] }; });
+  }
+
+  /* ─── экран 1: филиалы ─── */
+  function drawShops(){
+    var q = nrm(Q);
+    var body = SHOPS.map(function(s){
+      var br = s[0] + ' ' + s[1];
+      var rs = ROWS.filter(function(r){ return r.day === DAY && numOf(r.branch) === numOf(s[0]); });
+      var hit = q ? rs.filter(function(r){ return nrm(r.dish).indexOf(q) >= 0; }) : rs;
+      if (q && !hit.length) return '';
+      var n = hit.length;
+      var sub = !rs.length ? 'список ещё не прислали'
+              : q ? (n + ' ' + plural(n, 'совпадение', 'совпадения', 'совпадений'))
+              : (n + ' ' + plural(n, 'позиция', 'позиции', 'позиций'));
+      return '<button class="row tap' + (rs.length ? '' : ' off') + '" type="button" ' +
+             'data-shop="' + esc(br) + '"' + (rs.length ? '' : ' disabled') + '>' +
+        '<div class="txt"><div class="nm">' + esc(br) + '</div>' +
+        '<div class="sub">' + esc(sub) + (rs.length ? ' · ' + esc(s[2]) : '') + '</div></div>' +
+        (rs.length ? '<div class="go">›</div>' : '') + '</button>';
+    }).join('');
+
+    el('app').innerHTML =
+      '<input class="find" id="q" type="text" placeholder="Поиск продукции" ' +
+        'autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(Q) + '">' +
+      (body ? '<div class="list">' + body + '</div>'
+            : '<div class="note">Ничего не нашлось. Попробуйте другое слово ' +
+              'или очистите поиск.</div>');
+    el('bar').hidden = true;
+    bindSearch();
+  }
+
+  /* ─── экран 2: продукция филиала ─── */
+  function drawItems(){
+    var rs = rowsOf(BR), q = nrm(Q);
+    var cats = {};
+    rs.forEach(function(r){ cats[r.cat || 'Прочее'] = 1; });
+    var catList = Object.keys(cats).sort();
+
+    var vis = rs.filter(function(r){
+      if (CAT && (r.cat || 'Прочее') !== CAT) return false;
+      return !q || nrm(r.dish).indexOf(q) >= 0;
+    });
+    /* Кончившееся не прячем и не делаем полупрозрачным — просто уводим вниз:
+       выцветший текст на телефоне не читается, а знать, что позиция была, полезно. */
+    var live = [], out = [];
+    vis.forEach(function(r){
+      (leftOf(BR, r.dish, +r.qty || 0) > 0 ? live : out).push(r);
+    });
+    var byName = function(a, b){ return a.dish < b.dish ? -1 : 1; };
+    live.sort(byName); out.sort(byName);
+
+    function row(r, dead){
+      var have = +r.qty || 0, left = leftOf(BR, r.dish, have), mine = CART[r.dish] || 0;
+      if (dead) return '<div class="row off"><div class="txt">' +
+        '<div class="nm">' + esc(r.dish) + '</div>' +
+        '<div class="sub">Нет в наличии</div></div></div>';
+      return '<div class="row' + (mine ? ' has' : '') + '">' +
+        '<div class="txt"><div class="nm">' + esc(r.dish) + '</div>' +
+        '<div class="sub">Осталось ' + fmtQ(left) + '</div></div>' +
+        '<div class="st">' +
+          '<button type="button" data-m="' + esc(r.dish) + '"' + (mine ? '' : ' disabled') + '>−</button>' +
+          '<span class="n' + (mine ? '' : ' zero') + '">' + fmtQ(mine) + '</span>' +
+          '<button type="button" data-p="' + esc(r.dish) + '"' +
+            (mine >= left ? ' disabled' : '') + '>+</button>' +
+        '</div></div>';
+    }
+
+    el('app').innerHTML =
+      '<input class="find" id="q" type="text" placeholder="Поиск по названию" ' +
+        'autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(Q) + '">' +
+      (catList.length > 1
+        ? '<div class="chips" id="chips">' +
+          '<button type="button" class="' + (CAT ? '' : 'on') + '" data-c="">все</button>' +
+          catList.map(function(c){
+            return '<button type="button" class="' + (CAT === c ? 'on' : '') +
+                   '" data-c="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') +
+          '</div>'
+        : '') +
+      (live.length || out.length
+        ? '<div class="list">' + live.map(function(r){ return row(r, false); }).join('') +
+          out.map(function(r){ return row(r, true); }).join('') + '</div>'
+        : '<div class="note">В этой категории ничего нет.</div>');
+    bindSearch();
+    drawBar();
+  }
+
+  /* ─── нижняя панель ─── */
+  function drawBar(){
+    var c = cartCount();
+    if (VIEW !== 'items'){ el('bar').hidden = true; return; }
+    el('bar').hidden = false;
+    el('barTxt').innerHTML = c.pos
+      ? '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + '</b>' +
+        fmtQ(c.qty) + ' ' + plural(c.qty, 'штука', 'штуки', 'штук')
+      : '<b>Выберите продукцию</b>нажимайте + у нужных позиций';
+    el('barBtn').textContent = 'Продолжить';
+    el('barBtn').disabled = !c.pos;
+  }
+
+  /* ─── экран 3: оформление ─── */
+  function drawCart(){
+    var items = cartItems();
+    var c = cartCount();
+    var here = DEST && numOf(DEST) === numOf(BR);
+    el('app').innerHTML =
+      '<div class="card"><h2>Забираю</h2>' +
+        '<div class="sub" style="color:var(--mut);font-size:14px;margin-bottom:8px">' +
+          esc(shopTitle(BR)) + '</div>' +
+        items.map(function(i){
+          return '<div class="row" style="padding:10px 0;border-top:1px solid var(--line)">' +
+            '<div class="txt"><div class="nm">' + esc(i.dish) + '</div></div>' +
+            '<div style="font-weight:700">' + fmtQ(i.qty) + ' шт</div></div>';
+        }).join('') +
+      '</div>' +
+
+      '<div class="card"><h2>Кто берёт</h2>' +
+        '<label class="lbl" for="me">Имя и фамилия — как в учёте</label>' +
+        '<input type="text" id="me" autocomplete="off" autocapitalize="words" ' +
+          'placeholder="Например: Айгүл Сәрсенова" value="' + esc(ME) + '">' +
+        (STAFF.length || TG_NAME
+          ? '<p class="mini"><button type="button" id="pickMe" ' +
+            'style="background:none;border:0;padding:0;color:var(--ok);' +
+            'text-decoration:underline;font-size:15px">Выбрать из списка</button></p>'
+          : '') +
+      '</div>' +
+
+      '<div class="card"><h2>Где заберёте</h2>' +
+        '<button type="button" class="pickBtn' + (DEST ? '' : ' empty') + '" id="pickDest">' +
+          '<span>' + esc(DEST ? (here ? 'Заберу здесь · ' + shopTitle(BR) : shopTitle(DEST))
+                             : 'Выберите точку получения') + '</span><span class="go">›</span>' +
+        '</button>' +
+        (DEST && !here && TRIPS.length
+          ? '<p class="mini">Каким рейсом везти</p>' +
+            '<button type="button" class="pickBtn' + (TRIP ? '' : ' empty') + '" id="pickTrip">' +
+              '<span>' + esc(TRIP || 'Выберите рейс') + '</span><span class="go">›</span>' +
+            '</button>'
+          : '') +
+      '</div>' +
+
+      '<div class="card"><div class="tot"><span>Итого</span>' +
+        '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') +
+        ' · ' + fmtQ(c.qty) + ' шт</b></div></div>';
+
+    el('bar').hidden = false;
+    /* В панели держим короткую строку: длинная переносится в три ряда и
+       выдавливает кнопку к краю экрана. */
+    el('barTxt').innerHTML = '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>проверьте и подтвердите';
+    el('barBtn').textContent = 'Подтвердить';
+    el('barBtn').disabled = false;
+
+    el('me').oninput = function(){ ME = this.value; };
+    if (el('pickMe')) el('pickMe').onclick = askWho;
+    el('pickDest').onclick = askWhere;
+    if (el('pickTrip')) el('pickTrip').onclick = askTrip;
+  }
+
+  /* ─── экран 4: готово ─── */
+  function drawDone(){
+    var r = RES || {};
+    el('app').innerHTML =
+      '<div class="done"><h2>Бронь оформлена ✓</h2>' +
+        (r.num ? '<div class="num">№' + esc(r.num) + '</div>' : '') +
+        '<p>' + esc(r.who) + '</p>' +
+        '<p>Получение: <b>' + esc(r.destTitle) + '</b>' + (r.trip ? ', ' + esc(r.trip) : '') + '</p>' +
+        '<p>Дата: ' + esc(human(r.day)) + '</p>' +
+        '<p>Позиций: ' + r.pos + ' · ' + fmtQ(r.qty) + ' шт</p>' +
+        '<p class="mini" style="margin-top:10px">' +
+          (r.told ? 'Филиал получил уведомление.' : 'Филиал увидит бронь на своём экране.') +
+        '</p>' +
+      '</div>';
+    el('bar').hidden = false;
+    el('barTxt').innerHTML = '<b>Готово</b>можно взять ещё';
+    el('barBtn').textContent = 'К филиалам';
+    el('barBtn').disabled = false;
+  }
+
+  /* ─── переходы ─── */
+  function go(v){
+    VIEW = v;
+    /* CSS прячет стрелку по умолчанию, поэтому показывать надо явно:
+       пустая строка вернула бы правило из стилей, то есть снова none. */
+    el('back').style.display = (v === 'shops') ? 'none' : 'block';
+    el('ttl').textContent =
+      v === 'shops' ? 'Что уходит со скидкой' :
+      v === 'items' ? shopTitle(BR) :
+      v === 'cart'  ? 'Оформление брони' : 'Готово';
+    el('sub').textContent =
+      v === 'items' ? (shopAddr(BR) || human(DAY)) :
+      DAY ? human(DAY) : '';
+    window.scrollTo(0, 0);
+    if (v === 'shops') drawShops();
+    else if (v === 'items') drawItems();
+    else if (v === 'cart') drawCart();
+    else drawDone();
+  }
+
+  function bindSearch(){
+    var i = el('q'); if (!i) return;
+    i.oninput = function(){
+      var p = this.selectionStart; Q = this.value;
+      if (VIEW === 'shops') drawShops(); else drawItems();
+      var j = el('q'); if (j){ j.focus(); try{ j.setSelectionRange(p, p); }catch(e){} }
     };
   }
 
-  /* Третий вопрос только для тех, кому везут: филиалу утром нужно знать не
-     только куда, но и чем — он грузит машины, а не читает таблицу. */
-  function askTrip(br, items, dest){
-    sheetShow('Каким рейсом везти?', ME + ' → ' + dest,
-      TRIPS.map(function(t){ return { v: t, t: t }; }),
-      function(){ askWhere(br, items); });
-    PICK.pick = function(v){ send(br, items, dest, v); };
+  el('back').onclick = function(){
+    if (VIEW === 'items'){ Q = ''; CAT = ''; go('shops'); }
+    else if (VIEW === 'cart') go('items');
+    else go('shops');
+  };
+  el('upd').onclick = function(){ load(); };
+  el('barBtn').onclick = function(){
+    if (VIEW === 'items'){
+      if (!DEST) DEST = BR;
+      go('cart');
+    }
+    else if (VIEW === 'cart') send();
+    else { CART = {}; BR = ''; Q = ''; CAT = ''; DEST = ''; TRIP = ''; load(); }
+  };
+
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    var shop = t.closest && t.closest('[data-shop]');
+    if (shop){ BR = shop.getAttribute('data-shop'); CART = {}; CAT = ''; Q = '';
+               DEST = ''; TRIP = ''; go('items'); return; }
+    var chip = t.closest && t.closest('[data-c]');
+    if (chip && VIEW === 'items'){ CAT = chip.getAttribute('data-c'); drawItems(); return; }
+    var plus = t.closest && t.closest('[data-p]');
+    if (plus){ step(plus.getAttribute('data-p'), +1); return; }
+    var minus = t.closest && t.closest('[data-m]');
+    if (minus){ step(minus.getAttribute('data-m'), -1); return; }
+  }, false);
+
+  function step(dish, d){
+    var r = rowsOf(BR).filter(function(x){ return x.dish === dish; })[0];
+    if (!r) return;
+    var left = leftOf(BR, dish, +r.qty || 0);
+    var cur = CART[dish] || 0, next = Math.min(left, Math.max(0, cur + d));
+    if (next) CART[dish] = next; else delete CART[dish];
+    drawItems();
   }
 
-  function send(br, items, dest, trip){
-    el('out').insertAdjacentHTML('afterbegin',
-      '<div class="note" id="sending">Отправляю бронь…</div>');
+  /* ─── всплывающий выбор ─── */
+  var PICK = null;
+  function sheet(title, items, pick){
+    PICK = pick;
+    el('pickT').textContent = title;
+    el('pickB').innerHTML = items.map(function(it){
+      return '<button type="button" data-v="' + esc(it.v) + '">' + esc(it.t) +
+             (it.s ? '<small>' + esc(it.s) + '</small>' : '') + '</button>';
+    }).join('');
+    el('pick').hidden = false;
+    el('pickB').scrollTop = 0;
+  }
+  el('pickX').onclick = function(){ el('pick').hidden = true; PICK = null; };
+  el('pickB').addEventListener('click', function(e){
+    var b = e.target.closest('button[data-v]'); if (!b || !PICK) return;
+    var f = PICK; el('pick').hidden = true; PICK = null;
+    f(b.getAttribute('data-v'));
+  });
+
+  /* Имя из профиля Телеграма — подсказка, а не подпись: там может стоять
+     название компании, и подставленное в поле имя люди подтверждают не глядя. */
+  function askWho(){
+    var list = STAFF.map(function(n){ return { v: n, t: n }; });
+    /* Профильное имя — последним. Первая строка в списке нажимается не глядя, а
+       в профиле Телеграма может стоять что угодно: однажды так в бронь ушло
+       название компании вместо человека. */
+    if (TG_NAME && !STAFF.some(function(x){ return nrm(x) === nrm(TG_NAME); }))
+      list.push({ v: TG_NAME, t: TG_NAME, s: 'из вашего профиля в Телеграме — проверьте' });
+    if (!list.length) return;
+    sheet('Кто берёт?', list, function(v){ ME = v; drawCart(); });
+  }
+  function askWhere(){
+    var list = [{ v: BR, t: 'Заберу здесь', s: shopTitle(BR) }];
+    SHOPS.forEach(function(s){
+      if (numOf(s[0]) === numOf(BR)) return;
+      list.push({ v: s[0] + ' ' + s[1], t: 'Привезти в ' + s[0] + ' ' + s[1], s: s[2] });
+    });
+    sheet('Где заберёте?', list, function(v){
+      DEST = v;
+      if (numOf(v) === numOf(BR)) TRIP = '';
+      drawCart();
+    });
+  }
+  function askTrip(){
+    sheet('Каким рейсом везти?', TRIPS.map(function(t){ return { v: t, t: t }; }),
+      function(v){ TRIP = v; drawCart(); });
+  }
+
+  /* ─── отправка ─── */
+  function send(){
+    var items = cartItems();
+    if (!items.length) return;
+    ME = String(ME || '').replace(/\s+/g, ' ').trim();
+    if (!ME){ alert('Напишите, кто берёт.'); var m = el('me'); if (m) m.focus(); return; }
+    if (!DEST) DEST = BR;
+    var here = numOf(DEST) === numOf(BR);
+    if (!here && TRIPS.length && !TRIP){ askTrip(); return; }
+
+    try{ localStorage.setItem(MEKEY, ME); }catch(e){}
+    var btn = el('barBtn');
+    btn.disabled = true; btn.textContent = 'Отправляю…';
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: br,
-                             who: ME, dest: dest, trip: trip || '', items: items })
+      body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
+                             who: ME, dest: DEST, trip: here ? '' : TRIP, items: items })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
-      Object.keys(CART).forEach(function(k){ if (k.indexOf(br + '|') === 0) delete CART[k]; });
-      var msg = j.saved
-        /* Имя в подтверждении — не украшение. Если человек ошибся на первом
-           экране, он должен увидеть это сразу, а не через сутки в таблице. */
-        ? '<div class="done"><b>Отложили ' + j.saved + ' позиций</b>' +
-          esc(ME) + '<br>' + shopTitle(br) + ' → ' + esc(dest) +
-          (trip ? ', ' + esc(trip) : '') + ', на ' + human(DAY) + '.<br>' +
-          'Не вы? Нажмите «Обновить список» и забронируйте заново.</div>'
-        : '<div class="done"><b>Бронь снята</b>Ничего откладывать не будем.</div>';
-      load(msg);
+      var c = cartCount();
+      RES = { num: j.num || '', who: ME, day: DAY, told: j.told,
+              destTitle: here ? shopTitle(BR) : shopTitle(DEST),
+              trip: here ? '' : TRIP, pos: c.pos, qty: c.qty };
+      CART = {};
+      go('done');
+      load(true);            // тихо обновляем остатки под новым состоянием
     }).catch(function(e){
-      var s = el('sending'); if (s) s.outerHTML =
+      btn.disabled = false; btn.textContent = 'Подтвердить бронь';
+      el('app').insertAdjacentHTML('afterbegin',
         '<div class="note"><b>Бронь не ушла.</b><br>' + esc(e.message) +
-        '<br><br>Проверьте интернет и нажмите ещё раз.</div>';
+        '<br>Проверьте интернет и нажмите ещё раз.</div>');
+      window.scrollTo(0, 0);
+    });
+  }
+
+  /* ─── загрузка ─── */
+  function ask(from, to){
+    return fetch(API, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'board', key: KEY, from: from, to: to })
+    }).then(function(r){ return r.text(); }).then(function(t){
+      var j = null; try{ j = JSON.parse(t); }catch(e){}
+      if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
+      return j;
     });
   }
 
   function fail(msg){
-    el('when').textContent = 'не получилось';
-    el('out').innerHTML = '<div class="note"><b>Список не загрузился.</b><br>' +
-      esc(msg) + '<br><br>Проверьте интернет и нажмите «Обновить список».</div>';
-    el('foot').textContent = '';
+    el('sub').textContent = 'не получилось';
+    el('app').innerHTML = '<div class="note"><b>Список не загрузился.</b><br>' +
+      esc(msg) + '<br><br>Проверьте интернет и нажмите ⟳ наверху.</div>';
+    el('bar').hidden = true;
   }
 
-  function load(note){
+  function load(quiet){
     var b = el('upd');
-    b.disabled = true; b.textContent = 'Загружаю…';
+    b.disabled = true;
     if (!KEY){
       fail('Откройте ссылку, которую прислала бухгалтерия, — в ней ключ.');
-      b.disabled = false; b.textContent = 'Обновить список';
-      return;
+      b.disabled = false; return;
     }
-    var now = new Date();
-    var today = iso(now);
+    var now = new Date(), today = iso(now);
     var tm = new Date(now.getTime()); tm.setDate(tm.getDate() + 1);
     var tomorrow = iso(tm);
-
-    /* Просим сразу два дня. Завтрашние списки филиалы присылают вечером, и
-       днём их ещё нет — тогда показываем сегодняшний, а не пустой экран.
-       Что именно показано, написано крупно под заголовком. */
+    /* Просим сразу два дня. Завтрашние списки филиалы присылают вечером, и днём
+       их ещё нет — тогда показываем сегодняшний, а не пустой экран. */
     ask(today, tomorrow).then(function(res){
       var rows = res.rows || [];
       BOOKS = res.books || [];
-      /* Имена — это подсказка, а не пропуск. Человек пишет себя сам, а список
-         нужен, чтобы со второго раза не набирать и чтобы «Асель» и «Әсел» не
-         разъехались в двух разных людей. Поэтому имя, которого нет в списке,
-         больше не стирается: новый сотрудник должен уметь забронировать
-         в первый же день. */
       STAFF = res.staff || [];
       TRIPS = res.trips || [];
       var t = rows.filter(function(r){ return r.day === tomorrow; });
-      if (t.length) render(tomorrow, t);
-      else render(today, rows.filter(function(r){ return r.day === today; }));
-      if (note) el('out').insertAdjacentHTML('afterbegin', note);
-      b.disabled = false; b.textContent = 'Обновить список';
+      DAY = t.length ? tomorrow : today;
+      ROWS = rows;
+      b.disabled = false;
+      if (quiet){ if (VIEW === 'items') drawItems(); return; }
+      go(BR && rowsOf(BR).length ? 'items' : 'shops');
     }).catch(function(e){
-      fail(e.message || String(e));
-      b.disabled = false; b.textContent = 'Обновить список';
+      b.disabled = false;
+      if (!quiet) fail(e.message || String(e));
     });
   }
 
-  el('upd').onclick = function(){ load(); };
   load();
-  // экран могли оставить включённым — освежаем сами, но редко
-  setInterval(function(){ if (!document.hidden) load(); }, 15 * 60 * 1000);
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
 })();
 </script>
 </body>
