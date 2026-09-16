@@ -280,6 +280,24 @@
   .msg.ok{background:var(--okBg);color:var(--okT);border-color:var(--okB);display:block}
   .msg.err{background:var(--badBg);color:var(--badT);border-color:var(--badB);display:block}
   .msg.wait{background:var(--naBg);color:var(--naT);border-color:var(--naB);display:block}
+  /* Кнопка «Отправить в WhatsApp» — крупная и зелёная: на неё жмут с телефона,
+     часто одной рукой и на ходу. */
+  /* Окно «ссылка для другого филиала». Полноэкранное и с крупными кнопками:
+     его читают с телефона, часто второпях, и цена ошибки — чужая заявка. */
+  .ovl{position:fixed;inset:0;background:rgba(15,23,42,.72);z-index:99;
+    display:flex;align-items:center;justify-content:center;padding:18px}
+  .ovlCard{background:var(--card);border:1px solid var(--bd);border-radius:14px;
+    max-width:460px;width:100%;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .ovlCard h3{margin:0 0 10px;font-size:17px}
+  .ovlCard p{margin:0 0 10px;font-size:14px;line-height:1.5}
+  .ovlWh{display:block;font-size:16px;font-weight:600;margin:2px 0 10px}
+  .ovlBtn{display:block;width:100%;margin-top:9px;padding:13px 16px;border-radius:10px;
+    border:1px solid var(--bd);background:var(--card);color:var(--txt);
+    font-size:15px;font-weight:600;cursor:pointer}
+  .ovlBtn.pri{background:#16a34a;border-color:#16a34a;color:#fff}
+  .waBtn{display:inline-block;margin-top:9px;padding:11px 16px;border-radius:9px;
+    background:#25D366;color:#08301b;font-size:14px;font-weight:600;text-decoration:none}
+  .waBtn:hover{background:#1eb757}
 
   .st{font-size:12.5px;line-height:1.85;color:var(--txt)}
   .st b{color:var(--txt);font-weight:600}
@@ -549,6 +567,7 @@
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
       <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
+      <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
@@ -889,6 +908,23 @@
       </section>
 
       <!-- ─── История ──────────────────────────────────── -->
+      <!-- ─── Что должно истечь ────────────────────────── -->
+      <section class="page wide" id="pg-exp">
+        <div class="card noprint">
+          <h2>Что должно было истечь — и что филиал заявил</h2>
+          <p class="lead">Расчёт по учёту: когда партия пришла, сколько с неё продали,
+            сколько дней она живёт на витрине. Рядом — что филиал прислал сам.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 240px"><label class="lbl">Филиал</label>
+              <select id="eWh"></select></div>
+            <div><label class="lbl">Дата уценки</label><input type="date" id="eDay"></div>
+            <button class="sec" id="eXlsx">Выгрузить в файл</button>
+          </div>
+          <div class="msg" id="m9"></div>
+        </div>
+        <div id="outE"></div>
+      </section>
+
       <section class="page wide" id="pg-hist">
         <div class="card noprint">
           <h2>Каждая сборка отчёта записывается сюда</h2>
@@ -1885,6 +1921,142 @@ function tortPositions(){
 var REPORT = null;
 var LIST_ROWS = [];   // строки «Списка филиала» в том порядке, в каком они на экране
 
+/* ═════════ что истекает завтра ═════════
+ *
+ * Филиал каждый вечер набирает список руками — и что-то забывает. Но всё, что
+ * нужно, уже есть в учёте: когда партия пришла, сколько с неё продали и сколько
+ * дней она живёт на витрине. Значит остаток партии, у которой завтра последний
+ * день, можно посчитать, а не вспоминать.
+ *
+ * Считаем ФИФО по дням: приход заводит партию, расход съедает самую старую из
+ * ещё живых. Партия, у которой последний день на витрине приходится на день
+ * уценки, — это и есть «завтра истекает».
+ *
+ * Чего расчёт не умеет и умалчивать об этом нельзя:
+ *   • Выпечка со сроком 24 ч. День прихода такой партии совпадает с днём
+ *     уценки — то есть приход ещё не случился, и знать неоткуда.
+ *   • Заморозка (торты с Таугуля, бөрек, самса). Срок идёт от разморозки, а её
+ *     время в учёте не фиксируется вовсе.
+ *   • Пицца. Её собирают в филиале, прихода готовой пиццы не бывает.
+ * Такие позиции расчёт возвращает отдельным списком, а не молча пропускает:
+ * «я не знаю» и «ничего не истекает» — разные ответы.
+ */
+var EXP_IN  = { prihod_gp:1, prihod_tort:1, prihod_other:1, prigotovlenie:1, inv_in:1 };
+var EXP_OUT = { realiz:1, spisanie:1, vozvrat_srok:1, vozvrat_kach:1, perem_50:1,
+                perem_dost:1, ap_rashod:1, inv_out:1 };
+
+var _expM = {}, _expSig = '';
+function expMov(wh){
+  var sig = DB.mov.length + '/' + (DB.mov.length ? S(DB.mov[DB.mov.length-1][0]) : '');
+  if (_expSig !== sig){ _expM = {}; _expSig = sig; }
+  if (_expM[wh]) return _expM[wh];
+  var A = { __last: '', __first: '' };
+  DB.mov.forEach(function(r){
+    if (r[1] !== wh) return;
+    var i = EXP_IN[r[3]], o = EXP_OUT[r[3]];
+    if (!i && !o) return;
+    /* Кусочек торта — это 1/8 целого: и приход, и расход сводим к целым,
+       иначе партия целых тортов и продажи кусочками не встретятся. */
+    var b = baseOf(nrm(r[2])), q = N(r[4]) * b.f;
+    if (!(q > 0)) return;
+    var key = b.k + '|' + r[0], a = A[key] || (A[key] = { i:0, o:0 });
+    if (i) a.i += q; else a.o += q;
+    if (!A.__last || r[0] > A.__last) A.__last = r[0];
+    if (!A.__first || r[0] < A.__first) A.__first = r[0];
+  });
+  return (_expM[wh] = A);
+}
+
+function srokDays(k){
+  var s = SPR[k] && SPR[k].srok;
+  return s ? Math.max(1, Math.round(s / 24)) : 0;
+}
+
+/* Партия k, пришедшая в день d, живёт на витрине до дня d + срок − 1:
+   день прихода считается первым. Обратный ход — когда должна была прийти
+   партия, у которой последний день именно T. */
+function expLastDay(d, dd){ return shift(d, dd - 1); }
+
+function expiring(wh, T){
+  var A = expMov(wh), last = A.__last;
+  var rows = [], blind = [];
+  if (!last) return { rows: rows, blind: blind, last: last };
+  var TORT = tortPositions();
+
+  Object.keys(SPR).forEach(function(k){
+    if (isKus[k]) return;                       // кусочки живут внутри целого
+    var sp = SPR[k], dd = srokDays(k);
+    if (!dd || sp.skidka === 'Нет') return;
+    var why = '';
+    if (isPizza(sp.name))                       why = 'пиццу пекут на месте';
+    else if (TORT[k] || frozenByName(sp.name))  why = 'заморозка — срок идёт от разморозки';
+    else if (shift(T, -(dd - 1)) > last)        why = 'прихода ещё не было';
+    if (why){ blind.push({ k:k, name:sp.name, kat:sp.kat, why:why }); return; }
+
+    /* Берём запас в две прежние партии: без них расход первых дней окна съел бы
+       ту партию, которая нас интересует, и остаток вышел бы заниженным. */
+    var d = shift(T, -(dd * 3)), lots = [];
+    while (d < T){
+      var a = A[k + '|' + d];
+      if (a && a.i > 0) lots.push({ d:d, q:a.i });
+      // то, что не продали до конца срока, ушло в списание — на витрине его нет
+      lots = lots.filter(function(L){ return expLastDay(L.d, dd) >= d; });
+      var need = a ? a.o : 0;
+      for (var i = 0; i < lots.length && need > 1e-9; i++){
+        var t = Math.min(lots[i].q, need); lots[i].q -= t; need -= t;
+      }
+      if (d >= last) break;                     // дальше движений просто нет
+      d = shift(d, 1);
+    }
+    var q = 0;
+    lots.forEach(function(L){ if (expLastDay(L.d, dd) === T) q += L.q; });
+    q = Math.round(q * 1000) / 1000;
+    if (q > 1e-9) rows.push({ k:k, name:sp.name, kat:sp.kat, qty:q,
+                              prihod: shift(T, -(dd - 1)), srok: sp.srok });
+  });
+
+  rows.sort(function(a, b){ return a.kat < b.kat ? -1 : a.kat > b.kat ? 1
+                                 : (a.name < b.name ? -1 : 1); });
+  return { rows: rows, blind: blind, last: last };
+}
+
+/* Сверка расчёта с тем, что филиал прислал. Три вида расхождений, и путать их
+   нельзя: «пропустили» — повод разобраться, «лишнее» — чаще всего законно
+   (брак, бой, витрина), «разошлось» — вопрос к количеству, а не к позиции. */
+function expCheck(wh, T){
+  var e = expiring(wh, T), byK = {};
+  e.rows.forEach(function(r){ byK[r.k] = r; });
+
+  var list = {}, noQty = {};
+  DB.list.forEach(function(r){
+    if (r[1] !== wh || r[0] !== T) return;
+    var t = nrm(r[4] || r[2]); if (!t) return;
+    var b = baseOf(t), key = b.k;
+    if (S(r[3]) === ''){ noQty[key] = 1; if (list[key] === undefined) list[key] = 0; }
+    else list[key] = (list[key] || 0) + N(r[3]) * b.f;
+  });
+
+  var miss = [], extra = [], diff = [], ok = [];
+  Object.keys(byK).forEach(function(k){
+    var r = byK[k];
+    if (list[k] === undefined){ miss.push(r); return; }
+    if (noQty[k]){ ok.push(r); return; }        // количество не указано — сравнивать нечего
+    var c = list[k];
+    if (Math.abs(c - r.qty) < 0.5) ok.push(r);
+    else diff.push({ k:k, name:r.name, kat:r.kat, qty:r.qty, said:c });
+  });
+  Object.keys(list).forEach(function(k){
+    if (byK[k]) return;
+    var sp = SPR[k];
+    extra.push({ k:k, name:(sp && sp.name) || k, kat:(sp && sp.kat) || '',
+                 said: noQty[k] ? '' : list[k] });
+  });
+  var byName = function(a, b){ return a.name < b.name ? -1 : 1; };
+  miss.sort(byName); extra.sort(byName); diff.sort(byName);
+  return { wh: wh, day: T, miss: miss, extra: extra, diff: diff, ok: ok,
+           blind: e.blind, last: e.last };
+}
+
 function build(wh, dFrom, dTo){
   var mov = {}, movD = {}, rawName = {}, hasGp = {}, hasTt = {};
   DB.mov.forEach(function(r){
@@ -2763,6 +2935,159 @@ $('btnXlsx').onclick = function(){
   a.style.display = 'none';
   document.body.appendChild(a); a.click();
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+};
+
+/* ═════════ экран «что должно истечь» ═════════ */
+
+var EXP_RES = null;
+
+function expFill(){
+  var sel = $('eWh'), cur = sel.value, ws = branches();
+  sel.innerHTML = '<option value="">все филиалы</option>' + ws.map(function(w){
+    return '<option value="' + esc(w) + '"' + (w === cur ? ' selected' : '') + '>' +
+           esc(w) + '</option>'; }).join('');
+  if (!$('eDay').value){
+    /* По умолчанию — завтрашний день уценки: именно его филиал набирает сегодня.
+       Но если движения кончились раньше, показываем последний посильный день,
+       иначе экран честно, но бесполезно скажет «прихода ещё не было». */
+    var mx = minMaxDay(DB.mov)[1];
+    var t = shiftDay(isoToday(), 1);
+    $('eDay').value = (mx && t > mx) ? mx : t;
+  }
+}
+
+function expRun(){
+  if (!DB.mov.length) return msg('m9','Сначала загрузите выгрузки iiko — без движений считать нечего.','err');
+  var T = D($('eDay').value);
+  if (!T) return msg('m9','Укажите дату уценки.','err');
+  var one = $('eWh').value, ws = one ? [one] : branches();
+  var all = { day: T, miss: [], extra: [], diff: [], ok: 0, blind: {}, last: '' };
+  ws.forEach(function(wh){
+    var c = expCheck(wh, T);
+    all.last = c.last;
+    var blind = {};
+    c.blind.forEach(function(x){
+      blind[x.k] = x.why;
+      all.blind[x.why] = (all.blind[x.why] || 0) + 1;
+    });
+    c.miss.forEach(function(x){ all.miss.push({ wh:wh, name:x.name, kat:x.kat,
+                                                qty:x.qty, prihod:x.prihod }); });
+    c.diff.forEach(function(x){ all.diff.push({ wh:wh, name:x.name, kat:x.kat,
+                                                qty:x.qty, said:x.said }); });
+    c.extra.forEach(function(x){ all.extra.push({ wh:wh, name:x.name, kat:x.kat,
+                                                  said:x.said, why:blind[x.k] || '' }); });
+    all.ok += c.ok.length;
+  });
+  var byWh = function(a, b){ return a.wh < b.wh ? -1 : a.wh > b.wh ? 1
+                                  : (a.name < b.name ? -1 : 1); };
+  all.miss.sort(byWh); all.extra.sort(byWh); all.diff.sort(byWh);
+  all.one = !!one;
+  /* Последний день выгрузки всегда неполный: акты реализации за него ещё
+     закрываются, и расход выглядит меньше, чем был. Остаток от этого завышается,
+     и «филиал не заявил» раздувается на ровном месте. Молчать об этом нельзя. */
+  all.raw = !!(all.last && all.day >= all.last);
+  EXP_RES = all;
+  expDraw();
+}
+
+function expDraw(){
+  var a = EXP_RES; if (!a) return;
+  function tbl(head, rows, cls2){
+    if (!rows.length) return '';
+    return '<div class="wrapT"><table><thead><tr>' +
+      head.map(function(h){ return '<th>' + esc(h) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows.map(function(r){
+        return '<tr>' + r.map(function(v, i){
+          return '<td' + (i === 0 ? ' class="name"' : '') + '>' + esc(S(v)) + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  function card(title, lead, body, n){
+    return '<div class="card"><h2>' + esc(title) + ' <span class="cnt">' + n + '</span></h2>' +
+           '<p class="lead">' + lead + '</p>' + body + '</div>';
+  }
+  var blindTxt = Object.keys(a.blind).map(function(w){
+    return esc(w) + ' — ' + a.blind[w]; }).join(' · ');
+  /* В разрезе одного филиала колонка «Филиал» повторяет сама себя в каждой
+     строке — на телефоне это половина ширины экрана впустую. */
+  function cut(head, rows){
+    return a.one ? [head.slice(1), rows.map(function(r){ return r.slice(1); })]
+                 : [head, rows];
+  }
+  function tbl2(head, rows){ var c = cut(head, rows); return tbl(c[0], c[1]); }
+
+  var warn = a.raw
+    ? '<div class="msg err" style="display:block">Выбран последний день выгрузки (' +
+      ru(a.last) + '). Акты реализации за него ещё закрываются, поэтому расход ' +
+      'выглядит меньше настоящего, а остаток — больше. Колонка «филиал не заявил» ' +
+      'здесь завышена: возьмите день-другой назад.</div>'
+    : '';
+
+  var html = warn +
+    '<div class="kpi">' +
+      '<div><span>Совпало</span><b>' + a.ok + '</b></div>' +
+      '<div><span>Расчёт есть, заявки нет</span><b>' + a.miss.length + '</b></div>' +
+      '<div><span>Заявка есть, расчёта нет</span><b>' + a.extra.length + '</b></div>' +
+      '<div><span>Разошлось количество</span><b>' + a.diff.length + '</b></div>' +
+    '</div>' +
+
+    card('Расчёт говорит, что остаток есть — а филиал не заявил',
+      'Повод посмотреть: либо позицию забыли внести, либо она ушла мимо учёта. ' +
+      'Проверено на сентябре: примерно в шести случаях из десяти филиал действительно ' +
+      'указывал такую позицию сам — то есть это подсказка, а не обвинение.',
+      tbl2(['Филиал', 'Позиция', 'Категория', 'Расчёт, шт', 'Партия пришла'],
+           a.miss.map(function(r){ return [r.wh, r.name, r.kat, r.qty, ru(r.prihod)]; })),
+      a.miss.length) +
+
+    card('Филиал заявил — а расчёт этого не нашёл',
+      'Чаще всего законно: брак, бой, витринный образец. Либо позиция в слепой зоне — ' +
+      'тогда причина написана прямо в строке.',
+      tbl2(['Филиал', 'Позиция', 'Категория', 'Заявлено, шт', 'Почему расчёт молчит'],
+           a.extra.map(function(r){ return [r.wh, r.name, r.kat, r.said,
+                                            r.why || 'остатка по учёту нет']; })),
+      a.extra.length) +
+
+    card('Позиция та же, количество разное',
+      'Вопрос к количеству, а не к позиции. Маленькая разница — обычное дело: ' +
+      'что-то доели, что-то долежало.',
+      tbl2(['Филиал', 'Позиция', 'Расчёт, шт', 'Заявлено, шт', 'Разница'],
+           a.diff.map(function(r){ return [r.wh, r.name, r.qty, r.said,
+                                           Math.round((r.said - r.qty) * 100) / 100]; })),
+      a.diff.length) +
+
+    '<div class="card"><h2>Чего расчёт не видит</h2>' +
+      '<p class="lead">Это не «ничего не истекает», это «знать неоткуда». ' +
+      'Такие позиции считаются глазами, как и раньше.</p>' +
+      '<div class="st">' + (blindTxt || 'слепых зон нет') + '</div>' +
+      '<div class="hint">Движения загружены по ' + (a.last ? ru(a.last) : '—') +
+      '. Дальше этого дня расчёт честно молчит.</div>' +
+    '</div>';
+
+  $('outE').innerHTML = html;
+  msg('m9', 'Посчитано на ' + ru(a.day) + '.', 'ok');
+}
+
+$('eWh').onchange = function(){ expRun(); };
+$('eDay').onchange = function(){ expRun(); };
+$('eXlsx').onclick = function(){
+  var a = EXP_RES;
+  if (!a) return msg('m9','Сначала посчитайте.','err');
+  var blob = makeXlsx([
+    { name: 'Не заявили', head: ['Филиал','Позиция','Категория','Расчёт, шт','Партия пришла'],
+      rows: a.miss.map(function(r){ return [r.wh, r.name, r.kat, r.qty, ru(r.prihod)]; }) },
+    { name: 'Нет в расчёте', head: ['Филиал','Позиция','Категория','Заявлено, шт','Почему'],
+      rows: a.extra.map(function(r){ return [r.wh, r.name, r.kat, r.said,
+                                             r.why || 'остатка по учёту нет']; }) },
+    { name: 'Разное количество', head: ['Филиал','Позиция','Расчёт, шт','Заявлено, шт','Разница'],
+      rows: a.diff.map(function(r){ return [r.wh, r.name, r.qty, r.said,
+                                            Math.round((r.said - r.qty) * 100) / 100]; }) }
+  ]);
+  var el = document.createElement('a');
+  el.href = URL.createObjectURL(blob);
+  el.download = ('Что должно истечь ' + ru(a.day)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  el.style.display = 'none';
+  document.body.appendChild(el); el.click();
+  setTimeout(function(){ URL.revokeObjectURL(el.href); el.remove(); }, 4000);
 };
 
 /* ═════════ сохранение данных файлом ═════════ */
@@ -5376,19 +5701,50 @@ function apiCfg(){
 function apiSave(c){
   try{ localStorage.setItem(API_CFG, JSON.stringify(c)); }catch(e){}
 }
-/* Настройки из ссылки: филиалу присылают готовый адрес, он открывает и работает */
+/* Настройки из ссылки: филиалу присылают готовый адрес, он открывает и работает.
+   Но если телефон уже настроен на один склад, а в ссылке другой — молча
+   подменять нельзя. Почти всегда это пересланная не в тот чат ссылка, и цена
+   ошибки высокая: заявка уйдёт под чужим складом и сотрёт настоящую заявку
+   того филиала за этот день. Поэтому спрашиваем, и по умолчанию остаёмся. */
+function askSwitch(now, next, apply){
+  var o = document.createElement('div');
+  o.className = 'ovl';
+  o.innerHTML =
+    '<div class="ovlCard">' +
+      '<h3>Эта ссылка — для другого филиала</h3>' +
+      '<p>Телефон настроен на:<b class="ovlWh">' + esc(now) + '</b>' +
+        'А в ссылке указан:<b class="ovlWh">' + esc(next) + '</b></p>' +
+      '<p>Если ссылку просто переслали не в тот чат — оставайтесь на своём. ' +
+        'Иначе список уйдёт под чужим складом и сотрёт заявку того филиала.</p>' +
+      '<button class="ovlBtn pri" id="ovlStay">Остаться на «' + esc(now) + '»</button>' +
+      '<button class="ovlBtn" id="ovlGo">Это наш филиал — переключиться</button>' +
+    '</div>';
+  document.body.appendChild(o);
+  o.querySelector('#ovlStay').onclick = function(){ o.parentNode.removeChild(o); };
+  o.querySelector('#ovlGo').onclick = function(){ apply(); location.reload(); };
+}
+
 (function(){
   try{
     var p = new URLSearchParams(location.search);
     if (!p.get('api') && !p.get('k') && !p.get('wh')) return;
-    var c = apiCfg();
-    if (p.get('api')) c.url = p.get('api');
-    if (p.get('k'))   c.send = p.get('k');
-    if (p.get('wh'))  c.wh = p.get('wh');
-    if (p.get('lock')) c.lock = 1;      // филиалу не давать переключаться на чужой
-    apiSave(c);
-    // ключ в адресной строке светить незачем — убираем, настройки уже сохранены
+    var c = apiCfg(), nw = p.get('wh');
+    function apply(){
+      var c = apiCfg();
+      if (p.get('api')) c.url = p.get('api');
+      if (p.get('k'))   c.send = p.get('k');
+      if (nw) c.wh = nw;
+      if (p.get('lock')) c.lock = 1;    // филиалу не давать переключаться на чужой
+      apiSave(c);
+    }
+    /* Разное написание одного и того же склада — не подмена: сверяем по номеру. */
+    var clash = !!(c.lock && c.wh && nw && !sameBranch(c.wh, nw));
+    // ключ в адресной строке светить незачем — убираем в любом случае
     history.replaceState(null, '', location.pathname);
+    if (!clash){ apply(); return; }
+    window.PENDING_WH = nw;             // чтобы проверки могли это увидеть
+    if (document.body) askSwitch(c.wh, nw, apply);
+    else document.addEventListener('DOMContentLoaded', function(){ askSwitch(c.wh, nw, apply); });
   }catch(e){}
 })();
 
@@ -5512,6 +5868,48 @@ async function refPull(silent){
   }
 }
 
+/* ─── список одним сообщением в WhatsApp ─── */
+
+/* Ссылка wa.me открывает WhatsApp с готовым текстом и спрашивает, в какой чат.
+   Филиал выбирает группу сотрудников и жмёт отправить — один лишний тап, зато
+   никаких сервисов-посредников и никакого риска для рабочего номера.
+   Длину держим в узде: весь список пересказывать незачем, за ним идут по
+   ссылке на витрину, а слишком длинный адрес телефон может обрезать. */
+var WA_TEXT_LIMIT = 1000;
+
+function waText(wh, d, rows, url){
+  var by = {}, cats = [];
+  rows.forEach(function(r){
+    var c = zayCatOf(nrm(r[2])) || 'прочее';
+    if (!by[c]){ by[c] = []; cats.push(c); }
+    /* Звёздочка внутри названия закрыла бы жирный раньше времени. */
+    by[c].push('• ' + S(r[2]).replace(/\*/g, '') + ' — ' + r[3] + ' шт');
+  });
+  cats.sort();
+
+  var head = '🆕 *' + S(wh).replace(/\*/g, '') + '* — список на уценку' +
+             '\nСкидка ' + ru(d) + ' · позиций: ' + rows.length;
+  var body = '', left = 0;
+  for (var i = 0; i < cats.length; i++){
+    var block = '\n\n*' + cats[i] + '*\n' + by[cats[i]].join('\n');
+    if (head.length + body.length + block.length > WA_TEXT_LIMIT){
+      for (var j = i; j < cats.length; j++) left += by[cats[j]].length;
+      break;
+    }
+    body += block;
+  }
+  var t = head + body;
+  if (left) t += '\n\n…и ещё ' + left + ' поз.';
+  if (url) t += '\n\n👉 Выбрать себе — 50%\n' + url;
+  return t;
+}
+
+function waBtn(wh, d, rows, url){
+  return ' <a class="waBtn" target="_blank" rel="noopener" href="https://wa.me/?text=' +
+         encodeURIComponent(waText(wh, d, rows, url)) +
+         '">📱 Отправить в WhatsApp</a>';
+}
+
 /* ─── филиал отправляет заявку ─── */
 $('zSend').onclick = async function(){
   var b = this, wh = $('zWh').value, d = D($('zDay').value), rows = zayRows();
@@ -5531,11 +5929,16 @@ $('zSend').onclick = async function(){
     // сохраняем и у себя: если завтра нужно посмотреть, что отправляли
     DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
     saveDB(); refresh(); zayDraftClear();
-    msg('m7','Отправлено: ' + res.saved + ' позиций за ' + ru(d) + '. ' +
-        'Повторная отправка за этот день заменит заявку — можно дополнить и отправить снова.','ok');
+    /* Сколько чатов сотрудников получили список прямо сейчас. Филиалу это
+       важнее, чем кажется: он видит, что список ушёл дальше, а не «в никуда». */
+    var told = +res.told > 0 ? ' Сотрудники уже видят список в мессенджере.' : '';
+    msg('m7','Отправлено: ' + res.saved + ' позиций за ' + ru(d) + '.' + told + ' ' +
+        'Повторная отправка за этот день заменит заявку — можно дополнить и отправить снова.' +
+        '<br>' + waBtn(wh, d, rows, res.vitrina),'ok');
   }catch(e){
     msg('m7','Не отправилось: ' + e.message + '. Список сохранён у вас — ' +
-        'можно нажать «Файлом» и переслать вручную.','err');
+        'можно нажать «Файлом» и переслать вручную.' +
+        '<br>' + waBtn(wh, d, rows, ''),'err');
     DB.list = DB.list.filter(function(r){ return !(r[1] === wh && r[0] === d); }).concat(rows);
     saveDB();
   }
@@ -5765,6 +6168,7 @@ function showFresh(){
         : (c.url && c.send) ? 'Отправка настроена: заявка уйдёт в общий приёмник.'
         : 'Отправка не настроена — пока пользуйтесь кнопкой «Файлом».';
     }
+    if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();
     if (p === 'sp' && typeof apiCfg === 'function'){
       var a = apiCfg();
@@ -5819,7 +6223,18 @@ function showFresh(){
   }, false);
   window.NAVGO = go; window.NAVBADGES = badges;
   badges();
-  go((DB.mov && DB.mov.length) ? 'rep' : 'up');
+  /* С чего открывать страницу.
+     Филиалу нужен ровно один экран — набрать список на уценку. Ссылка, которую
+     ему прислали, помечена lock=1, и метка остаётся в браузере: значит человек
+     открыл страницу как филиал, а не как бухгалтерия. Показывать ему «Загрузку
+     выгрузок» бессмысленно — выгрузок у него нет и не будет.
+     Всем остальным по-прежнему: есть движения — отчёт, нет — загрузка. */
+  function startPage(){
+    try{ if (typeof apiCfg === 'function' && apiCfg().lock) return 'zay'; }catch(e){}
+    return (DB.mov && DB.mov.length) ? 'rep' : 'up';
+  }
+  window.STARTPAGE = startPage;
+  go(startPage());
   var w = el('jsWarn'); if (w) w.style.display = 'none';
 })();
 </script>
