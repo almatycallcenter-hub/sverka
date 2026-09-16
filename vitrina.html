@@ -166,6 +166,10 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
   h1{font-size:32px}
   li{font-size:22px}
 }
+/* Внутри Телеграма сверху уже есть его собственная шапка с названием бота —
+   строка «Тәп-Тәтті» её просто дублирует. День и заголовок оставляем: без них
+   человек не поймёт, на какое число смотрит. */
+.in-tg .top .brand{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -196,9 +200,30 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
   <div class="bot"><button type="button" id="pickX">Назад</button></div>
 </div>
 
+<!-- Скрипт Телеграма. Вне Телеграма он просто не создаёт объект, и страница
+     работает как обычная — поэтому грузим его всегда и ничего не ломаем. -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 (function(){
   'use strict';
+
+  /* ─── запуск внутри Телеграма ───
+     Витрина умеет открываться двумя путями: обычной ссылкой в браузере и
+     мини-приложением прямо внутри Телеграма. Код один и тот же — Телеграм лишь
+     добавляет три вещи: ключ можно передать в startapp, имя человека уже
+     известно, и окно надо развернуть на весь экран. */
+  var TG = null, TG_NAME = '';
+  try{ TG = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined)
+            ? window.Telegram.WebApp : null; }catch(e){}
+  if (TG){
+    try{
+      TG.ready();
+      TG.expand();
+      document.documentElement.classList.add('in-tg');
+      var u = TG.initDataUnsafe && TG.initDataUnsafe.user;
+      if (u) TG_NAME = [u.first_name, u.last_name].filter(Boolean).join(' ').trim();
+    }catch(e){}
+  }
 
   /* Адрес приёмника — тот же, что у сверки. Ключ витрины приходит в ссылке и
      сразу убирается из адресной строки, чтобы не мозолил глаза и не уезжал
@@ -208,10 +233,13 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
   var KEY = '';
   try{
     var p = new URLSearchParams(location.search);
-    if (p.get('k')){
-      KEY = p.get('k');
+    /* Внутри Телеграма адрес задан в настройках бота и не меняется, поэтому ключ
+       приходит отдельным параметром startapp. Снаружи — как раньше, в ссылке. */
+    var fromTg = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
+    if (p.get('k') || fromTg){
+      KEY = p.get('k') || fromTg;
       localStorage.setItem(STORE, KEY);
-      history.replaceState(null, '', location.pathname);
+      if (p.get('k')) history.replaceState(null, '', location.pathname);
     } else {
       KEY = localStorage.getItem(STORE) || '';
     }
@@ -447,7 +475,13 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
     }
     function draw(q){
       var n = nrmName(q);
-      var f = STAFF.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
+      /* Имя из Телеграма — подсказка, а не подпись: в учёте человек может
+         значиться иначе, чем в своём профиле. Поэтому оно просто стоит в поле,
+         и «Готово» человек всё равно нажимает сам. */
+      var all = STAFF.slice();
+      if (TG_NAME && !all.some(function(x){ return nrmName(x) === nrmName(TG_NAME); }))
+        all.unshift(TG_NAME);
+      var f = all.filter(function(x){ return !n || nrmName(x).indexOf(n) >= 0; });
       el('pickB').innerHTML =
         '<div class="nameBox">' +
           '<input id="nameIn" type="text" autocomplete="name" autocapitalize="words" ' +
@@ -468,7 +502,7 @@ li.gone .qt{background:#EEE9DE;color:var(--mut)}
       inp.onkeydown = function(e){ if (e.key === 'Enter'){ e.preventDefault(); take(this.value); } };
       el('nameOk').onclick = function(){ take(el('nameIn').value); };
     }
-    draw(ME);
+    draw(ME || TG_NAME);
     el('pickB').scrollTop = 0;
     PICK.pick = function(v){ take(v); };
   }
