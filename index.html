@@ -1582,13 +1582,26 @@ function migrateDB(){
    с ней страница работает на чистом браузере и без интернета. Всё, что из
    справочника выводится — кусочки, список имён для подсказок — пересчитывается
    здесь же, иначе после обновления они остались бы от старого набора. */
-var SPR = {}, KUSOK = 8, kusOf = {}, isKus = {}, SPR_NAMES = [];
+var SPR = {}, KUSOK = 8, kusOf = {}, isKus = {}, SPR_NAMES = [], SPR_GAPS = [];
+/* Справочник, скачанный из таблицы, главнее зашитого: его правят руками, и
+   правки должны доходить. Но пустая ячейка — это не решение «срока нет», это
+   просто незаполненная ячейка; позиция без срока молча исчезает из списков.
+   Поэтому пустой срок добираем из зашитого справочника, где он известен.
+   Всё остальное — категорию, форму, участие в скидке — берём как есть. */
+var SPR_BASE = {};
+(EMBED.spr || []).forEach(function(r){ if (r && r[0]) SPR_BASE[nrm(r[0])] = r; });
+
 function applySpr(list){
-  SPR = {}; kusOf = {}; isKus = {};
+  SPR = {}; kusOf = {}; isKus = {}; SPR_GAPS = [];
   (list || []).forEach(function(r){
     if (!r || !r[0]) return;
-    SPR[nrm(r[0])] = { name: r[0], srok: r[1] || 0, forma: r[2] || '',
-                       skidka: r[3] || '', kat: r[4] || '' };
+    var k = nrm(r[0]), srok = r[1] || 0;
+    if (!srok && SPR_BASE[k] && SPR_BASE[k][1]){
+      srok = SPR_BASE[k][1];
+      SPR_GAPS.push(r[0]);
+    }
+    SPR[k] = { name: r[0], srok: srok, forma: r[2] || '',
+               skidka: r[3] || '', kat: r[4] || '' };
   });
   Object.keys(SPR).forEach(function(k){
     if (k.indexOf('кусоч') < 0) return;
@@ -6541,10 +6554,18 @@ function apiRef(){
 function refStatus(){
   var el = $('refSt'); if (!el) return;
   var r = DB.ref;
+  /* Про добранные сроки говорим вслух: пустая ячейка в таблице — это обычно
+     недосмотр, и чинить его надо там, а не жить на подпорке. */
+  var gaps = SPR_GAPS.length
+    ? '<br><span class="mut">В таблице не заполнен срок у ' + SPR_GAPS.length +
+      ' позиций — взяла из зашитого справочника. Поправьте колонку ' +
+      '«Срок на витрине, ч»: ' + esc(SPR_GAPS.slice(0, 3).join(', ')) +
+      (SPR_GAPS.length > 3 ? ' и ещё ' + (SPR_GAPS.length - 3) : '') + '.</span>'
+    : '';
   el.innerHTML = r && r.ts
     ? '<b>Из таблицы:</b> ' + (r.spr ? r.spr.length : 0) + ' позиций · ' +
       Object.keys(r.syn || {}).length + ' синонимов<br>' +
-      '<b>Скачан:</b> ' + ru(S(r.ts).slice(0,10)) + ' в ' + S(r.ts).slice(11,16)
+      '<b>Скачан:</b> ' + ru(S(r.ts).slice(0,10)) + ' в ' + S(r.ts).slice(11,16) + gaps
     : '<b>Зашитый в страницу:</b> ' + EMBED.spr.length + ' позиций · ' +
       Object.keys(EMBED.syn).length + ' синонимов<br>' +
       '<span class="mut">Из таблицы ещё не скачивали</span>';
