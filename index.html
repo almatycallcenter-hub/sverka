@@ -699,6 +699,7 @@
       <!-- ─── Списки филиалов ──────────────────────────── -->
       <!-- ─── Заявка филиала: экран как касса ──────────── -->
       <section class="page wide" id="pg-zay">
+        <div class="note" id="zWarn" hidden></div>
         <div class="card noprint">
           <h2>Что завтра уходит по скидке</h2>
           <details class="tip"><summary>Как заполнять</summary>
@@ -746,6 +747,7 @@
 
       <!-- ─── Списание завтра ──────────────────────────── -->
       <section class="page wide" id="pg-off">
+        <div class="note" id="oWarn" hidden></div>
         <div class="card noprint">
           <h2>Что завтра снимают с продажи</h2>
           <details class="tip"><summary>Чем это отличается от уценки</summary>
@@ -5857,6 +5859,46 @@ function zayRows(){
 }
 function zayCatOf(k){ return S(SPR[k] && SPR[k].kat) || 'прочее'; }
 
+/* ═════════ телефон не привязан к филиалу ═════════
+   Ключ филиала живёт в памяти браузера. Открыли страницу в другом браузере
+   (например, из WhatsApp, а не из Safari), почистили историю, взяли чужой
+   телефон — ключа нет, и отправка молчит до самого нажатия «Отправить».
+   Узнавать об этом после набранного списка — худший момент из возможных,
+   поэтому говорим сразу, сверху, и тут же даём вписать ключ. */
+function sendReady(){ return !!S(apiCfg().send); }
+
+function warnBox(which){
+  var box = $(which === 'off' ? 'oWarn' : 'zWarn');
+  if (!box) return;
+  if (sendReady()){ box.hidden = true; box.innerHTML = ''; return; }
+  box.hidden = false;
+  box.innerHTML =
+    '<b>Этот телефон не привязан к филиалу — отправка не работает.</b><br>' +
+    'Откройте ссылку, которую прислала бухгалтерия: филиал и ключ пропишутся сами. ' +
+    'Или впишите ключ филиала сюда — он один на все филиалы, его можно спросить ' +
+    'у бухгалтерии.<br>' +
+    '<span class="hint">Набранный список никуда не денется: он сохраняется в этом ' +
+    'браузере и вернётся, как только отправка заработает.</span>' +
+    '<div class="row" style="margin-top:10px">' +
+      '<div style="flex:0 0 220px"><input type="text" class="secret" id="' + which +
+        'WarnKey" placeholder="Ключ филиала" autocomplete="off" spellcheck="false"></div>' +
+      '<button data-warnkey="' + which + '">Сохранить ключ</button>' +
+    '</div>';
+}
+
+document.addEventListener('click', function(e){
+  var b = e.target.closest && e.target.closest('[data-warnkey]');
+  if (!b) return;
+  var which = b.getAttribute('data-warnkey');
+  var k = S($(which + 'WarnKey').value).trim();
+  if (!k) return;
+  var c = apiCfg(); c.send = k; apiSave(c);
+  warnBox('zay'); warnBox('off');
+  msg(which === 'off' ? 'm9' : 'm7',
+      'Ключ сохранён — отправка заработала. Набранное на месте.', 'ok');
+  if (typeof syncMine === 'function') syncMine(which);
+}, false);
+
 /* ═════════ что уже лежит на сервере ═════════
    Набранное жило только в этом браузере. Очистили историю, открыли заново — и
    страница считала, что списка нет; отправка после этого стирала настоящую
@@ -5870,7 +5912,7 @@ async function pullMine(which){
   var d  = D($(which === 'off' ? 'oDay' : 'zDay').value);
   var c  = apiCfg();
   SRV[which] = null;
-  if (!wh || !d || !c.url || !c.send || !apiIsSheets()) return null;
+  if (!wh || !d || !c.send || !apiUrlOf() || !apiIsSheets()) return null;
   try{
     var r = await apiCall('mine', { key: c.send, day: d, branch: wh });
     var list = (which === 'off' ? r.off : r.list) || [];
@@ -6146,8 +6188,11 @@ $('oClear').onclick = function(){
 $('oSend').onclick = async function(){
   var b = this, wh = $('oWh').value, d = D($('oDay').value), rows = offRows();
   var c = apiCfg();
-  if (!c.url || !c.send)
-    return msg('m9','Отправка не настроена. Откройте ссылку, которую прислала бухгалтерия.','err');
+  if (!sendReady()){
+    warnBox('off');
+    return msg('m9','Отправка не настроена — смотрите красную плашку вверху страницы. ' +
+      'Набранное сохранено и не пропадёт.','err');
+  }
   if (!wh) return msg('m9','Сначала выберите филиал.','err');
   if (!d)  return msg('m9','Укажите дату.','err');
   if (!rows.length) return msg('m9','Список пустой — нечего отправлять.','err');
@@ -6565,9 +6610,11 @@ function waBtn(wh, d, rows, url){
 $('zSend').onclick = async function(){
   var b = this, wh = $('zWh').value, d = D($('zDay').value), rows = zayRows();
   var c = apiCfg();
-  if (!c.url || !c.send)
-    return msg('m7','Отправка не настроена. Откройте ссылку, которую прислала бухгалтерия, ' +
-      'или пока пользуйтесь кнопкой «Файлом».','err');
+  if (!sendReady()){
+    warnBox('zay');
+    return msg('m7','Отправка не настроена — смотрите красную плашку вверху страницы. ' +
+      'Набранное сохранено и не пропадёт: можно нажать «Файлом» и переслать в WhatsApp.','err');
+  }
   if (!wh) return msg('m7','Сначала выберите филиал.','err');
   if (!d)  return msg('m7','Укажите дату.','err');
   if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
@@ -6835,6 +6882,7 @@ function showFresh(){
       }
       if (typeof zayLoad === 'function') zayLoad();
       if (typeof zayBooks === 'function') zayBooks();
+      if (typeof warnBox === 'function') warnBox('zay');
       if (typeof syncMine === 'function') syncMine('zay');
       if (el('zHint')) el('zHint').textContent =
         (c.wh && !hit) ? 'В ссылке указан филиал «' + c.wh + '», но такого склада в выгрузке ' +
@@ -6859,6 +6907,7 @@ function showFresh(){
         so.disabled = !!(co.lock && hito);
       }
       if (typeof offLoad === 'function') offLoad();
+      if (typeof warnBox === 'function') warnBox('off');
       if (typeof syncMine === 'function') syncMine('off');
     }
     if (p === 'in'){
