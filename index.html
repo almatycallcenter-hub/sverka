@@ -112,6 +112,67 @@
   .zRow:last-child{border-bottom:0}
   .zRow .nm{flex:1;font-size:13px;line-height:1.25}
   .zRow .q{min-width:34px;text-align:center;font-weight:600;font-variant-numeric:tabular-nums}
+  /* Поле ввода должно быть похоже на цифру, а не на форму: та же ширина и вес,
+     просто в него можно ткнуть и набрать 1.5. */
+  .zRow .qIn{min-width:52px;width:52px;padding:3px 4px;border:1px solid var(--line);
+    border-radius:6px;background:var(--card);color:inherit;font:inherit;
+    font-weight:600;text-align:center;font-variant-numeric:tabular-nums}
+  .zRow .qIn:focus{outline:2px solid var(--acc);outline-offset:-1px}
+  .zRow .qIn::-webkit-outer-spin-button,
+  .zRow .qIn::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .zRow .u{font-size:11px;color:var(--mut);min-width:18px}
+
+  /* ── приёмка списаний ── */
+  .inWh{padding:0;overflow:hidden}
+  .inTop{display:flex;align-items:center;gap:10px;padding:12px 14px;
+    border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .inTop b{font-size:15px}
+  .inTop .cnt{flex:1;font-size:12px;color:var(--mut)}
+  .inTop button{padding:7px 14px}
+  .inT{width:100%;border-collapse:collapse;font-size:13px}
+  .inT th{text-align:left;font-weight:500;color:var(--mut);font-size:11px;
+    padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+  .inT td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .inT tr:last-child td{border-bottom:0}
+  .inT td.c{color:var(--mut);font-size:11px;white-space:nowrap}
+  .inT td.n,.inT th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .inT .u{color:var(--mut);font-size:11px;font-weight:400}
+  /* На телефоне категория — первое, чем можно пожертвовать: блюдо и так
+     говорит само за себя, а поле ввода должно остаться на экране. */
+  @media (max-width:760px){
+    .inT td.c,.inT th.c{display:none}
+    .inT th,.inT td{padding:6px 7px}
+    .inQ{width:64px}
+  }
+  @media (max-width:500px){
+    .inT{font-size:12px}
+    .inT th,.inT td{padding:6px 5px}
+    .inQ{width:54px;padding:6px 5px}
+  }
+  .inT td.d,.inT th.d{text-align:right;font-variant-numeric:tabular-nums;
+    font-weight:600;white-space:nowrap}
+  /* Поле для цифры должно выглядеть как поле: диспетчер стоит у стола и ищет,
+     куда вписать, — серая заливка и рамка отвечают на это без объяснений. */
+  .inQ{width:74px;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+    background:var(--soft);color:inherit;font:inherit;font-size:13px;text-align:right;
+    font-weight:600;font-variant-numeric:tabular-nums}
+  .inQ:hover{border-color:var(--mut)}
+  .inQ:focus{outline:2px solid var(--acc);outline-offset:-1px}
+  .inQ::-webkit-outer-spin-button,.inQ::-webkit-inner-spin-button{
+    -webkit-appearance:none;margin:0}
+  /* Цвет только там, где есть о чём думать: сошлось — спокойная строка.
+     Красим ячейки, а не строку: у <tr> фон перекрывается фоном карточки. */
+  .in-ok td.d{color:var(--ok)}
+  .in-less td{background:#FFF4F4}
+  .in-less td.d{color:#B02A2A}
+  .in-more td{background:#FFF9EC}
+  .in-more td.d{color:#8A5A00}
+  .in-wait td.n{color:var(--mut)}
+  @media print{
+    .inQ{border:0;background:transparent;width:46px;padding:0}
+    .inTop button{display:none}
+    .inWh{break-inside:avoid;border:1px solid #ccc}
+  }
   .zBtn{width:32px;height:32px;border:1px solid var(--bd);background:var(--card);
     border-radius:8px;font-size:17px;line-height:1;color:var(--txt);cursor:pointer;flex:0 0 auto}
   .zBtn:hover{background:var(--rowHov)}
@@ -574,6 +635,7 @@
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
       <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
       <a data-page="off"><span class="ic">🗑️</span>Списание завтра</a>
+      <a data-page="in"><span class="ic">📦</span>Приёмка списаний</a>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
@@ -723,6 +785,36 @@
             <div class="zPad" id="oPad"></div>
           </div>
         </div>
+      </section>
+
+      <!-- ─── Приёмка списаний (цех) ────────────────────── -->
+      <section class="page wide" id="pg-in">
+        <div class="card noprint">
+          <h2>Что привезли филиалы</h2>
+          <details class="tip"><summary>Как это работает</summary>
+            <p>Слева — филиалы, которые прислали список на этот день. Откройте филиал,
+              впишите напротив каждой позиции, <b>сколько привезли на самом деле</b>, и
+              нажмите «Сохранить». Совпало — строка спокойная, не совпало — подсветится.</p>
+            <p>Пустое поле значит «ещё не считали». Если позицию не привезли вовсе —
+              ставьте <b>0</b>, это тоже ответ.</p>
+            <p>Ключ цеха вводится один раз и остаётся в этом браузере. Им нельзя ни
+              прочитать заявки на уценку, ни увидеть брони — только списания на вчера,
+              сегодня и завтра.</p>
+          </details>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 220px"><label class="lbl">Ключ цеха</label>
+              <input type="text" class="secret" id="inKey" placeholder="CHECK_KEY"
+                autocomplete="off" spellcheck="false"></div>
+            <div><label class="lbl">День списания</label><input type="date" id="inDay"></div>
+            <button id="inLoad">Показать</button>
+            <button class="sec noprint" id="inPrint">Печать</button>
+            <button class="sec noprint" id="inXlsx">Файлом</button>
+          </div>
+          <div class="msg" id="m10"></div>
+        </div>
+
+        <div class="printHead" id="inHead"></div>
+        <div id="inBody"></div>
       </section>
 
       <section class="page" id="pg-sp">
@@ -5559,12 +5651,82 @@ $('btnHeatXlsx').onclick = function(){
    только кнопки: справа категории и продукция, слева набранное. */
 var ZAY = { cat: '', items: {} };   // items: нормализованное имя → количество
 
+/* ═════════ единицы, дроби и где что пекут ═════════
+
+   Весовые позиции считают не штуками, а килограммами: бауырсақ и рогалики
+   лежат горкой, и «17 штук» никто не пересчитывает. Торты режут пополам,
+   поэтому у них бывает 0.5. Список короткий и меняется редко — держим прямо
+   здесь, чтобы поправить одной строкой, а не искать по коду. */
+var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
+              'Көкнәр қосылған тоқаш', 'Қатпарлы сүзбелі тоқаш',
+              'Қатпарлы тоқаш алмамен'];
+var WEIGHT_K = {};
+WEIGHT.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
+function isKg(k){ return !!WEIGHT_K[k]; }
+
+/* Целые торты режут на половинки — это единственные позиции, где дробь не про
+   вес. Кусочки идут отдельными наименованиями и считаются штуками. */
+var HALF_KAT = { 'Торттар': 1, 'Кіші торттар': 1 };
+function isHalf(k){ return !isKg(k) && !!HALF_KAT[S(SPR[k] && SPR[k].kat)]; }
+function unitOf(k){ return isKg(k) ? 'кг' : 'шт'; }
+function stepOf(k){ return isKg(k) ? 0.1 : isHalf(k) ? 0.5 : 1; }
+function canFrac(k){ return isKg(k) || isHalf(k); }
+
+/* Где что вообще готовят. Пиццу пекут на месте и только в четырёх филиалах —
+   остальным её незачем видеть ни в уценке, ни в списании. Добавят печь ещё
+   где-то — впишите номер филиала сюда, и позиции вернутся. */
+var ONLY_AT = { 'Пицца': [1, 6, 10, 11] };
+function madeAt(k, wh){
+  var only = ONLY_AT[S(SPR[k] && SPR[k].kat)];
+  if (!only) return true;
+  var n = +((S(wh).match(/\d+/) || [0])[0]);
+  return only.indexOf(n) >= 0;
+}
+/* Количество печатаем без хвостов: 1, а не 1.0; 0.5, а не 0.50. */
+function qStr(n){ return String(Math.round(n * 100) / 100); }
+
+/* Строка набранного. У весовых и тортов количество вводят руками: набивать
+   полтора килограмма по 0.1 — двадцать нажатий, а половинку торта кнопкой «−»
+   не поставишь вовсе. Остальным хватает плюса и минуса. */
+function qRow(k, v, pre){
+  var u = unitOf(k), frac = canFrac(k);
+  return '<div class="zRow"><span class="nm">' + esc(SPR[k].name) + '</span>' +
+    '<button class="zBtn" data-m="' + esc(k) + '">−</button>' +
+    (frac
+      ? '<input class="q qIn" type="number" inputmode="decimal" step="' + stepOf(k) +
+        '" min="0" data-q="' + esc(k) + '" data-pre="' + pre + '" value="' + qStr(v) + '">'
+      : '<span class="q">' + qStr(v) + '</span>') +
+    '<span class="u">' + u + '</span>' +
+    '<button class="zBtn" data-p="' + esc(k) + '">+</button>' +
+    '<button class="zBtn del" data-x="' + esc(k) + '">×</button></div>';
+}
+/* «1 позиция», «2 позиции», «5 позиций» — правило простое, отдельной
+   библиотеки ради него заводить не будем. */
+function pozic(n){
+  var m = n % 100;
+  if (m > 10 && m < 20) return 'позиций';
+  m = n % 10;
+  return m === 1 ? 'позиция' : (m > 1 && m < 5 ? 'позиции' : 'позиций');
+}
+/* Килограммы и штуки в одну сумму не складываются — считаем их порознь. */
+function cntText(picked, box){
+  if (!picked.length) return '';
+  var sht = 0, kg = 0;
+  picked.forEach(function(k){ if (isKg(k)) kg += box[k]; else sht += box[k]; });
+  var t = picked.length + ' ' + pozic(picked.length);
+  if (sht) t += ' · ' + qStr(sht) + ' шт';
+  if (kg)  t += ' · ' + qStr(kg) + ' кг';
+  return t;
+}
+
 function zayList(){
   // только витринная продукция со сроком: свечи и напитки на уценку не уходят
+  var wh = $('zWh') ? $('zWh').value : '';
   return Object.keys(SPR).filter(function(k){
     var sp = SPR[k];
     if (!sp.srok || sp.skidka === 'Нет') return false;
     if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    if (!madeAt(k, wh)) return false;
     return true;
   });
 }
@@ -5589,8 +5751,9 @@ function zayRender(){
   $('zPad').innerHTML = keys.length ? keys.map(function(k){
     var n = ZAY.items[k] || 0;
     return '<button class="zItem' + (n ? ' has' : '') + '" data-k="' + esc(k) + '">' +
-      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч</span>' +
-      (n ? '<span class="n">' + fmtQ(n) + '</span>' : '') + '</button>';
+      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч' +
+        (isKg(k) ? ' · в кг' : '') + '</span>' +
+      (n ? '<span class="n">' + qStr(n) + '</span>' : '') + '</button>';
   }).join('')
     /* Пустой экран обязан объяснять себя. Браузер умеет сам подставить в поиск
        что-нибудь из своей памяти — человек этого не заметит, а увидит пустой
@@ -5617,26 +5780,28 @@ function zayMark(k){
   var badge = b.querySelector('.n');
   if (!n){ if (badge) badge.remove(); return; }
   if (!badge){ badge = document.createElement('span'); badge.className = 'n'; b.appendChild(badge); }
-  badge.textContent = fmtQ(n);
+  badge.textContent = qStr(n);
 }
 function zayLeft(){
   var picked = Object.keys(ZAY.items).filter(function(k){ return ZAY.items[k] > 0; })
                      .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
   $('zList').innerHTML = picked.length ? picked.map(function(k){
-    return '<div class="zRow"><span class="nm">' + esc(SPR[k].name) + '</span>' +
-      '<button class="zBtn" data-m="' + esc(k) + '">−</button>' +
-      '<span class="q">' + fmtQ(ZAY.items[k]) + '</span>' +
-      '<button class="zBtn" data-p="' + esc(k) + '">+</button>' +
-      '<button class="zBtn del" data-x="' + esc(k) + '">×</button></div>';
+    return qRow(k, ZAY.items[k], 'z');
   }).join('') : '<div class="zEmpty">Пока пусто. Нажимайте на продукцию справа — ' +
                 'она появится здесь.</div>';
-  var tot = picked.reduce(function(a, k){ return a + ZAY.items[k]; }, 0);
-  $('zCnt').textContent = picked.length ? picked.length + ' позиций · ' + fmtQ(tot) + ' шт' : '';
+  $('zCnt').textContent = cntText(picked, ZAY.items);
 }
 function zayAdd(k, d){
-  var v = (ZAY.items[k] || 0) + d;
+  var v = Math.round(((ZAY.items[k] || 0) + d * stepOf(k)) * 100) / 100;
   if (v <= 0) delete ZAY.items[k]; else ZAY.items[k] = v;
   zayMark(k); zayLeft(); zayDraftSave();
+}
+/* Ввод руками: пустое поле и мусор считаем нулём, минус не пропускаем. */
+function qSet(k, raw, which){
+  var v = Math.round((N(String(raw).replace(',', '.')) || 0) * 100) / 100;
+  var box = which === 'o' ? OFF.items : ZAY.items;
+  if (v <= 0) delete box[k]; else box[k] = v;
+  if (which === 'o'){ offMark(k); offDraftSave(); } else { zayMark(k); zayDraftSave(); }
 }
 
 /* Набранное держим в черновике. Сотрудник набирает список между делом, телефон
@@ -5692,8 +5857,69 @@ function zayRows(){
 }
 function zayCatOf(k){ return S(SPR[k] && SPR[k].kat) || 'прочее'; }
 
-$('zWh').onchange = function(){ zayLoad(); zayBooks(); };
-$('zDay').onchange = function(){ zayLoad(); zayBooks(); };
+/* ═════════ что уже лежит на сервере ═════════
+   Набранное жило только в этом браузере. Очистили историю, открыли заново — и
+   страница считала, что списка нет; отправка после этого стирала настоящую
+   заявку филиала. Теперь при открытии спрашиваем сервер, что там лежит, и
+   подмешиваем в набранное. Знать, сколько позиций на сервере, нужно и перед
+   отправкой: заявка заменяется целиком, и уменьшение списка надо подтвердить. */
+var SRV = { zay: null, off: null };   // сколько позиций там было, null — не знаем
+
+async function pullMine(which){
+  var wh = $(which === 'off' ? 'oWh' : 'zWh').value;
+  var d  = D($(which === 'off' ? 'oDay' : 'zDay').value);
+  var c  = apiCfg();
+  SRV[which] = null;
+  if (!wh || !d || !c.url || !c.send || !apiIsSheets()) return null;
+  try{
+    var r = await apiCall('mine', { key: c.send, day: d, branch: wh });
+    var list = (which === 'off' ? r.off : r.list) || [];
+    SRV[which] = list.length;
+    return list;
+  }catch(e){ return null; }
+}
+
+/* Подмешиваем, а не замещаем: набранное на телефоне — это то, что человек
+   добавляет сейчас, и потерять его было бы ровно той же ошибкой наоборот. */
+function mergeMine(which, list){
+  if (!list || !list.length) return 0;
+  var box = which === 'off' ? OFF.items : ZAY.items, n = 0;
+  list.forEach(function(it){
+    var k = nrm(it.dish); if (!SPR[k]) return;
+    var was = box[k] || 0;
+    if (it.qty > was){ box[k] = it.qty; n++; }
+  });
+  if (n){
+    if (which === 'off'){ offRender(); offDraftSave(); }
+    else { zayRender(); zayDraftSave(); }
+  }
+  return n;
+}
+
+async function syncMine(which){
+  var list = await pullMine(which);
+  if (!list) return;
+  var n = mergeMine(which, list);
+  var box = which === 'off' ? 'm9' : 'm7';
+  if (n) msg(box, 'Подтянула ваш список с сервера: ' + list.length + ' ' +
+      (list.length === 1 ? 'позиция' : 'позиций') + '. Дополняйте и отправляйте — ' +
+      'отправка заменит список за этот день целиком.', 'ok');
+}
+
+/* Отправка заменяет день целиком. Если на сервере позиций больше, чем на
+   экране, это почти всегда значит «телефон не знает про уже отправленное» —
+   спрашиваем прямо, вместо того чтобы молча стереть чужую работу. */
+function confirmShrink(which, n){
+  var was = SRV[which];
+  if (!(was > n)) return true;
+  return confirm('На сервере за этот день уже ' + was + ' позиций, а вы отправляете ' +
+    n + '.\n\nОтправка заменит список целиком — лишние позиции пропадут.\n\n' +
+    'Если вы хотели дополнить, нажмите «Отмена», обновите страницу и дождитесь, ' +
+    'пока список подтянется.');
+}
+
+$('zWh').onchange = function(){ zayLoad(); zayBooks(); syncMine('zay'); };
+$('zDay').onchange = function(){ zayLoad(); zayBooks(); syncMine('zay'); };
 $('zQ').oninput = function(){ zayRender(); };
 $('zCats').onclick = function(e){
   var b = e.target.closest('.zCat'); if (!b) return;
@@ -5705,7 +5931,11 @@ $('zPad').addEventListener('click', function(e){
 }, false);
 $('zPad').onclick = function(e){
   var b = e.target.closest('.zItem'); if (!b) return;
-  zayAdd(b.dataset.k, 1);
+  /* Первое нажатие ставит целую единицу — килограмм или штуку. Дальше уже
+     шагами: полкило добирают минусом, половинку торта — тоже. */
+  var k = b.dataset.k;
+  if (!ZAY.items[k]){ ZAY.items[k] = 1; zayMark(k); zayLeft(); zayDraftSave(); }
+  else zayAdd(k, 1);
 };
 $('zList').onclick = function(e){
   var b = e.target.closest('button'); if (!b) return;
@@ -5714,6 +5944,18 @@ $('zList').onclick = function(e){
   else if (b.dataset.x){ var k = b.dataset.x; delete ZAY.items[k];
                          zayMark(k); zayLeft(); zayDraftSave(); }
 };
+/* Перерисовывать список на каждую цифру нельзя — поле потеряет фокус
+   посреди набора. Поэтому на input только считаем, а строку обновляем,
+   когда из поля ушли. */
+$('zList').addEventListener('input', function(e){
+  var i = e.target.closest('[data-q]'); if (!i) return;
+  qSet(i.dataset.q, i.value, 'z');
+  $('zCnt').textContent = cntText(Object.keys(ZAY.items)
+    .filter(function(x){ return ZAY.items[x] > 0; }), ZAY.items);
+}, false);
+$('zList').addEventListener('change', function(e){
+  if (e.target.closest('[data-q]')) zayLeft();
+}, false);
 $('zLoad').onclick = function(){
   var n = zayLoad();
   msg('m7', n ? 'Открыто сохранённое: ' + n + ' строк.' : 'На эту дату ничего не сохранено.',
@@ -5761,10 +6003,12 @@ var OFF = { cat: '', items: {} };
 /* Списать можно и то, что на уценку не отправляют: скидка тут ни при чём,
    важен только срок. Не-еду (свечи, посуду) по-прежнему не показываем. */
 function offList(){
+  var wh = $('oWh') ? $('oWh').value : '';
   return Object.keys(SPR).filter(function(k){
     var sp = SPR[k];
     if (!sp.srok) return false;
     if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    if (!madeAt(k, wh)) return false;
     return true;
   });
 }
@@ -5789,8 +6033,9 @@ function offRender(){
   $('oPad').innerHTML = keys.length ? keys.map(function(k){
     var n = OFF.items[k] || 0;
     return '<button class="zItem' + (n ? ' has' : '') + '" data-k="' + esc(k) + '">' +
-      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч</span>' +
-      (n ? '<span class="n">' + fmtQ(n) + '</span>' : '') + '</button>';
+      esc(SPR[k].name) + '<span class="sr">срок ' + SPR[k].srok + ' ч' +
+        (isKg(k) ? ' · в кг' : '') + '</span>' +
+      (n ? '<span class="n">' + qStr(n) + '</span>' : '') + '</button>';
   }).join('')
     : '<div class="zEmpty">' +
       (q ? 'По запросу «' + esc(S($('oQ').value).trim()) + '» ничего не нашлось.'
@@ -5810,24 +6055,19 @@ function offMark(k){
   var badge = b.querySelector('.n');
   if (!n){ if (badge) badge.remove(); return; }
   if (!badge){ badge = document.createElement('span'); badge.className = 'n'; b.appendChild(badge); }
-  badge.textContent = fmtQ(n);
+  badge.textContent = qStr(n);
 }
 function offLeft(){
   var picked = Object.keys(OFF.items).filter(function(k){ return OFF.items[k] > 0; })
                      .sort(function(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; });
   $('oList').innerHTML = picked.length ? picked.map(function(k){
-    return '<div class="zRow"><span class="nm">' + esc(SPR[k].name) + '</span>' +
-      '<button class="zBtn" data-m="' + esc(k) + '">−</button>' +
-      '<span class="q">' + fmtQ(OFF.items[k]) + '</span>' +
-      '<button class="zBtn" data-p="' + esc(k) + '">+</button>' +
-      '<button class="zBtn del" data-x="' + esc(k) + '">×</button></div>';
+    return qRow(k, OFF.items[k], 'o');
   }).join('') : '<div class="zEmpty">Пока пусто. Нажимайте на продукцию справа — ' +
                 'она появится здесь.</div>';
-  var tot = picked.reduce(function(a, k){ return a + OFF.items[k]; }, 0);
-  $('oCnt').textContent = picked.length ? picked.length + ' позиций · ' + fmtQ(tot) + ' шт' : '';
+  $('oCnt').textContent = cntText(picked, OFF.items);
 }
 function offAdd(k, d){
-  var v = (OFF.items[k] || 0) + d;
+  var v = Math.round(((OFF.items[k] || 0) + d * stepOf(k)) * 100) / 100;
   if (v <= 0) delete OFF.items[k]; else OFF.items[k] = v;
   offMark(k); offLeft(); offDraftSave();
 }
@@ -5864,8 +6104,8 @@ function offRows(){
                                cat: S(SPR[k].kat) || 'прочее' }; });
 }
 
-$('oWh').onchange = function(){ offLoad(); };
-$('oDay').onchange = function(){ offLoad(); };
+$('oWh').onchange = function(){ offLoad(); syncMine('off'); };
+$('oDay').onchange = function(){ offLoad(); syncMine('off'); };
 $('oQ').oninput = function(){ offRender(); };
 $('oCats').onclick = function(e){
   var b = e.target.closest('.zCat'); if (!b) return;
@@ -5877,7 +6117,9 @@ $('oPad').addEventListener('click', function(e){
 }, false);
 $('oPad').onclick = function(e){
   var b = e.target.closest('.zItem'); if (!b) return;
-  offAdd(b.dataset.k, 1);
+  var k = b.dataset.k;
+  if (!OFF.items[k]){ OFF.items[k] = 1; offMark(k); offLeft(); offDraftSave(); }
+  else offAdd(k, 1);
 };
 $('oList').onclick = function(e){
   var b = e.target.closest('button'); if (!b) return;
@@ -5886,6 +6128,15 @@ $('oList').onclick = function(e){
   else if (b.dataset.x){ var k = b.dataset.x; delete OFF.items[k];
                          offMark(k); offLeft(); offDraftSave(); }
 };
+$('oList').addEventListener('input', function(e){
+  var i = e.target.closest('[data-q]'); if (!i) return;
+  qSet(i.dataset.q, i.value, 'o');
+  $('oCnt').textContent = cntText(Object.keys(OFF.items)
+    .filter(function(x){ return OFF.items[x] > 0; }), OFF.items);
+}, false);
+$('oList').addEventListener('change', function(e){
+  if (e.target.closest('[data-q]')) offLeft();
+}, false);
 $('oClear').onclick = function(){
   if (!Object.keys(OFF.items).length) return;
   if (!confirm('Очистить набранный список списания?')) return;
@@ -5900,9 +6151,11 @@ $('oSend').onclick = async function(){
   if (!wh) return msg('m9','Сначала выберите филиал.','err');
   if (!d)  return msg('m9','Укажите дату.','err');
   if (!rows.length) return msg('m9','Список пустой — нечего отправлять.','err');
+  if (!confirmShrink('off', rows.length)) return;
   b.disabled = true; msg('m9','Отправляю…','wait');
   try{
     var res = await apiCall('off', { key: c.send, day: d, branch: wh, items: rows });
+    SRV.off = res.saved;
     offDraftClear();
     msg('m9','Отправлено: ' + res.saved + ' позиций на списание ' + ru(d) + '. ' +
         'Повторная отправка за этот день заменит список — можно дополнить и отправить снова.','ok');
@@ -5911,6 +6164,171 @@ $('oSend').onclick = async function(){
         'попробуйте ещё раз, когда появится связь.','err');
   }
   b.disabled = false;
+};
+
+
+/* ═════════ приёмка списаний: цех сверяет привезённое ═════════
+   Диспетчер стоит у стола с коробками. Ему нужно одно: увидеть, что филиал
+   заявил, и вписать, что доехало. Поэтому страница — не отчёт, а ведомость:
+   строка, заявлено, привезли, и расхождение видно не глазами, а цветом. */
+var INB = { day: '', rows: [], dirty: {} };
+
+function inKey(){
+  var c = apiCfg();
+  return S($('inKey').value).trim() || S(c.check);
+}
+function inSaveKey(){
+  var k = S($('inKey').value).trim();
+  if (!k) return;
+  var c = apiCfg(); c.check = k; apiSave(c);
+}
+/* Килограммы и штуки тут тоже врозь: 2 кг бауырсака и 2 эклера — разные вещи. */
+function inUnit(dish){ return isKg(nrm(dish)) ? 'кг' : 'шт'; }
+
+function inBranches(){
+  var by = {}, order = [];
+  INB.rows.forEach(function(r){
+    if (!by[r.branch]){ by[r.branch] = []; order.push(r.branch); }
+    by[r.branch].push(r);
+  });
+  order.sort(function(a, b){
+    var na = +((S(a).match(/\d+/) || [999])[0]), nb = +((S(b).match(/\d+/) || [999])[0]);
+    return na - nb || (a < b ? -1 : 1);
+  });
+  return order.map(function(w){ return { wh: w, rows: by[w] }; });
+}
+/* Что с позицией: ещё не считали, сошлось, недовоз или перевоз. */
+function inState(r){
+  var got = INB.dirty.hasOwnProperty(inK(r)) ? INB.dirty[inK(r)] : r.got;
+  if (got === null || got === undefined || got === '') return { k: 'wait', got: '' };
+  var d = Math.round((N(got) - r.qty) * 100) / 100;
+  return { k: d === 0 ? 'ok' : (d < 0 ? 'less' : 'more'), got: N(got), d: d };
+}
+function inK(r){ return r.branch + '|' + r.dish; }
+
+function inRender(){
+  var groups = inBranches();
+  if (!groups.length){
+    $('inBody').innerHTML = '<div class="card"><div class="zEmpty">' +
+      'На этот день списаний ещё нет. Филиалы присылают их вечером.</div></div>';
+    $('inHead').innerHTML = '';
+    return;
+  }
+  $('inHead').innerHTML = '<b>Приёмка списаний</b> · ' + esc(ru(INB.day)) +
+    ' · филиалов: ' + groups.length;
+
+  $('inBody').innerHTML = groups.map(function(g){
+    var poz = g.rows.length, ждут = 0, расх = 0;
+    var body = g.rows.slice().sort(function(a, b){
+      return (a.cat || '') < (b.cat || '') ? -1
+           : (a.cat || '') > (b.cat || '') ? 1
+           : (a.dish < b.dish ? -1 : 1);
+    }).map(function(r){
+      var st = inState(r);
+      if (st.k === 'wait') ждут++; else if (st.k !== 'ok') расх++;
+      /* Единицу держим рядом с цифрой, а не отдельной колонкой: на телефоне
+         каждая лишняя колонка выталкивает поле ввода за край экрана. */
+      return '<tr class="in-' + st.k + '">' +
+        '<td class="c">' + esc(r.cat || '') + '</td>' +
+        '<td>' + esc(r.dish) + '</td>' +
+        '<td class="n">' + qStr(r.qty) + ' <span class="u">' + inUnit(r.dish) + '</span></td>' +
+        '<td class="n"><input class="inQ" type="number" inputmode="decimal" step="0.1" ' +
+          'min="0" data-f="' + esc(inK(r)) + '" value="' + (st.got === '' ? '' : qStr(st.got)) +
+          '"></td>' +
+        '<td class="d">' + (st.k === 'wait' ? '' :
+          st.d === 0 ? '✓' : (st.d > 0 ? '+' : '') + qStr(st.d)) + '</td></tr>';
+    }).join('');
+
+    return '<div class="card inWh" data-wh="' + esc(g.wh) + '">' +
+      '<div class="inTop"><b>' + esc(g.wh) + '</b>' +
+        '<span class="cnt">' + poz + ' ' + pozic(poz) +
+        (ждут ? ' · не считали: ' + ждут : '') +
+        (расх ? ' · расхождений: ' + расх : (ждут ? '' : ' · всё сошлось')) + '</span>' +
+        '<button class="noprint" data-save="' + esc(g.wh) + '">Сохранить</button></div>' +
+      '<table class="inT"><thead><tr><th class="c">Категория</th><th>Блюдо</th>' +
+        '<th class="n">Заявлено</th><th class="n">Привезли</th>' +
+        '<th class="d">Разница</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+  }).join('');
+}
+
+async function inLoad(){
+  var d = D($('inDay').value), k = inKey();
+  if (!k) return msg('m10','Впишите ключ цеха — его даёт бухгалтерия.','err');
+  if (!d) return msg('m10','Укажите день списания.','err');
+  if (!apiUrlOf() || !apiIsSheets())
+    return msg('m10','Приёмка работает только с приёмником на Google-таблице.','err');
+  inSaveKey();
+  msg('m10','Загружаю…','wait');
+  try{
+    var r = await apiCall('inbox', { key: k, day: d });
+    INB = { day: d, rows: r.rows || [], dirty: {} };
+    inRender();
+    msg('m10', INB.rows.length
+      ? 'Показано ' + INB.rows.length + ' ' + pozic(INB.rows.length) + ' за ' + ru(d) + '.'
+      : 'На этот день списаний нет.', INB.rows.length ? 'ok' : 'wait');
+  }catch(e){
+    msg('m10','Не получилось: ' + e.message,'err');
+  }
+}
+
+async function inSave(wh){
+  var k = inKey(), d = INB.day;
+  var rows = INB.rows.filter(function(r){ return r.branch === wh; });
+  var items = rows.map(function(r){
+    var key = inK(r);
+    var got = INB.dirty.hasOwnProperty(key) ? INB.dirty[key] : r.got;
+    return { dish: r.dish, got: (got === null || got === undefined) ? '' : got };
+  });
+  msg('m10','Сохраняю ' + wh + '…','wait');
+  try{
+    var res = await apiCall('fact', { key: k, day: d, branch: wh, items: items });
+    rows.forEach(function(r){
+      var key = inK(r);
+      if (INB.dirty.hasOwnProperty(key)){ r.got = INB.dirty[key]; delete INB.dirty[key]; }
+    });
+    inRender();
+    msg('m10','Сохранено по «' + wh + '»: ' + res.saved + ' ' + pozic(res.saved) + '.','ok');
+  }catch(e){ msg('m10','Не сохранилось: ' + e.message + '. Цифры остались на экране.','err'); }
+}
+
+$('inLoad').onclick = function(){ inLoad(); };
+$('inDay').onchange = function(){ if (INB.rows.length) inLoad(); };
+$('inBody').addEventListener('input', function(e){
+  var i = e.target.closest('[data-f]'); if (!i) return;
+  var v = S(i.value).trim().replace(',', '.');
+  INB.dirty[i.dataset.f] = v === '' ? null : Math.max(0, N(v));
+}, false);
+/* Перекрашиваем строку, когда из поля ушли: на каждую цифру — рябит в глазах. */
+$('inBody').addEventListener('change', function(e){
+  if (e.target.closest('[data-f]')) inRender();
+}, false);
+$('inBody').addEventListener('click', function(e){
+  var b = e.target.closest('[data-save]'); if (!b) return;
+  inSave(b.dataset.save);
+}, false);
+
+$('inPrint').onclick = function(){
+  if (!INB.rows.length) return msg('m10','Сначала покажите день — печатать нечего.','err');
+  window.print();
+};
+$('inXlsx').onclick = function(){
+  if (!INB.rows.length) return msg('m10','Сначала покажите день — сохранять нечего.','err');
+  var sheets = inBranches().map(function(g){
+    return { name: S(g.wh).replace(/[\\/:*?"<>|\[\]]/g, ' ').slice(0, 28),
+      head: ['Категория','Блюдо','Заявлено','Привезли','Ед.','Разница'],
+      rows: g.rows.map(function(r){
+        var st = inState(r);
+        return [r.cat || '', r.dish, r.qty, st.got === '' ? '' : st.got,
+                inUnit(r.dish), st.k === 'wait' ? '' : st.d];
+      }) };
+  });
+  var blob = makeXlsx(sheets);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ('Приёмка списаний ' + ru(INB.day)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  msg('m10','Файл готов.','ok');
 };
 
 /* ═════════ приёмник заявок на Cloudflare ═════════
@@ -6153,6 +6571,7 @@ $('zSend').onclick = async function(){
   if (!wh) return msg('m7','Сначала выберите филиал.','err');
   if (!d)  return msg('m7','Укажите дату.','err');
   if (!rows.length) return msg('m7','Список пустой — нечего отправлять.','err');
+  if (!confirmShrink('zay', rows.length)) return;
   b.disabled = true; msg('m7','Отправляю…','wait');
   try{
     /* Категорию шлём вместе с блюдом: в таблице её видно рядом с названием,
@@ -6164,6 +6583,7 @@ $('zSend').onclick = async function(){
     saveDB(); refresh(); zayDraftClear();
     /* Сколько чатов сотрудников получили список прямо сейчас. Филиалу это
        важнее, чем кажется: он видит, что список ушёл дальше, а не «в никуда». */
+    SRV.zay = res.saved;
     var told = +res.told > 0 ? ' Сотрудники уже видят список в мессенджере.' : '';
     msg('m7','Отправлено: ' + res.saved + ' позиций за ' + ru(d) + '.' + told + ' ' +
         'Повторная отправка за этот день заменит заявку — можно дополнить и отправить снова.' +
@@ -6359,6 +6779,7 @@ function showFresh(){
     chr: ['Аналитика','как продаётся и где теряется'],
     heat:['Тепловая карта','когда уходит продукция со скидкой'],
     off: ['Списание завтра','что филиал снимает с продажи'],
+    in:  ['Приёмка списаний','цех сверяет привезённое со списком'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
@@ -6414,6 +6835,7 @@ function showFresh(){
       }
       if (typeof zayLoad === 'function') zayLoad();
       if (typeof zayBooks === 'function') zayBooks();
+      if (typeof syncMine === 'function') syncMine('zay');
       if (el('zHint')) el('zHint').textContent =
         (c.wh && !hit) ? 'В ссылке указан филиал «' + c.wh + '», но такого склада в выгрузке ' +
                          'нет — выберите вручную и скажите бухгалтерии поправить ссылку.'
@@ -6437,6 +6859,15 @@ function showFresh(){
         so.disabled = !!(co.lock && hito);
       }
       if (typeof offLoad === 'function') offLoad();
+      if (typeof syncMine === 'function') syncMine('off');
+    }
+    if (p === 'in'){
+      /* Цех принимает то, что филиалы заявили на сегодня: список составляют
+         вечером на завтра, а привозят уже в день списания. */
+      if (!el('inDay').value) el('inDay').value = isoToday();
+      var ck = (typeof apiCfg === 'function') ? apiCfg() : {};
+      if (ck.check && !el('inKey').value) el('inKey').value = ck.check;
+      if (typeof inLoad === 'function' && el('inKey').value && !INB.rows.length) inLoad();
     }
     if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();

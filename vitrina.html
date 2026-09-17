@@ -281,6 +281,19 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   }
   function fmtQ(n){ return Math.round(n * 100) / 100; }
 
+  /* Весовые позиции считают килограммами, целые торты режут пополам. Список
+     тот же, что на странице филиала: правится одной строкой в обоих местах. */
+  var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
+                'Көкнәр қосылған тоқаш', 'Қатпарлы сүзбелі тоқаш',
+                'Қатпарлы тоқаш алмамен'];
+  var WEIGHT_K = {};
+  WEIGHT.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
+  var HALF_KAT = { 'торттар': 1, 'кіші торттар': 1 };
+  function isKg(dish){ return !!WEIGHT_K[nrm(dish)]; }
+  function isHalf(dish, cat){ return !isKg(dish) && !!HALF_KAT[nrm(cat)]; }
+  function unitOf(dish){ return isKg(dish) ? 'кг' : 'шт'; }
+  function stepOf(dish, cat){ return isKg(dish) ? 0.5 : isHalf(dish, cat) ? 0.5 : 1; }
+
   /* Филиалы перечислены здесь, чтобы показать и тех, кто список ещё не прислал:
      пустая строка «не прислали» — тоже нужная сотруднику информация. */
   var SHOPS = [
@@ -384,9 +397,21 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     go('items');
   }
   function cartCount(){
-    var pos = 0, qty = 0;
-    Object.keys(CART).forEach(function(k){ if (CART[k] > 0){ pos++; qty += CART[k]; } });
-    return { pos: pos, qty: qty };
+    var pos = 0, sht = 0, kg = 0;
+    Object.keys(CART).forEach(function(k){
+      if (!(CART[k] > 0)) return;
+      pos++;
+      if (isKg(k)) kg += CART[k]; else sht += CART[k];
+    });
+    return { pos: pos, qty: sht + kg, sht: sht, kg: kg };
+  }
+  /* Штуки и килограммы в одну цифру не сводим — «6 шт · 1.5 кг» честнее, чем
+     «7.5» непонятно чего. */
+  function cartQty(c){
+    var t = [];
+    if (c.sht) t.push(fmtQ(c.sht) + ' шт');
+    if (c.kg)  t.push(fmtQ(c.kg) + ' кг');
+    return t.join(' · ') || '0 шт';
   }
   function cartItems(){
     return Object.keys(CART).filter(function(k){ return CART[k] > 0; })
@@ -456,7 +481,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
         '<div class="sub">Нет в наличии</div></div></div>';
       return '<div class="row' + (mine ? ' has' : '') + '">' +
         '<div class="txt"><div class="nm">' + esc(r.dish) + '</div>' +
-        '<div class="sub">Осталось ' + fmtQ(left) + '</div></div>' +
+        '<div class="sub">Осталось ' + fmtQ(left) + ' ' + unitOf(r.dish) + '</div></div>' +
         '<div class="st">' +
           '<button type="button" data-m="' + esc(r.dish) + '"' + (mine ? '' : ' disabled') + '>−</button>' +
           '<span class="n' + (mine ? '' : ' zero') + '">' + fmtQ(mine) + '</span>' +
@@ -497,7 +522,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     el('bar').hidden = false;
     el('barTxt').innerHTML = c.pos
       ? '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + '</b>' +
-        fmtQ(c.qty) + ' ' + plural(c.qty, 'штука', 'штуки', 'штук')
+        cartQty(c)
       : EDIT
         ? '<b>В брони пусто</b>снимите бронь или верните позиции'
         : '<b>Выберите продукцию</b>нажимайте + у нужных позиций';
@@ -520,7 +545,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
         items.map(function(i){
           return '<div class="row" style="padding:10px 0;border-top:1px solid var(--line)">' +
             '<div class="txt"><div class="nm">' + esc(i.dish) + '</div></div>' +
-            '<div style="font-weight:700">' + fmtQ(i.qty) + ' шт</div></div>';
+            '<div style="font-weight:700">' + fmtQ(i.qty) + ' ' + unitOf(i.dish) +
+            '</div></div>';
         }).join('') +
       '</div>' +
 
@@ -555,7 +581,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
       '<div class="card"><div class="tot"><span>Итого</span>' +
         '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') +
-        ' · ' + fmtQ(c.qty) + ' шт</b></div>' +
+        ' · ' + cartQty(c) + '</b></div>' +
         (EDIT ? '<button type="button" class="drop" id="dropBook">Снять бронь целиком</button>'
               : '') +
       '</div>';
@@ -564,8 +590,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     /* В панели держим короткую строку: длинная переносится в три ряда и
        выдавливает кнопку к краю экрана. */
     el('barTxt').innerHTML = shut
-      ? '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>доставку забронируют с ' + hhmm(BOOK_OPEN)
-      : '<b>' + c.pos + ' · ' + fmtQ(c.qty) + ' шт</b>' +
+      ? '<b>' + c.pos + ' · ' + cartQty(c) + '</b>доставку забронируют с ' + hhmm(BOOK_OPEN)
+      : '<b>' + c.pos + ' · ' + cartQty(c) + '</b>' +
         (EDIT ? 'старая бронь заменится этой' : 'проверьте и подтвердите');
     el('barBtn').textContent = EDIT ? 'Сохранить' : 'Подтвердить';
     el('barBtn').disabled = shut;
@@ -592,7 +618,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
           : '<p>Получение: <b>' + esc(r.destTitle) + '</b>' +
             (r.trip ? ', ' + esc(r.trip) : '') + '</p>' +
             '<p>Дата: ' + esc(human(r.day)) + '</p>' +
-            '<p>Позиций: ' + r.pos + ' · ' + fmtQ(r.qty) + ' шт</p>') +
+            '<p>Позиций: ' + r.pos + ' · ' + esc(r.qtyText) + '</p>') +
         '<p class="mini" style="margin-top:10px">' +
           (r.told ? 'Филиал получил уведомление.' : 'Филиал увидит это на своём экране.') +
         '</p>' +
@@ -665,7 +691,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     var r = rowsOf(BR).filter(function(x){ return x.dish === dish; })[0];
     if (!r) return;
     var left = leftOf(BR, dish, +r.qty || 0);
-    var cur = CART[dish] || 0, next = Math.min(left, Math.max(0, cur + d));
+    var cur = CART[dish] || 0;
+    /* Первое нажатие даёт целую единицу — килограмм или штуку. Дальше шагаем
+       дробно: полкило добрать, торт взять половинкой. */
+    var st = cur ? stepOf(dish, r.cat) : 1;
+    var next = Math.min(left, Math.max(0, Math.round((cur + d * st) * 100) / 100));
     if (next) CART[dish] = next; else delete CART[dish];
     drawItems();
   }
@@ -783,7 +813,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       RES = { mode: mode, num: j.num || EDIT, who: ME, day: DAY, told: j.told,
               destTitle: mode === 'off' ? shopTitle(BR)
                        : here ? shopTitle(BR) : shopTitle(DEST),
-              trip: here ? '' : TRIP, pos: c.pos, qty: c.qty };
+              trip: here ? '' : TRIP, pos: c.pos, qtyText: cartQty(c) };
       CART = {}; EDIT = '';
       go('done');
       load(true);            // тихо обновляем остатки под новым состоянием
