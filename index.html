@@ -178,6 +178,14 @@
   .zBtn:hover{background:var(--rowHov)}
   .zBtn.del{color:var(--badT);font-size:15px}
   .zEmpty{padding:26px 14px;text-align:center;color:var(--mut);font-size:13px}
+  .sos-off td{opacity:.42}
+  .sos-off td b{font-weight:400}
+  .sosT td .u{display:block;font-size:11px;color:var(--mut);margin-top:1px}
+  .sosT th{vertical-align:bottom}
+  /* На телефоне таблица шире экрана — пусть едет вбок внутри карточки,
+     а не обрезается по краю и не растягивает всю страницу. */
+  .sosWrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .sosWrap .sosT{min-width:640px}
   /* Брони сотрудников — не список на уценку, поэтому отдельной рамкой:
      филиал не должен путать «что уходит по 20%» и «что у меня выкупят». */
   .bkBox{margin-top:12px;border:1px solid var(--acc2);border-radius:10px;
@@ -645,6 +653,7 @@
       <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
       <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
+      <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
       <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
@@ -819,6 +828,54 @@
         <div id="inBody"></div>
       </section>
 
+      <!-- ─── Спасатель филиала ────────────────────────── -->
+      <section class="page wide" id="pg-sos">
+        <div class="card noprint">
+          <h2>Кому помочь сегодня вечером</h2>
+          <details class="tip"><summary>Как это считается</summary>
+            <p>Берём остаток на конец дня и дневной спрос за неделю. Если у филиала
+              остатка больше, чем он продаёт за два дня, — завтра приедет свежая партия,
+              а вчерашняя уйдёт на скидку. Это и есть филиал, которому нужна помощь.</p>
+            <p>Спасателя ищем <b>на том же маршруте</b>: везти можно только туда, куда
+              и так едет машина. Спасатель — тот, кто эту же позицию к вечеру разобрал
+              в ноль и продаёт её не медленнее. Если он ещё и уходил в стоп, значит
+              спроса у него больше, чем завоза, и лишнее там не залежится.</p>
+            <p>Выпечку со сроком сутки не предлагаем вовсе: первый рейс приходит к 8:00,
+              к этому часу везти её уже некуда.</p>
+            <p>Перевоз лечит сегодняшний день, а не причину. Если один и тот же филиал
+              попадает сюда каждый вечер, дело в заявке: смотрите «Хронология» —
+              там по этой же позиции написано, на сколько штук в день её резать.</p>
+            <p>Интеграции с iiko нет, поэтому вечером сначала загрузите свежие
+              товарный отчёт и ведомость на странице «Выгрузки iiko» — считается по ним.</p>
+          </details>
+          <div class="row" style="margin-top:10px">
+            <div><label class="lbl">Вечер какого дня</label><input type="date" id="sosDay"></div>
+            <div style="flex:0 0 150px"><label class="lbl">Спрос за, дней</label>
+              <input type="number" id="sosBack" min="3" max="30" step="1" value="7"></div>
+            <button id="sosRun">Посчитать</button>
+            <button class="sec noprint" id="sosPrint">Печать</button>
+            <button class="sec noprint" id="sosXlsx">Файлом</button>
+          </div>
+          <div class="msg" id="m11"></div>
+        </div>
+
+        <div class="printHead" id="sosHead"></div>
+        <div id="sosBody"></div>
+
+        <div class="card noprint" id="sosSendCard" style="display:none">
+          <h2>Отправить филиалам</h2>
+          <p class="lead">Спасателю уйдёт просьба забрать, филиалу с остатком — что отдать
+            и кому. Одно сообщение на филиал, а не по штуке на позицию.</p>
+          <div class="row">
+            <div style="flex:0 0 260px"><label class="lbl">Ключ на чтение</label>
+              <input type="text" class="secret" id="sosKey" placeholder="READ_KEY"
+                autocomplete="off" spellcheck="false"></div>
+            <button id="sosSend">Отправить уведомления</button>
+          </div>
+          <div class="msg" id="m12"></div>
+        </div>
+      </section>
+
       <section class="page" id="pg-sp">
         <div class="card">
           <h2>Вставьте сообщения из WhatsApp</h2>
@@ -885,6 +942,15 @@
             <button class="sec" id="btnUnlock" style="display:none">Снять режим филиала</button>
           </div>
           <div id="lnkOut"></div>
+
+          <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+            <div style="flex:0 0 220px"><label class="lbl">Ключ цеха</label>
+              <input type="text" class="secret" id="lnkCheck" placeholder="CHECK_KEY"
+                autocomplete="off" spellcheck="false"></div>
+            <button class="sec" id="btnCehLink">Ссылка для цеха</button>
+          </div>
+          <div id="cehOut"></div>
+
           <details class="tip"><summary>Что внутри ссылки</summary>
             <p>Филиал и приёмник уже прописаны, вводить сотруднику нечего. Ключ из
               адресной строки страница убирает сразу после первого открытия. Пусть
@@ -6443,16 +6509,25 @@ function askSwitch(now, next, apply){
 (function(){
   try{
     var p = new URLSearchParams(location.search);
-    if (!p.get('api') && !p.get('k') && !p.get('wh')) return;
-    var c = apiCfg(), nw = p.get('wh');
+    if (!p.get('api') && !p.get('k') && !p.get('wh') &&
+        !p.get('check') && !p.get('p')) return;
+    var c = apiCfg(), nw = p.get('wh'), pg = p.get('p');
     function apply(){
       var c = apiCfg();
       if (p.get('api')) c.url = p.get('api');
       if (p.get('k'))   c.send = p.get('k');
+      if (p.get('check')) c.check = p.get('check');
       if (nw) c.wh = nw;
       if (p.get('lock')) c.lock = 1;    // филиалу не давать переключаться на чужой
+      /* Ссылка цеха или бухгалтерии — это не филиал. Снимаем замок и чужой
+         склад: иначе страница открывается на заявке того филиала, чью ссылку
+         на этом телефоне открывали раньше, — память браузера общая на весь
+         адрес сайта, и цех попадал на «Атакент» вместо приёмки. */
+      if (pg && pg !== 'zay'){ delete c.lock; delete c.wh; }
       apiSave(c);
     }
+    /* С какой страницы открыться. Читаем до того, как адрес почистится. */
+    if (pg) window.START_FROM_LINK = pg;
     /* Разное написание одного и того же склада — не подмена: сверяем по номеру. */
     var clash = !!(c.lock && c.wh && nw && !sameBranch(c.wh, nw));
     // ключ в адресной строке светить незачем — убираем в любом случае
@@ -6798,6 +6873,30 @@ $('btnUnlock').onclick = function(){
       'открывается с отчёта. Ссылки филиалов это не затрагивает.','ok');
 };
 
+/* Ссылка цеха. Отдельная от филиальских: она открывает сразу «Приёмку
+   списаний», кладёт ключ цеха и снимает режим филиала — на том компьютере,
+   где раньше открывали ссылку филиала, иначе вылезала его заявка. */
+function cehLink(base, key){
+  return location.origin + location.pathname +
+         '?api=' + encodeURIComponent(base) +
+         '&check=' + encodeURIComponent(key) + '&p=in';
+}
+$('btnCehLink').onclick = function(){
+  var base = apiUrlOf(), key = S($('lnkCheck').value);
+  if (!base) return msg('m2d','Не задан адрес приёмника.','err');
+  if (!key)  return msg('m2d','Укажите ключ цеха.','err');
+  var c = apiCfg(); c.check = key; apiSave(c);
+  var u = cehLink(base, key);
+  $('cehOut').innerHTML = '<table class="tbl lnkTbl"><tbody><tr>' +
+    '<td class="name">Цех — приёмка списаний</td>' +
+    '<td class="lnkCell"><span>' + esc(u) + '</span></td>' +
+    '<td><button class="sec miniBtn" data-lnk="' + esc(u) + '">Копировать</button></td>' +
+    '</tr></tbody></table>';
+  msg('m2d','Ссылка цеха готова. Она открывает приёмку, а не заявку филиала, ' +
+      'и снимает режим филиала на том компьютере, где его включили раньше.','ok');
+};
+$('cehOut').onclick = function(e){ $('lnkOut').onclick(e); };
+
 $('lnkOut').onclick = async function(e){
   var b = e.target.closest('button[data-lnk]'); if (!b) return;
   var t = b.textContent;
@@ -6858,6 +6957,225 @@ function showFresh(){
   ['covUp','covRep'].forEach(function(id){ if ($(id)) $(id).innerHTML = cov; });
 }
 
+/* ═════════ спасатель филиала ═════════
+   У одного филиала «Бананды үлкен тарт» стоит второй день, у соседа по маршруту
+   его разбирают к обеду. Завтра у первого приедет свежая партия, а вчерашняя
+   уйдёт на скидку — и так каждый день. Интеграции с iiko нет, остатка в
+   реальном времени не видно, поэтому считаем по вечерним выгрузкам: остаток на
+   конец дня против дневного спроса за неделю. */
+var SOS = { day: '', back: 7, rows: [], off: {} };
+var SOS_SROK = 48;      // сутки живущее везти некуда: рейс приходит к 8:00
+var SOS_ZAPAS = 2;      // запаса на столько дней — уже залежалось
+
+function sosKey(){ return S($('sosKey').value).trim(); }
+function sosRowKey(r){ return r.wh + '|' + r.dish + '|' + r.to; }
+
+/* Точка маршрута по одной позиции на конец выбранного дня. */
+function sosPoints(day, back){
+  var from = shift(day, -(Math.max(3, back) - 1));
+  var S0 = SERIES, D0 = CHRONO_DAYS, W0 = CHRONO_WH, by = {};
+  try{
+    chrono(from, day);
+    Object.keys(SERIES).forEach(function(key){
+      var ser = SERIES[key], inf = ser.info;
+      if (!inf || isDelivery(inf.wh) || isClosed(inf.wh)) return;
+      if (!movableCat(inf.cat) || N(inf.srok) < SOS_SROK) return;
+      var last = null;
+      for (var i = ser.length - 1; i >= 0; i--) if (ser[i].d === day){ last = ser[i]; break; }
+      if (!last) return;
+      var rt = (DB.routes && DB.routes[inf.wh]) || '';
+      if (!rt) return;                       // вне маршрута везти нечем
+      var g = by[inf.name] || (by[inf.name] = {});
+      (g[rt] = g[rt] || []).push({
+        wh: inf.wh, dish: inf.name, cat: inf.cat, srok: N(inf.srok), route: rt,
+        bal: N(last.bal), prih: N(last.p), sold: N(last.s), age: last.age,
+        /* Скорость — средние продажи в день, когда филиал продавал. Медиану
+           спроса тут брать нельзя: она считается по дням без стопа, а у того,
+           кто разбирает всё к обеду, таких дней не бывает вовсе — и лучший
+           продавец выходил с нулевой скоростью. */
+        speed: inf.dSold ? N(inf.S) / inf.dSold : 0,
+        stop: N(inf.stop), price: N(inf.price),
+        zakaz: N(inf.zakaz), nowDay: N(inf.nowDay) });
+    });
+  } finally { SERIES = S0; CHRONO_DAYS = D0; CHRONO_WH = W0; }
+  return by;
+}
+
+/* Залежалось: остатка больше, чем уйдёт за два дня. Ноль продаж за неделю —
+   тоже залежалось, и это худший случай: там остаток не уйдёт вовсе. */
+function sosStuck(p){
+  if (p.bal < 1) return false;
+  return p.speed <= 0 || p.bal / p.speed >= SOS_ZAPAS;
+}
+/* Спасатель: к вечеру разобрал в ноль и сегодня действительно продавал. */
+function sosFree(p){ return p.bal <= 0.5 && p.speed >= 1 && p.sold > 0; }
+
+function sosBuild(day, back){
+  var by = sosPoints(day, back), out = [];
+  Object.keys(by).forEach(function(dish){
+    Object.keys(by[dish]).forEach(function(rt){
+      var g = by[dish][rt];
+      if (g.length < 2) return;
+      var need = g.filter(sosStuck), free = g.filter(sosFree);
+      if (!need.length || !free.length) return;
+      need.forEach(function(A){
+        var B = null;
+        free.forEach(function(x){
+          if (x.wh === A.wh) return;
+          if (x.speed < A.speed) return;     // медленнее — не спасатель
+          if (!B || x.speed > B.speed) B = x;
+        });
+        if (!B) return;
+        /* Сколько отдать. Себе оставляем дневной спрос — завтра филиал тоже
+           торгует. Спасателю не грузим больше, чем он продаёт: он и свою партию
+           получит. Тому, кто уходил в стоп, можно полный дневной спрос — у него
+           спроса больше, чем завоза. */
+        var k = nrm(dish);
+        var room = B.stop > 0 ? B.speed : B.speed / 2;
+        var move = Math.min(A.bal - A.speed, room, A.bal);
+        move = canFrac(k) ? Math.floor(move * 2) / 2 : Math.floor(move);
+        if (move < (canFrac(k) ? 0.5 : 1)) return;
+        out.push({ route: rt, dish: dish, cat: A.cat, wh: A.wh, to: B.wh,
+          bal: A.bal, speed: A.speed, days: A.speed > 0 ? A.bal / A.speed : 99,
+          age: A.age, prih: A.prih, zakaz: A.zakaz, nowDay: A.nowDay,
+          toSpeed: B.speed, toStop: B.stop, move: move,
+          eco: A.price ? Math.round(move * A.price * 0.2) : 0,
+          money: A.price ? Math.round(move * A.price) : 0 });
+      });
+    });
+  });
+  /* Сверху то, где помощь нужнее: сначала по деньгам, потом по запасу. */
+  out.sort(function(a, b){ return (b.eco - a.eco) || (b.days - a.days); });
+  return out;
+}
+
+function sosLive(){ return SOS.rows.filter(function(r){ return !SOS.off[sosRowKey(r)]; }); }
+
+function sosRender(){
+  var rows = SOS.rows;
+  if (!rows.length){
+    $('sosBody').innerHTML = '<div class="card"><div class="zEmpty">' +
+      'На этот вечер помогать некому — ни у кого нет залежавшегося остатка, ' +
+      'на который нашёлся бы покупатель на том же маршруте.</div></div>';
+    $('sosHead').innerHTML = '';
+    $('sosSendCard').style.display = 'none';
+    return;
+  }
+  var live = sosLive();
+  $('sosHead').innerHTML = '<b>Спасатель филиала</b> · вечер ' + esc(ru(SOS.day)) +
+    ' · строк: ' + live.length;
+
+  var byR = {}, order = [];
+  rows.forEach(function(r){ if (!byR[r.route]){ byR[r.route] = []; order.push(r.route); }
+                            byR[r.route].push(r); });
+  order.sort();
+
+  $('sosBody').innerHTML = order.map(function(rt){
+    var body = byR[rt].map(function(r){
+      var k = sosRowKey(r), off = !!SOS.off[k];
+      var dn = r.days >= 99 ? 'не продаётся' : qStr(Math.round(r.days * 10) / 10) + ' дн';
+      var sk = function(v){ return 'продаёт ' + qStr(Math.round(v * 10) / 10) + ' в день'; };
+      /* Скорость держим подписью под филиалом, а не отдельной колонкой: колонок
+         тут и так восемь, а на телефоне таблица должна влезать в экран. */
+      return '<tr' + (off ? ' class="sos-off"' : '') + '>' +
+        '<td class="noprint"><input type="checkbox" data-sos="' + esc(k) + '"' +
+          (off ? '' : ' checked') + '></td>' +
+        '<td>' + esc(r.dish) + '<div class="u">' + esc(r.cat) + '</div></td>' +
+        '<td><b>' + esc(r.wh) + '</b><div class="u">' + sk(r.speed) + '</div></td>' +
+        '<td class="n">' + qStr(r.bal) + '</td>' +
+        '<td class="n">' + dn + '</td>' +
+        '<td><b>' + esc(r.to) + '</b><div class="u">' + sk(r.toSpeed) +
+          (r.toStop ? ' · в ноль ' + r.toStop + ' из ' + SOS.back : '') + '</div></td>' +
+        '<td class="n"><b>' + qStr(r.move) + '</b> <span class="u">' + unitOf(nrm(r.dish)) + '</span></td>' +
+        '<td class="n">' + (r.eco ? fmtNum(r.eco) : '') + '</td></tr>';
+    }).join('');
+    return '<div class="card">' +
+      '<div class="inTop"><b>' + esc(rt) + '</b>' +
+        '<span class="cnt">' + byR[rt].length + ' ' + pozic(byR[rt].length) + '</span></div>' +
+      '<div class="sosWrap"><table class="inT sosT"><thead><tr><th class="noprint"></th><th>Блюдо</th>' +
+        '<th>Кому тяжело</th><th class="n">Остаток</th><th class="n">Запаса на</th>' +
+        '<th>Спасатель</th><th class="n">Отдать</th>' +
+        '<th class="n">Скидка не&nbsp;понадобится, ₸</th>' +
+        '</tr></thead><tbody>' + body + '</tbody></table></div></div>';
+  }).join('');
+  $('sosSendCard').style.display = live.length ? '' : 'none';
+}
+
+$('sosRun').onclick = function(){
+  var d = D($('sosDay').value), back = Math.max(3, N($('sosBack').value) || 7);
+  if (!DB.mov.length) return msg('m11','Сначала загрузите товарный отчёт и ведомость.','err');
+  if (!d) return msg('m11','Укажите, за какой вечер считаем.','err');
+  if (!Object.keys(DB.routes || {}).length)
+    return msg('m11','Не заданы маршруты — без них непонятно, куда можно везти. ' +
+                     'Задайте их на вкладке «Маршруты».','err');
+  msg('m11','Считаю…','wait');
+  try{
+    SOS = { day: d, back: back, rows: sosBuild(d, back), off: {} };
+    sosRender();
+    var eco = 0, live = sosLive();
+    live.forEach(function(r){ eco += r.eco; });
+    msg('m11', live.length
+      ? ('Нашла ' + live.length + ' ' + pozic(live.length) + ' к перевозу' +
+         (eco ? '. Скидка не понадобится примерно на ' + fmtNum(eco) + ' ₸.' : '.'))
+      : 'Помогать некому — залежавшегося остатка с покупателем на маршруте нет.',
+      live.length ? 'ok' : 'wait');
+  }catch(e){ msg('m11','Ошибка: ' + (e.message || e),'err'); }
+};
+
+$('sosBody').addEventListener('change', function(e){
+  var b = e.target.closest('[data-sos]'); if (!b) return;
+  SOS.off[b.dataset.sos] = !b.checked;
+  sosRender();
+}, false);
+
+$('sosPrint').onclick = function(){
+  if (!SOS.rows.length) return msg('m11','Сначала посчитайте — печатать нечего.','err');
+  window.print();
+};
+$('sosXlsx').onclick = function(){
+  var live = sosLive();
+  if (!live.length) return msg('m11','Сначала посчитайте — сохранять нечего.','err');
+  var blob = makeXlsx([{ name: 'Спасатель',
+    head: ['Маршрут','Блюдо','Категория','Кому тяжело','Остаток','Продаёт в день',
+           'Запаса, дн','Спасатель','Продаёт в день','Отдать','Ед.','Скидка не понадобится, ₸'],
+    rows: live.map(function(r){
+      return [r.route, r.dish, r.cat, r.wh, r.bal, Math.round(r.speed * 10) / 10,
+        r.days >= 99 ? '' : Math.round(r.days * 10) / 10, r.to,
+        Math.round(r.toSpeed * 10) / 10, r.move, unitOf(nrm(r.dish)), r.eco || '']; }) }]);
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = ('Спасатель филиала ' + ru(SOS.day)).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
+  a.style.display = 'none'; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+  msg('m11','Файл готов.','ok');
+};
+
+$('sosSend').onclick = async function(){
+  var live = sosLive(), k = sosKey();
+  if (!live.length) return msg('m12','Отправлять нечего.','err');
+  if (!k) return msg('m12','Нужен ключ на чтение — тот же, что в «Списках филиалов».','err');
+  if (!apiUrlOf() || !apiIsSheets())
+    return msg('m12','Рассылка работает только с приёмником на Google-таблице.','err');
+  var c = apiCfg(); c.read = k; apiSave(c);
+  var whom = {};
+  live.forEach(function(r){ whom[r.wh] = 1; whom[r.to] = 1; });
+  if (!confirm('Уведомления уйдут в рабочие группы ' + Object.keys(whom).length +
+               ' филиалов. Отправляем?')) return;
+  msg('m12','Отправляю…','wait');
+  try{
+    /* День скидки — завтрашний: сегодня вечером решаем, что завтра не должно
+       на неё попасть. Считали за вечер другого дня — берём следующий за ним. */
+    var r = await apiCall('help', { key: k, day: shift(SOS.day, 1),
+      items: live.map(function(x){
+        return { from: x.wh, to: x.to, dish: x.dish, qty: x.move }; }) });
+    msg('m12', 'Ушло сообщений: ' + (r.sent || 0) +
+      (r.quiet && r.quiet.length
+        ? '. Без чата в таблице «Телеграм»: ' + r.quiet.join(', ') + ' — им не дошло.'
+        : '.'), (r.quiet && r.quiet.length) ? 'wait' : 'ok');
+  }catch(e){ msg('m12','Не ушло: ' + (e.message || e),'err'); }
+};
+
+
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
@@ -6869,6 +7187,7 @@ function showFresh(){
     heat:['Тепловая карта','когда уходит продукция со скидкой'],
     off: ['Списание завтра','что филиал снимает с продажи'],
     in:  ['Приёмка списаний','цех сверяет привезённое со списком'],
+    sos: ['Спасатель филиала','у кого залежалось и кто это продаёт'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
     help:['Как это считается','']
@@ -6960,6 +7279,13 @@ function showFresh(){
       if (ck.check && !el('inKey').value) el('inKey').value = ck.check;
       if (typeof inLoad === 'function' && el('inKey').value && !INB.rows.length) inLoad();
     }
+    if (p === 'sos'){
+      /* Считаем «на вечер сегодня»: выгрузку делают после закрытия дня, и
+         остаток на его конец — это то, что завтра утром стоит в холодильнике. */
+      if (!el('sosDay').value) el('sosDay').value = el('dTo').value || isoToday();
+      var ак = (typeof apiCfg === 'function') ? apiCfg() : {};
+      if (ак.read && !el('sosKey').value) el('sosKey').value = ак.read;
+    }
     if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();
     if (p === 'sp' && typeof unlockShow === 'function') unlockShow();
@@ -6967,6 +7293,7 @@ function showFresh(){
       var a = apiCfg();
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
       if (a.send && !el('lnkKey').value) el('lnkKey').value = a.send;
+      if (a.check && !el('lnkCheck').value) el('lnkCheck').value = a.check;
       if (el('apiShow')) el('apiShow').textContent = apiUrlOf();
       if (!el('apiFrom').value) el('apiFrom').value = el('dFrom').value;
       if (!el('apiTo').value)   el('apiTo').value   = el('dTo').value;
@@ -7023,6 +7350,9 @@ function showFresh(){
      выгрузок» бессмысленно — выгрузок у него нет и не будет.
      Всем остальным по-прежнему: есть движения — отчёт, нет — загрузка. */
   function startPage(){
+    /* Ссылка прямо сказала, куда открыться, — она главнее всего остального. */
+    try{ if (window.START_FROM_LINK && el('pg-' + window.START_FROM_LINK))
+           return window.START_FROM_LINK; }catch(e){}
     try{ if (typeof apiCfg === 'function' && apiCfg().lock) return 'zay'; }catch(e){}
     return (DB.mov && DB.mov.length) ? 'rep' : 'up';
   }
