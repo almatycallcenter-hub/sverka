@@ -286,6 +286,13 @@
     border-radius:999px;padding:0 7px;line-height:17px}
   .nav a.on .pill{background:var(--accbg);color:var(--acc)}
 
+  .who{margin-top:10px;padding:10px;border-radius:10px;background:var(--accbg);
+    font-size:11.5px;line-height:1.5;color:var(--acc)}
+  .who b{display:block;color:var(--txt);font-size:12.5px;font-weight:600}
+  .who .role{color:var(--mut)}
+  .who button{margin-top:7px;width:100%;font-size:11.5px;padding:5px 8px}
+  .who.gost{background:var(--soft);color:var(--mut)}
+
   .sidefoot{padding:10px;border-radius:10px;background:var(--soft);font-size:11.5px;color:var(--mut);
     line-height:1.55;margin-top:10px}
   .sidefoot b{color:var(--txt);font-weight:600}
@@ -662,6 +669,7 @@
       <a data-page="help"><span class="ic">❔</span>Как это считается</a>
     </nav>
 
+    <div class="who" id="whoBox" hidden></div>
     <div class="sidefoot" id="sidefoot">Данные не загружены</div>
   </aside>
 
@@ -929,6 +937,36 @@
               адресе: из адресной строки он попал бы в историю браузера.</p>
           </details>
           <div class="msg" id="m2c"></div>
+        </div>
+
+        <div class="card">
+          <h2>Вход по логину</h2>
+          <p class="lead">Вместо ключа в ссылке — вход под своей почтой.</p>
+          <details class="tip"><summary>Что это и что настроить в Auth0</summary>
+            <p>Вместо ключа в ссылке человек входит под своей почтой. Приёмник
+              спрашивает у Auth0, чей это вход, и смотрит на лист <b>«Доступ»</b>:
+              какая роль и какой филиал. Филиал после этого физически не может
+              отправить список за соседа — это проверяется на сервере, а не в браузере.</p>
+            <p>В Auth0 нужно завести приложение типа <b>Single Page Application</b> и
+              вписать в него три поля — <i>Allowed Callback URLs</i>,
+              <i>Allowed Logout URLs</i>, <i>Allowed Web Origins</i> — адресом этой
+              страницы. Подробно всё расписано в файле «Вход через Auth0 — что настроить».</p>
+            <p><b>Домен и код приложения — не секреты.</b> Они и так видны в адресной
+              строке в момент входа. Секрета у такого приложения нет вовсе: вместо
+              него используется одноразовая проверка PKCE.</p>
+          </details>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1 1 260px"><label class="lbl">Домен Auth0</label>
+              <input type="text" id="a0Domain" placeholder="taptatti.eu.auth0.com"
+                autocomplete="off" spellcheck="false"></div>
+            <div style="flex:1 1 260px"><label class="lbl">Код приложения (Client ID)</label>
+              <input type="text" id="a0Client" placeholder="abc123..."
+                autocomplete="off" spellcheck="false"></div>
+            <button id="a0Save">Сохранить</button>
+            <button class="sec" id="a0Go">Войти</button>
+          </div>
+          <div class="msg" id="m2e"></div>
+          <div class="hint" id="a0Hint"></div>
         </div>
 
         <div class="card">
@@ -6476,6 +6514,13 @@ $('inXlsx').onclick = function(){
    исходник открыт любому, кто нажмёт «посмотреть код». Ключи вводятся один раз
    и остаются в браузере того, кто их ввёл. */
 var API_URL = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
+/* Вход по логину — домен и код приложения Auth0. Секретами они не являются:
+   и то и другое видно в адресной строке в момент входа, а секрета у такого
+   приложения нет вовсе. Зашиваем их в страницу нарочно — иначе каждый телефон
+   филиала пришлось бы настраивать руками, память браузера у каждого своя. */
+var A0_DOMAIN = 'tt-almaty.eu.auth0.com';
+var A0_CLIENT = 'QA5t0bnJpn44L41zF6kyoBhTb7LflQAS';
+
 var API_CFG = 'sverka20_api';
 function apiCfg(){
   try{ return JSON.parse(localStorage.getItem(API_CFG) || '{}'); }catch(e){ return {}; }
@@ -6557,8 +6602,16 @@ async function apiCall(op, body){
   var url, opt;
   if (apiIsSheets()){
     url = base;
+    /* Токен кладём под запрос, а не вместо ключа: пока идёт переход, филиалы
+       без логина должны работать ровно как раньше. */
+    var tok = '';
+    if (op !== 'me' && typeof a0Tok === 'function'){ try{ tok = await a0Tok(); }catch(e){} }
+    else if (op === 'me'){ var _v = (typeof a0Load === 'function') && a0Load();
+                           tok = _v ? _v.access_token : ''; }
+    var payload = Object.assign({ action: op }, body);
+    if (tok) payload.token = tok;
     opt = { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify(Object.assign({ action: op }, body)) };
+            body: JSON.stringify(payload) };
   } else {
     url = base + (op === 'read' ? '/read' : '/list');
     opt = { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -7176,6 +7229,245 @@ $('sosSend').onclick = async function(){
 };
 
 
+/* ═════════ вход по логину (Auth0) ═════════
+   Одностраничному приложению секрет выдать некуда — он лежал бы в открытом
+   файле страницы. Поэтому вместо секрета PKCE: страница придумывает длинную
+   случайную строку, отправляет в Auth0 только её отпечаток, а саму строку
+   показывает лишь при обмене кода на токен. Перехваченный код без неё
+   бесполезен.
+
+   Домен и код приложения секретами не являются — они и так видны в адресной
+   строке при входе. Их можно спокойно держать в ссылке и в репозитории. */
+var A0_LS = 'tt_auth_v1';
+/* Вписанное руками главнее зашитого: так можно переехать на другого арендатора,
+   не пересобирая страницу. Слово «нет» в поле выключает вход совсем. */
+function a0Cfg(){
+  var c = apiCfg(), d = S(c.a0d), k = S(c.a0c);
+  if (d === 'нет' || k === 'нет') return { domain: '', client: '' };
+  return { domain: d || A0_DOMAIN, client: k || A0_CLIENT };
+}
+/* Вход возможен только на настоящем адресе: из файла на диске Auth0 некуда
+   возвращать человека после входа. Открыли страницу двойным щелчком — работаем
+   по ключам, как раньше, и не пугаем пустой кнопкой. */
+function a0On(){
+  var c = a0Cfg();
+  return !!(c.domain && c.client) && /^https?:$/.test(location.protocol);
+}
+function a0Load(){ try{ return JSON.parse(localStorage.getItem(A0_LS) || 'null'); }catch(e){ return null; } }
+function a0Save(v){
+  try{ v ? localStorage.setItem(A0_LS, JSON.stringify(v)) : localStorage.removeItem(A0_LS); }catch(e){}
+}
+function a0Redir(){ return location.origin + location.pathname; }
+
+function a0B64(buf){
+  var b = new Uint8Array(buf), s = '';
+  for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function a0Rand(n){
+  var a = new Uint8Array(n || 32);
+  crypto.getRandomValues(a);
+  return a0B64(a.buffer);
+}
+async function a0Sha(str){
+  var d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return a0B64(d);
+}
+/* Разбираем id_token только чтобы показать имя. Доверять этому разбору нельзя
+   и не нужно: настоящую проверку делает приёмник, спрашивая у самого Auth0. */
+function a0Claims(t){
+  try{
+    var p = String(t).split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    p += '===='.slice(0, (4 - p.length % 4) % 4);
+    var bin = atob(p), by = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(by));
+  }catch(e){ return null; }
+}
+
+async function a0Post(body){
+  var c = a0Cfg();
+  var r = await fetch('https://' + c.domain + '/oauth/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({ client_id: c.client }, body)) });
+  var j = null;
+  try{ j = await r.json(); }catch(e){}
+  if (!r.ok || !j || !j.access_token)
+    throw new Error((j && (j.error_description || j.error)) || ('Auth0 ответил ' + r.status));
+  return j;
+}
+function a0Put(j){
+  var cur = a0Load() || {};
+  var v = { access_token: j.access_token,
+            refresh_token: j.refresh_token || cur.refresh_token || '',
+            /* Минута про запас: иначе токен успевает протухнуть, пока запрос
+               идёт до Google и обратно. */
+            exp: Date.now() + ((Number(j.expires_in) || 3600) - 60) * 1000,
+            id: j.id_token ? a0Claims(j.id_token) : (cur.id || null),
+            me: cur.me || null };
+  a0Save(v);
+  return v;
+}
+
+async function a0Login(){
+  var c = a0Cfg();
+  if (!c.domain || !c.client) throw new Error('Не заданы домен и код приложения Auth0.');
+  var v = a0Rand(48), st = a0Rand(16);
+  try{ sessionStorage.setItem('a0v', v); sessionStorage.setItem('a0s', st); }
+  catch(e){ throw new Error('Браузер не даёт сохранить состояние входа — выключите режим инкогнито.'); }
+  location.href = 'https://' + c.domain + '/authorize?' + new URLSearchParams({
+    client_id: c.client, response_type: 'code', redirect_uri: a0Redir(),
+    scope: 'openid profile email offline_access', state: st, nonce: a0Rand(16),
+    code_challenge: await a0Sha(v), code_challenge_method: 'S256' }).toString();
+}
+function a0Logout(){
+  var c = a0Cfg();
+  a0Save(null);
+  var cfg = apiCfg(); delete cfg.lock; delete cfg.wh; apiSave(cfg);
+  if (!c.domain){ location.reload(); return; }
+  location.href = 'https://' + c.domain + '/v2/logout?' + new URLSearchParams({
+    client_id: c.client, returnTo: a0Redir() }).toString();
+}
+
+/* Вернулись из Auth0 с кодом. true — вход только что состоялся. */
+async function a0Back(){
+  var p = new URLSearchParams(location.search);
+  var code = p.get('code'), st = p.get('state'), err = p.get('error');
+  if (err){
+    history.replaceState(null, '', location.pathname);
+    throw new Error(p.get('error_description') || err);
+  }
+  if (!code) return false;
+  var want = null, v = null;
+  try{ want = sessionStorage.getItem('a0s'); v = sessionStorage.getItem('a0v'); }catch(e){}
+  history.replaceState(null, '', location.pathname);
+  /* Ответ без нашего state — это не наш вход. Так ловится подсунутая ссылка. */
+  if (!want || st !== want || !v) throw new Error('Вход не совпал — попробуйте ещё раз.');
+  try{ sessionStorage.removeItem('a0s'); sessionStorage.removeItem('a0v'); }catch(e){}
+  a0Put(await a0Post({ grant_type: 'authorization_code', code: code,
+                       code_verifier: v, redirect_uri: a0Redir() }));
+  return true;
+}
+
+/* Действующий токен — или пустая строка. Продлеваем молча, пока Auth0 даёт. */
+async function a0Tok(){
+  if (!a0On()) return '';
+  var v = a0Load();
+  if (!v) return '';
+  if (v.exp > Date.now()) return v.access_token;
+  if (!v.refresh_token){ a0Save(null); a0Paint(); return ''; }
+  try{ return a0Put(await a0Post({ grant_type: 'refresh_token',
+                                   refresh_token: v.refresh_token })).access_token; }
+  catch(e){ a0Save(null); a0Paint(); return ''; }
+}
+function a0Me(){ var v = a0Load(); return (v && v.me) || null; }
+
+/* Спрашиваем приёмник, кто мы и что нам можно. Роль и филиал берём оттуда, а
+   не из ссылки: ссылку можно переслать, строку на листе «Доступ» — нет. */
+async function a0Who(){
+  var t = await a0Tok();
+  if (!t) return null;
+  var r = await apiCall('me', {});
+  var v = a0Load() || {};
+  v.me = { email: r.email, name: r.name, role: r.role, branch: r.branch, required: !!r.required };
+  a0Save(v);
+  return v.me;
+}
+/* Кто вошёл — тот и задаёт филиал. Метку lock в браузере больше не трогаем
+   руками: она теперь следствие роли, а не того, какую ссылку открыли. */
+function a0Apply(me){
+  var c = apiCfg();
+  if (me && me.role === 'филиал' && me.branch){ c.wh = me.branch; c.lock = 1; }
+  else { delete c.lock; delete c.wh; }
+  apiSave(c);
+}
+function a0Start(me){
+  if (!me) return '';
+  if (me.role === 'филиал') return 'zay';
+  if (me.role === 'цех') return 'in';
+  return '';
+}
+
+function a0Paint(){
+  var box = $('whoBox');
+  if (!box) return;
+  if (!a0On()){ box.hidden = true; return; }
+  box.hidden = false;
+  var me = a0Me(), v = a0Load();
+  if (me){
+    box.className = 'who';
+    box.innerHTML = '<b>' + esc(me.name || me.email) + '</b>' +
+      '<span class="role">' + esc(me.role || 'без роли') +
+      (me.branch ? ' · ' + esc(me.branch) : '') + '</span>' +
+      '<button class="sec" id="btnOut">Выйти</button>';
+  } else if (v){
+    box.className = 'who gost';
+    box.innerHTML = '<b>Вход не подтверждён</b>' +
+      '<span class="role">приёмник вас не узнал</span>' +
+      '<button class="sec" id="btnOut">Выйти</button>';
+  } else {
+    box.className = 'who gost';
+    box.innerHTML = '<b>Вы не вошли</b>' +
+      '<span class="role">работаем по старому ключу</span>' +
+      '<button class="sec" id="btnIn">Войти</button>';
+  }
+}
+document.addEventListener('click', function(e){
+  var t = e.target;
+  if (!t || !t.id) return;
+  if (t.id === 'btnIn')  a0Login().catch(function(err){ alert('Не вышло войти: ' + err.message); });
+  if (t.id === 'btnOut') a0Logout();
+}, false);
+
+/* Запуск входа. Всё под try: сломанный вход не должен уносить с собой
+   страницу — филиал в этом случае просто работает по ключу, как раньше. */
+async function a0Boot(){
+  if (!a0On()){ a0Paint(); return ''; }
+  var свежий = false;
+  try{ свежий = await a0Back(); }
+  catch(e){ a0Save(null); try{ msg('m2e', 'Вход не удался: ' + e.message, 'err'); }catch(_){} }
+  if (!a0Load()){ a0Paint(); return ''; }
+  var me = null;
+  try{ me = await a0Who(); }
+  catch(e){
+    /* Вошли, но приёмник не признал — показываем это, а не молчим. */
+    var v = a0Load(); if (v){ v.me = null; a0Save(v); }
+    try{ msg('m2e', 'Auth0 вас впустил, а приёмник — нет: ' + e.message, 'err'); }catch(_){}
+  }
+  if (me) a0Apply(me);
+  a0Paint();
+  return свежий && me ? a0Start(me) : '';
+}
+
+
+function a0Hint(){
+  var h = $('a0Hint'); if (!h) return;
+  var c = a0Cfg(), me = a0Me();
+  var adr = /^https?:$/.test(location.protocol);
+  h.innerHTML = !c.domain || !c.client
+    ? 'Вход выключен. Впишите домен и код приложения и нажмите «Сохранить».'
+    : !adr
+      ? 'Страница открыта файлом с диска — войти отсюда нельзя. Откройте её по адресу https://…'
+      : me
+        ? ('Вы вошли: <b>' + esc(me.email) + '</b>, роль <b>' + esc(me.role || 'не задана') + '</b>' +
+           (me.branch ? ', филиал <b>' + esc(me.branch) + '</b>' : '') + '.' +
+           (me.required ? '' : ' Старые ключи в приёмнике пока тоже работают.'))
+        : 'Настроено. Нажмите «Войти».';
+  var b = $('a0Go'); if (b) b.textContent = me ? 'Выйти' : 'Войти';
+}
+$('a0Save').onclick = function(){
+  var d = S($('a0Domain').value).trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  var k = S($('a0Client').value).trim();
+  var c = apiCfg(); c.a0d = d; c.a0c = k; apiSave(c);
+  a0Hint(); a0Paint();
+  msg('m2e', d && k ? 'Сохранено. Теперь можно войти.'
+                    : 'Очищено — страница снова работает по ключам.', 'ok');
+};
+$('a0Go').onclick = function(){
+  if (a0Me()) return a0Logout();
+  a0Login().catch(function(e){ msg('m2e', 'Не вышло войти: ' + e.message, 'err'); });
+};
+
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
@@ -7294,6 +7586,9 @@ $('sosSend').onclick = async function(){
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
       if (a.send && !el('lnkKey').value) el('lnkKey').value = a.send;
       if (a.check && !el('lnkCheck').value) el('lnkCheck').value = a.check;
+      if (!el('a0Domain').value) el('a0Domain').value = a.a0d || A0_DOMAIN;
+      if (!el('a0Client').value) el('a0Client').value = a.a0c || A0_CLIENT;
+      if (typeof a0Hint === 'function') a0Hint();
       if (el('apiShow')) el('apiShow').textContent = apiUrlOf();
       if (!el('apiFrom').value) el('apiFrom').value = el('dFrom').value;
       if (!el('apiTo').value)   el('apiTo').value   = el('dTo').value;
@@ -7365,6 +7660,19 @@ $('sosSend').onclick = async function(){
   try{ var q1 = el('oQ'); if (q1) q1.value = ''; }catch(e){}
   go(startPage());
   var w = el('jsWarn'); if (w) w.style.display = 'none';
+
+  /* Вход поднимаем после того, как страница уже нарисована: разговор с Auth0
+     идёт по сети, и держать перед человеком пустой экран ради него незачем.
+     Узнали роль — перешли на её страницу. */
+  try{
+    if (typeof a0Boot === 'function') a0Boot().then(function(){
+      try{
+        var me = a0Me(), to = me ? a0Start(me) : '';
+        if (to) go(to);
+        if (typeof a0Hint === 'function') a0Hint();
+      }catch(e){}
+    });
+  }catch(e){}
 })();
 </script>
 </body>
