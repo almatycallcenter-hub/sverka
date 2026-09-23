@@ -514,6 +514,27 @@
     table.det2 .chip{padding:0 6px;font-size:10.5px}
   }
 
+  /* Экран входа — по центру, как отдельный шаг «сначала войдите», а не мелкий
+     блок в углу меню. Необязателен, пока AUTH_REQUIRED=false: снизу всегда
+     есть выход поработать по старому ключу. */
+  .loginGate{display:none;position:fixed;inset:0;z-index:400;background:rgba(16,24,40,.5);
+    align-items:center;justify-content:center;padding:16px}
+  .loginGate .gCard{width:min(92vw,340px);background:var(--card);border:1px solid var(--bd);
+    border-radius:16px;padding:30px 26px 24px;text-align:center;
+    box-shadow:0 24px 60px -20px rgba(16,24,40,.5)}
+  .loginGate .gLogo{width:50px;height:50px;border-radius:14px;margin:0 auto 14px;display:grid;
+    place-items:center;font-size:18px;font-weight:700;letter-spacing:.5px;color:#3a2a00;
+    background:linear-gradient(140deg,var(--logo1),var(--logo2));box-shadow:var(--sh)}
+  .loginGate.warn .gLogo{background:linear-gradient(140deg,var(--naB),var(--naB2));color:var(--naT)}
+  .loginGate h2{font-size:16.5px;font-weight:700;color:var(--txt);margin:0 0 5px}
+  .loginGate p{font-size:12.5px;color:var(--mut);margin:0 0 20px;line-height:1.5}
+  .loginGate .gBtn{width:100%;padding:11px;border-radius:10px;border:none;
+    background:var(--acc);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+  .loginGate .gBtn:hover{background:var(--acc2)}
+  .loginGate .gSkip{display:block;width:100%;margin-top:12px;padding:4px;font-size:11.5px;
+    color:var(--mut);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+    background:none;border:none}
+
   .bootWarn{position:fixed;left:10px;right:10px;top:10px;z-index:200;padding:12px 15px;
     border-radius:11px;background:var(--naBg);color:var(--naT);border:1px solid var(--naB);font-size:13px;
     line-height:1.5;box-shadow:0 8px 24px -12px rgba(16,24,40,.3)}
@@ -636,6 +657,7 @@
     <div class="mBody"></div>
   </div>
 </div>
+<div class="loginGate" id="loginGate"></div>
 <div class="app">
 
   <aside class="side" id="side">
@@ -7388,35 +7410,64 @@ function a0Start(me){
   return '';
 }
 
+/* Спросили один раз за вкладку — не всплываем повторно поверх работы.
+   Хранить дольше вкладки незачем: AUTH_REQUIRED=false, ключ и так работает. */
+function a0Skipped_(){ try{ return sessionStorage.getItem('a0_skip') === '1'; }catch(e){ return false; } }
+
 function a0Paint(){
-  var box = $('whoBox');
+  var box = $('whoBox'), gate = $('loginGate');
   if (!box) return;
-  if (!a0On()){ box.hidden = true; return; }
-  box.hidden = false;
+  if (!a0On()){ box.hidden = true; if (gate) gate.style.display = 'none'; return; }
   var me = a0Me(), v = a0Load();
+
   if (me){
+    /* Вошли, приёмник признал — маленький бейдж внизу меню, экран-приглашение прячем. */
+    box.hidden = false;
     box.className = 'who';
     box.innerHTML = '<b>' + esc(me.name || me.email) + '</b>' +
       '<span class="role">' + esc(me.role || 'без роли') +
       (me.branch ? ' · ' + esc(me.branch) : '') + '</span>' +
       '<button class="sec" id="btnOut">Выйти</button>';
-  } else if (v){
-    box.className = 'who gost';
-    box.innerHTML = '<b>Вход не подтверждён</b>' +
-      '<span class="role">приёмник вас не узнал</span>' +
-      '<button class="sec" id="btnOut">Выйти</button>';
-  } else {
-    box.className = 'who gost';
-    box.innerHTML = '<b>Вы не вошли</b>' +
-      '<span class="role">работаем по старому ключу</span>' +
-      '<button class="sec" id="btnIn">Войти</button>';
+    if (gate) gate.style.display = 'none';
+    return;
   }
+
+  box.hidden = true;
+  if (!gate) return;
+  if (a0Skipped_()){ gate.style.display = 'none'; return; }
+
+  if (v){
+    /* Auth0 впустил, а приёмник не узнал — почта не на листе «Доступ» и т.п. */
+    gate.className = 'loginGate warn';
+    gate.innerHTML = '<div class="gCard">' +
+      '<div class="gLogo">!</div>' +
+      '<h2>Вход не подтверждён</h2>' +
+      '<p>Приёмник вас не узнал. Попробуйте выйти и войти заново.</p>' +
+      '<button class="gBtn" id="btnOutGate">Выйти и попробовать снова</button>' +
+      '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' +
+      '</div>';
+  } else {
+    gate.className = 'loginGate';
+    gate.innerHTML = '<div class="gCard">' +
+      '<div class="gLogo">ТТ</div>' +
+      '<h2>Тәп-Тәтті</h2>' +
+      '<p>Сверка 20% и списания — войдите, чтобы продолжить</p>' +
+      '<button class="gBtn" id="btnInGate">Войти</button>' +
+      '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' +
+      '</div>';
+  }
+  gate.style.display = 'flex';
 }
 document.addEventListener('click', function(e){
   var t = e.target;
   if (!t || !t.id) return;
-  if (t.id === 'btnIn')  a0Login().catch(function(err){ alert('Не вышло войти: ' + err.message); });
-  if (t.id === 'btnOut') a0Logout();
+  if (t.id === 'btnIn' || t.id === 'btnInGate')
+    a0Login().catch(function(err){ alert('Не вышло войти: ' + err.message); });
+  if (t.id === 'btnOut' || t.id === 'btnOutGate') a0Logout();
+  if (t.id === 'btnSkipGate'){
+    try{ sessionStorage.setItem('a0_skip', '1'); }catch(e){}
+    var g = $('loginGate'); if (g) g.style.display = 'none';
+  }
 }, false);
 
 /* Запуск входа. Всё под try: сломанный вход не должен уносить с собой
