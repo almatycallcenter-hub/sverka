@@ -516,8 +516,10 @@
 
   /* Экран входа — по центру, как отдельный шаг «сначала войдите», а не мелкий
      блок в углу меню. Необязателен, пока AUTH_REQUIRED=false: снизу всегда
-     есть выход поработать по старому ключу. */
-  .loginGate{display:none;position:fixed;inset:0;z-index:400;background:rgba(16,24,40,.5);
+     есть выход поработать по старому ключу. Фон — сплошной, а не полупрозрачный:
+     пока решение не принято, данные филиала сквозь экран входа видно не должно
+     быть вообще (ниже ту же цель решает и порядок отрисовки — см. renderApp). */
+  .loginGate{display:none;position:fixed;inset:0;z-index:400;background:var(--bg);
     align-items:center;justify-content:center;padding:16px}
   .loginGate .gCard{width:min(92vw,340px);background:var(--card);border:1px solid var(--bd);
     border-radius:16px;padding:30px 26px 24px;text-align:center;
@@ -7414,10 +7416,16 @@ function a0Start(me){
    Хранить дольше вкладки незачем: AUTH_REQUIRED=false, ключ и так работает. */
 function a0Skipped_(){ try{ return sessionStorage.getItem('a0_skip') === '1'; }catch(e){ return false; } }
 
+/* Реальные данные филиала выводятся на экран только после того, как решение
+   принято — вошли или нажали «Продолжить без входа». До этого renderApp()
+   просто не вызывается: страница пуста, а не спрятана полупрозрачным слоем
+   поверх уже нарисованных чисел. */
+function a0RenderIfNeeded_(){ try{ if (window.A0_RENDER_APP) window.A0_RENDER_APP(); }catch(e){} }
+
 function a0Paint(){
   var box = $('whoBox'), gate = $('loginGate');
   if (!box) return;
-  if (!a0On()){ box.hidden = true; if (gate) gate.style.display = 'none'; return; }
+  if (!a0On()){ box.hidden = true; if (gate) gate.style.display = 'none'; a0RenderIfNeeded_(); return; }
   var me = a0Me(), v = a0Load();
 
   if (me){
@@ -7429,12 +7437,13 @@ function a0Paint(){
       (me.branch ? ' · ' + esc(me.branch) : '') + '</span>' +
       '<button class="sec" id="btnOut">Выйти</button>';
     if (gate) gate.style.display = 'none';
+    a0RenderIfNeeded_();
     return;
   }
 
   box.hidden = true;
   if (!gate) return;
-  if (a0Skipped_()){ gate.style.display = 'none'; return; }
+  if (a0Skipped_()){ gate.style.display = 'none'; a0RenderIfNeeded_(); return; }
 
   if (v){
     /* Auth0 впустил, а приёмник не узнал — почта не на листе «Доступ» и т.п. */
@@ -7467,6 +7476,7 @@ document.addEventListener('click', function(e){
   if (t.id === 'btnSkipGate'){
     try{ sessionStorage.setItem('a0_skip', '1'); }catch(e){}
     var g = $('loginGate'); if (g) g.style.display = 'none';
+    a0RenderIfNeeded_();
   }
 }, false);
 
@@ -7688,7 +7698,6 @@ $('a0Go').onclick = function(){
     }
   }, false);
   window.NAVGO = go; window.NAVBADGES = badges;
-  badges();
   /* С чего открывать страницу.
      Филиалу нужен ровно один экран — набрать список на уценку. Ссылка, которую
      ему прислали, помечена lock=1, и метка остаётся в браузере: значит человек
@@ -7703,18 +7712,38 @@ $('a0Go').onclick = function(){
     return (DB.mov && DB.mov.length) ? 'rep' : 'up';
   }
   window.STARTPAGE = startPage;
-  /* Поле поиска браузер умеет заполнить сам — восстановлением формы или
-     автозаполнением. Для филиала это выглядит так, будто продукция пропала.
-     На открытии страницы чистим его один раз: свой поиск человек наберёт
-     заново, а чужой мусор не спрячет весь список. */
-  try{ var q0 = el('zQ'); if (q0) q0.value = ''; }catch(e){}
-  try{ var q1 = el('oQ'); if (q1) q1.value = ''; }catch(e){}
-  go(startPage());
-  var w = el('jsWarn'); if (w) w.style.display = 'none';
 
-  /* Вход поднимаем после того, как страница уже нарисована: разговор с Auth0
-     идёт по сети, и держать перед человеком пустой экран ради него незачем.
-     Узнали роль — перешли на её страницу. */
+  /* Сама отрисовка страницы (числа, таблицы филиала) — отдельно от решения,
+     когда её показывать. Пока не вошли и не нажали «Продолжить без входа»,
+     renderApp() не запускается вообще: за экраном входа не должно быть видно
+     ничего, а не полупрозрачно приглушённых цифр. */
+  var appShown = false;
+  function renderApp(){
+    if (appShown) return;
+    appShown = true;
+    badges();
+    /* Поле поиска браузер умеет заполнить сам — восстановлением формы или
+       автозаполнением. Для филиала это выглядит так, будто продукция пропала.
+       На открытии страницы чистим его один раз: свой поиск человек наберёт
+       заново, а чужой мусор не спрячет весь список. */
+    try{ var q0 = el('zQ'); if (q0) q0.value = ''; }catch(e){}
+    try{ var q1 = el('oQ'); if (q1) q1.value = ''; }catch(e){}
+    go(startPage());
+    var w = el('jsWarn'); if (w) w.style.display = 'none';
+  }
+  window.A0_RENDER_APP = renderApp;
+
+  /* Если вход не настроен, уже подтверждён (кэш с прошлого раза) или уже
+     пропущен в этой вкладке — рисуем сразу, без экрана входа. Иначе —
+     ждём: либо a0Paint() откроет экран входа и разблокирует показ после
+     решения, либо (если Auth0 вообще выключен) он снимет блокировку сам. */
+  var mustGate = false;
+  try{ mustGate = (typeof a0On === 'function') && a0On() && !a0Skipped_() && !a0Me(); }catch(e){}
+  if (!mustGate) renderApp();
+  else { try{ a0Paint(); }catch(e){} }
+
+  /* Разговор с Auth0 идёт по сети — доводим его до конца в фоне и красим
+     экран входа под итог. Узнали роль — перешли на её страницу. */
   try{
     if (typeof a0Boot === 'function') a0Boot().then(function(){
       try{
