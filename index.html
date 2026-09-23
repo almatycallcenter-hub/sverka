@@ -5807,9 +5807,11 @@ var ZAY = { cat: '', items: {} };   // items: нормализованное и�
    лежат горкой, и «17 штук» никто не пересчитывает. Торты режут пополам,
    поэтому у них бывает 0.5. Список короткий и меняется редко — держим прямо
    здесь, чтобы поправить одной строкой, а не искать по коду. */
+/* «Қатпарлы сүзбелі тоқаш» и «Қатпарлы тоқаш алмамен» считаются штучно, а не
+   весом — так решили после того, как первые три позиции этого же семейства
+   (Бауырсақ, рогалик, Көкнәр тоқаш) уже прижились как весовые. */
 var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
-              'Көкнәр қосылған тоқаш', 'Қатпарлы сүзбелі тоқаш',
-              'Қатпарлы тоқаш алмамен'];
+              'Көкнәр қосылған тоқаш'];
 var WEIGHT_K = {};
 WEIGHT.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
 function isKg(k){ return !!WEIGHT_K[k]; }
@@ -5836,7 +5838,7 @@ function madeAt(k, wh){
   return true;
 }
 /* Количество печатаем без хвостов: 1, а не 1.0; 0.5, а не 0.50. */
-function qStr(n){ return String(Math.round(n * 100) / 100); }
+function qStr(n){ return String(Math.round(n * 1000) / 1000); }
 
 /* Строка набранного. У весовых и тортов количество вводят руками: набивать
    полтора килограмма по 0.1 — двадцать нажатий, а половинку торта кнопкой «−»
@@ -5945,13 +5947,13 @@ function zayLeft(){
   $('zCnt').textContent = cntText(picked, ZAY.items);
 }
 function zayAdd(k, d){
-  var v = Math.round(((ZAY.items[k] || 0) + d * stepOf(k)) * 100) / 100;
+  var v = Math.round(((ZAY.items[k] || 0) + d * stepOf(k)) * 1000) / 1000;
   if (v <= 0) delete ZAY.items[k]; else ZAY.items[k] = v;
   zayMark(k); zayLeft(); zayDraftSave();
 }
 /* Ввод руками: пустое поле и мусор считаем нулём, минус не пропускаем. */
 function qSet(k, raw, which){
-  var v = Math.round((N(String(raw).replace(',', '.')) || 0) * 100) / 100;
+  var v = Math.round((N(String(raw).replace(',', '.')) || 0) * 1000) / 1000;
   var box = which === 'o' ? OFF.items : ZAY.items;
   if (v <= 0) delete box[k]; else box[k] = v;
   if (which === 'o'){ offMark(k); offDraftSave(); } else { zayMark(k); zayDraftSave(); }
@@ -6260,7 +6262,7 @@ function offLeft(){
   $('oCnt').textContent = cntText(picked, OFF.items);
 }
 function offAdd(k, d){
-  var v = Math.round(((OFF.items[k] || 0) + d * stepOf(k)) * 100) / 100;
+  var v = Math.round(((OFF.items[k] || 0) + d * stepOf(k)) * 1000) / 1000;
   if (v <= 0) delete OFF.items[k]; else OFF.items[k] = v;
   offMark(k); offLeft(); offDraftSave();
 }
@@ -6397,7 +6399,7 @@ function inBranches(){
 function inState(r){
   var got = INB.dirty.hasOwnProperty(inK(r)) ? INB.dirty[inK(r)] : r.got;
   if (got === null || got === undefined || got === '') return { k: 'wait', got: '' };
-  var d = Math.round((N(got) - r.qty) * 100) / 100;
+  var d = Math.round((N(got) - r.qty) * 1000) / 1000;
   return { k: d === 0 ? 'ok' : (d < 0 ? 'less' : 'more'), got: N(got), d: d };
 }
 function inK(r){ return r.branch + '|' + r.dish; }
