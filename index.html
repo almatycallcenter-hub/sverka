@@ -1264,6 +1264,14 @@
           <div class="hint" style="margin-top:0">Возврат по сроку и списание оформляются следующим
             днём — поэтому T+1. «Нарушение (нет в списке филиала)» значит: движение было,
             а позицию филиал не заявлял.</div>
+          <div class="hint">Рядом с 20% — колонки по каждому другому типу скидки из чеков
+            («Продано: Скидка 10%», бонусы, 50% сотрудникам…). Если продали меньше списка,
+            «Разбор расхождения» подсказывает, куда делась разница:
+            <b>продали с другой скидкой</b>; <b>недостача по остатку</b> — инвентаризация
+            за день уценки или следующий показала недостачу, значит, продали и не пробили
+            (проверьте излишек в кассе); <b>остаток сходится</b> — недостачи нет, значит,
+            заявленного на скидку не было и список отправлен неверно.
+            Колонки скидок появятся после повторной загрузки отчёта по чекам.</div>
         </div>
         <div class="card">
           <h2>Проверка прихода и списания</h2>
@@ -1521,7 +1529,7 @@ function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg 
 function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
-var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], list: [], syn: {} };
+var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], dsc: [], list: [], syn: {} };
 /* В движениях одни и те же названия складов, блюд и видов повторяются
    десятками тысяч раз. Храним их словарём, а в строках — номера.
    В памяти формат прежний, поэтому остальной код не меняется. */
@@ -1646,7 +1654,7 @@ function loadDB(){
   Object.keys(EMBED.syn).forEach(function(k){
     if (DB.syn[k] === undefined) DB.syn[k] = EMBED.syn[k];
   });
-  ['mov','s20','s50','cheki','full','disc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  ['mov','s20','s50','cheki','full','disc','dsc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
   /* Справочник из облака, если он когда-то приезжал. Лежит в базе браузера,
@@ -1875,7 +1883,7 @@ function parseCheki(v){
 
   var iTip = col(h,'Тип скидки'), iS0 = col(h,'Сумма без скидки, тенге');
   var iS1 = col(h,'Сумма со скидкой, тенге');
-  var poz = {}, s20 = [], full = {}, disc = {}, day = '', tm = '', conc = '';
+  var poz = {}, s20 = [], full = {}, disc = {}, dsc = {}, day = '', tm = '', conc = '';
   for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row) continue;
     var c0 = S(row[iT]);
@@ -1918,6 +1926,11 @@ function parseCheki(v){
       a.q += q;
       a.s0 += iS0 === undefined ? 0 : N(row[iS0]);
       a.s1 += iS1 === undefined ? 0 : N(row[iS1]);
+      /* То же, но по каждому блюду: в отчёте сверки у каждого типа скидки
+         своя колонка рядом с «Продано со скидкой 20%» — чтобы было видно,
+         что заявленное ушло, скажем, по «Скидке 10%», а не пропало. */
+      var qk = day + '\u0001' + conc + '\u0001' + dish + '\u0001' + S(row[iTip]);
+      dsc[qk] = (dsc[qk] || 0) + q;
     }
   }
   var times = Object.keys(poz).map(function(k){
@@ -1927,7 +1940,9 @@ function parseCheki(v){
   var discRows = Object.keys(disc).map(function(k){
     var p = k.split('|'), a = disc[k];
     return [p[0], p[1], p.slice(2).join('|'), r3(a.q), Math.round(a.s0), Math.round(a.s1)]; });
-  return { times: times, s20: s20, full: fullRows, disc: discRows };
+  var dscRows = Object.keys(dsc).map(function(k){
+    var p = k.split('\u0001'); return [p[0], p[1], p[2], p[3], r3(dsc[k])]; });
+  return { times: times, s20: s20, full: fullRows, disc: discRows, dsc: dscRows };
 }
 
 function mergeRows(key, rows){
@@ -1977,6 +1992,8 @@ $('btnLoad').onclick = async function(){
           done.push('продажи 20%: ' + rch.s20.length + ' строк (из этого же файла)'); }
         if (rch.full && rch.full.length){ mergeRows('full', rch.full);
           done.push('продажи без уценки: ' + rch.full.length + ' строк по часам'); }
+        if (rch.dsc && rch.dsc.length){ mergeRows('dsc', rch.dsc);
+          done.push('прочие скидки по блюдам: ' + rch.dsc.length + ' строк'); }
         if (rch.disc && rch.disc.length){ mergeRows('disc', rch.disc);
           done.push('прочие скидки: ' + rch.disc.length + ' строк по типам'); }
         else problems.push('В «' + f.name + '» нет продаж со скидкой 20%. ' +
@@ -2396,6 +2413,33 @@ function build(wh, dFrom, dTo){
   function sk(k,d){ var v = s20[k+'|'+d] || 0;
     (kusOf[k]||[]).forEach(function(x){ v += (s20[x+'|'+d] || 0)/KUSOK; }); return v; }
 
+  /* Продажи по остальным типам скидки (10%, бонусы, 50% сотрудникам…) —
+     по блюду и дню. Составной тип с 20% уже сидит в s20, сюда не попадает. */
+  var dsc = {};
+  (DB.dsc || []).forEach(function(r){
+    if (!sameBranch(r[1], wh)) return;
+    var t = S(r[3]); if (!t) return;
+    var k = nrm(r[2]), key = k + '|' + r[0];
+    var o = dsc[key] || (dsc[key] = {});
+    o[t] = (o[t] || 0) + N(r[4]);
+  });
+  function dk(k, d){
+    var out = {}, add = function(kk, f){
+      var o = dsc[kk + '|' + d]; if (!o) return;
+      Object.keys(o).forEach(function(t){ out[t] = (out[t] || 0) + o[t] * f; });
+    };
+    add(k, 1);
+    (kusOf[k] || []).forEach(function(x){ add(x, 1 / KUSOK); });
+    return out;
+  }
+  /* Инвентаризация: в какие дни она вообще была в этом филиале. Строки
+     с расхождением есть только у позиций, где факт не сошёлся с учётом, —
+     значит, «инвентаризация была, а по позиции строки нет» = остаток сошёлся. */
+  var invDay = {};
+  DB.mov.forEach(function(r){
+    if (r[1] === wh && (r[3] === 'inv_in' || r[3] === 'inv_out')) invDay[r[0]] = 1;
+  });
+
   var s50 = {};
   DB.s50.forEach(function(r){
     var k = nrm(r[2]), who = S(r[4]); if (!who) return;
@@ -2446,6 +2490,30 @@ function build(wh, dFrom, dTo){
                               : (sum20 > c ? 'продажа больше списка' : 'продажа меньше списка');
       else                  L = sum20 < 1e-9 ? 'ок' : 'нарушение (нет в списке филиала)';
 
+      // ── разбор «продажа меньше списка»: куда делась разница ──
+      /* Заявили c, а по 20% (+ склад 50%, возврат, списание) ушло меньше.
+         1) Могли пробить не той скидкой — смотрим прочие типы за тот же день.
+         2) Остаток. Недостача по инвентаризации (в день уценки или на
+            следующий) — товар ушёл, а продажи нет: скорее всего, продали и
+            не пробили, в кассе должен быть излишек денег.
+         3) Инвентаризация была, а недостачи нет — товар на месте, значит
+            заявленного на скидку не было: список отправлен неверно. */
+      /* Для объяснения берём только скидки в процентах: оплата бонусами —
+         обычная продажа по полной цене, заявленную уценку она не объясняет. */
+      var oth = dk(k, T), othSum = 0;
+      Object.keys(oth).forEach(function(t){ if (t.indexOf('%') >= 0) othSum += oth[t]; });
+      var W = '';
+      if (L === 'продажа меньше списка'){
+        var gap = c - sum20;
+        if (othSum >= gap - 1e-6) W = 'продали с другой скидкой';
+        else {
+          var invOut = Math.abs(mv(k, T, 'inv_out')) + Math.abs(mv(k, T3, 'inv_out'));
+          if (invOut > 1e-9)                W = 'недостача по остатку — возможно, не пробили';
+          else if (invDay[T] || invDay[T3]) W = 'остаток сходится — список отправлен неверно';
+          else                              W = 'остаток не проверить — нет инвентаризации';
+        }
+      }
+
       // ── приход по ФИФО на дату «срок минус сутки» ─────────
       var P = prihodDate(k,T), pf = null, frozen = frozenByName(sp.name);
       if (P){ var g = pGp(k,P), t = pTt(k,P); pf = (g+t) || null; }
@@ -2489,7 +2557,7 @@ function build(wh, dFrom, dTo){
              h||'', p50||'', p50 > 0 ? who50(k,T) : '', vz||'', dSp0||'', dSp||'',
              pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
              pGp(k,T)||'',  pTt(k,T)||'',
-             L, M, Nn] });
+             L, M, Nn, W], dsc: oth });
       if (vList){
         inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++;
         if (M === 'ок') kpi.prOk++;
@@ -2686,14 +2754,42 @@ function match50(){
 function round3(x){ return Math.round(x * 1000) / 1000; }
 
 /* ═════════ вывод ═════════ */
-var REP_HEAD = ['День','Блюдо','Продукция с ожидаемой 20% скидкой (в день отчёта)',
+var REP_HEAD_BASE = ['День','Блюдо','Продукция с ожидаемой 20% скидкой (в день отчёта)',
   'Продано со скидкой 20%','Перемещ склад 50%','Имя сотрудника',
   'Возврат по сроку (на след. день)',
   'Списание (в день отчёта)','Списание (на след. день)',
   'Приход Цех ГП (за 2 дня до)','Приход Таугуль торт (за 2 дня до)',
   'Приход Цех ГП (за день до)','Приход Таугуль торт (за день до)',
   'Приход Цех ГП (в день отчёта)','Приход Таугуль торт (в день отчёта)',
-  'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания'];
+  'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания',
+  'Разбор расхождения'];
+/* Колонки прочих скидок заранее неизвестны — какие типы есть в чеках за
+   период, столько и колонок. Они дописываются в конец строки (номера старых
+   колонок не сдвигаются), а показываются сразу за «Продано со скидкой 20%». */
+var REP_HEAD = REP_HEAD_BASE.slice();
+var CHK_WHY = 18;              // «Разбор расхождения»
+var DISC0 = 19;                // отсюда — «Продано: <тип скидки>»
+function isChk(i){ return i >= CHK0 && i <= CHK_WHY; }
+function discTypes(){ return REP_HEAD.slice(DISC0).map(function(h){ return h.replace(/^Продано: /, ''); }); }
+function withDisc(R){
+  var tot = {};
+  R.rep.forEach(function(r){
+    Object.keys(r.dsc || {}).forEach(function(t){ tot[t] = (tot[t] || 0) + r.dsc[t]; }); });
+  var types = Object.keys(tot).filter(function(t){ return tot[t] > 1e-9; })
+                    .sort(function(a, b){ return tot[b] - tot[a]; });
+  REP_HEAD = REP_HEAD_BASE.concat(types.map(function(t){ return 'Продано: ' + t; }));
+  R.rep.forEach(function(r){
+    r.v = r.v.slice(0, DISC0).concat(types.map(function(t){
+      var q = (r.dsc || {})[t]; return q ? round3(q) : ''; }));
+  });
+  return R;
+}
+/* Порядок показа: прочие скидки — сразу за 20%. */
+function repOrder(base){
+  var d = []; for (var i = DISC0; i < REP_HEAD.length; i++) d.push(i);
+  var at = base.indexOf(3) + 1;
+  return base.slice(0, at).concat(d, base.slice(at));
+}
 /* Колонка «Филиал» появляется только в отчёте по всей сети, поэтому у неё нет
    места в строке — она живёт отдельным полем. Даём ей условный номер −1: так
    сортировка, фильтр и выгрузка работают с ней теми же руками, что и с
@@ -2702,7 +2798,7 @@ var BR_COL = -1;
 function repHead(i){ return i === BR_COL ? 'Филиал' : REP_HEAD[i]; }
 function repVal(r, i){ return i === BR_COL ? S(r.br) : r.v[i]; }
 var FROST = [10,12,14];        // колонки заморозки
-var CHK0  = 15;                // с какой колонки идут проверки
+var CHK0  = 15;                // с какой колонки идут проверки (15–18)
 var COMPACT = [0,1,2,3,6,7,8]; // что видно в компактном режиме (плюс проверка продажи справа)
 var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
 var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
@@ -2752,13 +2848,18 @@ function cls(v){
       /* «возможная связь» — это неуверенность, а не нарушение: красным
          красить нечего, но и зелёным называть нельзя. */
       || v.indexOf('связь возможная') === 0
+      || v.indexOf('продали с другой скидкой') === 0
+      || v.indexOf('остаток не проверить') === 0
       || v.indexOf('нет в справочнике') === 0) return 'na';
   return 'bad';
 }
 var CHIP_SHORT = {
   'нарушение (нет в списке филиала)': 'нет в списке филиала',
   'связь возможная — выкупили в другой день': 'связь возможная',
-  'продажа со скидкой 50% без расходной накладной на склад 50%': 'нет расходной накладной'
+  'продажа со скидкой 50% без расходной накладной на склад 50%': 'нет расходной накладной',
+  'недостача по остатку — возможно, не пробили': 'не пробили? (недостача)',
+  'остаток сходится — список отправлен неверно': 'список неверный',
+  'остаток не проверить — нет инвентаризации': 'нет инвентаризации'
 };
 function chipHtml(v){
   v = S(v); if (!v) return '';
@@ -2796,7 +2897,7 @@ function fillChkFilter(view){
   else if (view === 'm50')
     ((MATCH50 || {}).rows || []).forEach(function(r){ var v = S(r[7]); if (v) est[v] = 1; });
   else (REPORT ? REPORT.rep : []).forEach(function(r){
-    for (var i = CHK0; i < CHK0 + 3; i++){ var v = S(r.v[i]); if (v) est[v] = 1; }
+    for (var i = CHK0; i <= CHK_WHY; i++){ var v = S(r.v[i]); if (v) est[v] = 1; }
   });
   var vals = Object.keys(est).sort();
   if (cur && vals.indexOf(cur) < 0) vals.push(cur);
@@ -2814,7 +2915,8 @@ function rowsFiltered(){
   return REPORT.rep.filter(function(r){
     if (q && nrm(r.name).indexOf(q) < 0 && nrm(S(r.br)).indexOf(q) < 0) return false;
     // пометка ищется в любой из трёх проверок — так строка находится, где бы она ни стояла
-    if (chk && S(r.v[CHK0]) !== chk && S(r.v[CHK0+1]) !== chk && S(r.v[CHK0+2]) !== chk) return false;
+    if (chk && S(r.v[CHK0]) !== chk && S(r.v[CHK0+1]) !== chk && S(r.v[CHK0+2]) !== chk &&
+        S(r.v[CHK_WHY]) !== chk) return false;
     // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
     // Колонка 2 — «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
     if (vList && S(r.v[2]) === '') return false;
@@ -2839,6 +2941,7 @@ function detailHtml(v){
     cell(REP_HEAD[11], v[11]) + cell(REP_HEAD[12], v[12]) +
     cell(REP_HEAD[13], v[13]) + cell(REP_HEAD[14], v[14]) +
     cell(REP_HEAD[CHK0+1], v[CHK0+1]) + cell(REP_HEAD[CHK0+2], v[CHK0+2]) +
+    (v[CHK_WHY] ? cell(REP_HEAD[CHK_WHY], chipHtml(v[CHK_WHY])) : '') +
     '</div>';
 }
 
@@ -2861,7 +2964,7 @@ function render(view){
   if (view === 'rep'){
     var full = $('fullMode').checked;
     var rows = applySort(rowsFiltered(), SORT.rep, repVal);
-    var cols = full ? REP_HEAD.map(function(_, i){ return i; }) : COMPACT.slice();
+    var cols = repOrder(full ? REP_HEAD_BASE.map(function(_, i){ return i; }) : COMPACT.slice());
     // «Филиал» ставим сразу за днём: день остаётся первой прилипшей колонкой
     if (REPORT.all) cols = [cols[0], BR_COL].concat(cols.slice(1));
     h = '<table><thead><tr>' + (full ? '' : '<th class="chev"></th>') +
@@ -2879,11 +2982,12 @@ function render(view){
           var c = '';
           if (i === 0) c = 'c0'; if (i === 1 || i === BR_COL) c = 'c1 name';
           var raw = repVal(r, i);
-          var val = (raw === '' || raw == null) ? '' : (i >= CHK0 ? chipHtml(raw) : raw);
+          var val = (raw === '' || raw == null) ? '' : (isChk(i) ? chipHtml(raw) : raw);
           return '<td class="' + c.trim() + '" data-l="' + esc(repHead(i)) + '">' + val + '</td>';
         }).join('') +
         (full ? '' : '<td class="cR" data-l="' + esc(REP_HEAD[CHK0]) + '">' +
-                     chipHtml(v[CHK0]) + '</td>') + '</tr>';
+                     chipHtml(v[CHK0]) + (v[CHK_WHY] ? ' ' + chipHtml(v[CHK_WHY]) : '') +
+                     '</td>') + '</tr>';
       if (!full)
         h += '<tr class="det" id="det' + ri + '" style="display:none"><td colspan="' +
              (cols.length + 2) + '">' + detailHtml(v) + '</td></tr>';
@@ -3029,7 +3133,7 @@ $('btnBuild').onclick = function(){
   if (!f || !t) return msg('m3','Укажите период в формате дд.мм.гггг','err');
   try{
     // пустое значение в списке — это «все филиалы», а не «филиал не выбран»
-    REPORT = wh ? build(wh, f, t) : buildAll(f, t);
+    REPORT = withDisc(wh ? build(wh, f, t) : buildAll(f, t));
     $('cardOut').style.display = '';
     var k = REPORT.kpi, pct = k.list ? Math.round(k.ok / k.list * 100) : 0;
     $('kpi').innerHTML =
@@ -3200,8 +3304,11 @@ function xlsHint(){
 
 $('btnXlsx').onclick = function(){
   if (!REPORT) return msg('m3','Сначала соберите отчёт.','err');
+  var ORD = repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }));
   function stRep(v, i){
-    if (i < CHK0 + (REPORT.all ? 1 : 0)) return 0;
+    var src = ORD[i - (REPORT.all && i > 0 ? 1 : 0)];
+    if (REPORT.all && i === 1) return 0;
+    if (!isChk(src)) return 0;
     var c = cls(v); return c === 'ok' ? 2 : c === 'bad' ? 3 : c === 'na' ? 4 : 0;
   }
   var on = fltOn(), mark = function(n, yes){ return yes && on ? n + ' (фильтр)' : n; };
@@ -3212,9 +3319,11 @@ $('btnXlsx').onclick = function(){
   var m50Src  = (on && VIEW === 'm50')  ? m50RowsF() : (MATCH50 || match50()).rows;
   /* В сетевом отчёте колонка «Филиал» есть и в файле — иначе строки одного дня
      от разных точек в Excel уже не разделить. */
-  var repHeadX = REPORT.all ? [REP_HEAD[0], 'Филиал'].concat(REP_HEAD.slice(1)) : REP_HEAD;
+  var hd = ORD.map(function(i){ return REP_HEAD[i]; });
+  var repHeadX = REPORT.all ? [hd[0], 'Филиал'].concat(hd.slice(1)) : hd;
   var repRows = repSrc.map(function(r){
-    return REPORT.all ? [r.v[0], S(r.br)].concat(r.v.slice(1)) : r.v; });
+    var v = ORD.map(function(i){ return r.v[i]; });
+    return REPORT.all ? [v[0], S(r.br)].concat(v.slice(1)) : v; });
   var listRows = listSrc.map(function(r){
     return [ru(r[0]), r[1], r[2], r[3] === '' ? '' : r[3], r[4], r[5]]; });
   var blob = makeXlsx([
