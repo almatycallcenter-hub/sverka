@@ -700,6 +700,7 @@
       <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
       <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
       <a data-page="chr" data-tab="prog"><span class="ic">🔮</span>Прогноз излишка</a>
+      <a data-page="chr" data-tab="norm"><span class="ic">📏</span>Нормы потерь</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
@@ -1122,6 +1123,7 @@
             <button data-c="pair">Перемещать вместо уценки</button>
             <button data-c="loss">Скидки и потери</button>
             <button data-c="prog">Прогноз излишка</button>
+            <button data-c="norm">Нормы потерь</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
@@ -1307,6 +1309,17 @@
             не считаются — ставится «не известна разморозка». Колонки такого прихода помечены голубым.</div>
         </div>
         <div class="card">
+          <h2>Нормы потерь</h2>
+          <p class="lead">Норма — на группу продукции: срок годности × форма хранения из справочника
+            («Витрина» или «Обе формы»). У «обеих форм» свежая партия из цеха и мороженая с тортового
+            склада — разные группы: по тому, откуда в филиал пришло больше. Три нормы: списание и уценка —
+            в % от прихода, пустая витрина — в % дней, когда позиция была в филиале.</p>
+          <div class="hint" style="margin-top:0">Черновик: пустая витрина — медиана филиалов (от 5% до 30%);
+            списание и уценка — медиана филиалов, которые держат витрину в норме; округление вверх до 0,5%.
+            Светофор: зелёный — в норме или лишнего меньше 1 шт в неделю, жёлтый — до полутора норм,
+            красный — больше. Утверждённые нормы хранятся на устройстве, где их утвердили.</div>
+        </div>
+        <div class="card">
           <h2>Прогноз излишка</h2>
           <p class="lead">Излишек — всё, что ушло со скидкой в процентах, списано, вернулось по сроку
             или на склад 50%. «Излишек сейчас» — среднее по истории за неделю, если завоз не менять.
@@ -1317,7 +1330,7 @@
             недели, остальное — по неделям. «Излишек будет» = излишек сейчас минус то, на сколько он
             уменьшится по расчёту. Проверка: последние 7 дней периода скрываются, прогноз строится по
             предыдущим и сравнивается с фактом; рядом ошибка простого способа «как неделю назад».
-            Нужно хотя бы 4 недели истории, лучше 6–8.</div>
+            Нужно хотя бы 2 недели истории (для учёта дня недели — 4), лучше 6–8. Если витрина пустела в 40% дней и чаще, число для заявки не считается: настоящий спрос неизвестен.</div>
         </div>
         <div class="card">
           <h2>Потери в деньгах</h2>
@@ -5266,6 +5279,7 @@ function renderChrono(view){
   if (view === 'dyn'){ renderDyn(); return; }
   if (view === 'loss'){ $('fbarC').style.display = 'none'; renderLoss(); return; }
   if (view === 'prog'){ $('fbarC').style.display = 'none'; renderProg(); return; }
+  if (view === 'norm'){ $('fbarC').style.display = 'none'; renderNorms(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -5601,7 +5615,7 @@ function progData(cr){
               daily: daily, kg: kg, price: price, costU: costU, weeks: weeks, W: null };
     if (daily){
       r.nObs = X.length; r.nCens = X.filter(function(x){ return x.c; }).length;
-      r.enough = X.length >= 7;
+      r.enough = X.length >= 14;
       var pooled = kmDist(X.map(function(x){ return { x: x.F, c: x.c }; }));
       var W = [], own = 0;
       for (var w = 0; w < 7; w++){
@@ -5647,6 +5661,10 @@ function progData(cr){
     /* Расчёт сравнивает завоз со спросом «в лоб», а в жизни есть вчерашний остаток,
        перемещения, брони. Поэтому «будет» = факт сейчас минус то, на сколько
        излишек уменьшится по расчёту, а не голая цифра модели. */
+    /* Если витрина пустела в большинстве дней, спрос выше завоза неизвестен —
+       любая «рекомендация» будет гаданием. Тогда честно просим сначала добавить. */
+    r.blind = r.enough && r.nObs > 0 && r.nCens / r.nObs >= 0.4;
+    if (r.blind){ r.ovRec = r.ovNow; r.shRec = r.shNow; }
     r.delta = r.enough ? (r.ovNow || 0) - (r.ovRec || 0) : 0;
     r.after = r.enough ? Math.max(0, r.Of - r.delta) : null;
     r.eco = r.enough && costU ? (r.Of - r.after) * costU : 0;
@@ -5769,7 +5787,7 @@ function progBody(){
       Math.abs(devP) <= 15 ? 'okT' : Math.abs(devP) <= 30 ? 'naT' : 'badT');
   }
   $('progKpi').innerHTML = '<div class="kpi">' +
-    tile('Излишек сейчас', fmtQ(T.Of) + ' шт/нед',
+    tile('Уходит на скидку и в списание', fmtQ(T.Of) + ' шт/нед',
          T.money ? '≈ ' + fmtT(T.money) + ' в неделю' : 'по ' + T.n + ' позициям', 'badT') +
     tile('При рекомендуемом завозе', fmtQ(T.after) + ' шт/нед',
          'меньше на ' + fmtQ(T.Of - T.after) + ' шт' + (T.eco ? ' · ' + fmtT(T.eco) : ''), 'okT') +
@@ -5778,9 +5796,11 @@ function progBody(){
     btTile + '</div>';
 
   var st = PROG_SORT;
-  var HEAD = ['Филиал','Позиция','Категория','Считаем','История','Излишек сейчас, шт/нед',
-    'Обычно, шт/нед','Завоз сейчас, шт/нед','Рекомендуемый завоз, шт/нед','Излишек будет, шт/нед',
-    'Не хватит: сейчас → будет','Меньше на, шт/нед','Экономия, ₸/нед','Проверка: прогноз / факт'];
+  var HEAD = ['Филиал','Позиция','Категория','Считаем','История',
+    'Уходит на скидку и в списание сейчас, шт/нед',
+    'Обычно, шт/нед','Завоз сейчас, шт/нед','Рекомендуемый завоз, шт/нед',
+    'Будет уходить на скидку и в списание, шт/нед',
+    'Не хватило покупателям: сейчас → будет','Меньше на, шт/нед','Экономия, ₸/нед','Проверка: прогноз / факт'];
   var SK = [
     function(r){ return r.wh; }, function(r){ return r.name; }, function(r){ return r.cat; },
     function(r){ return r.daily ? 0 : 1; }, function(r){ return r.nObs; },
@@ -5813,7 +5833,8 @@ function progBody(){
         '<b>' + f(r.Of) + '</b>',
         r.lo === null ? '' : f(r.lo) + '–' + f(r.hi),
         f(r.supNow),
-        '<b>' + recTxt(r.rec, r.recLb, r.daily) + '</b>',
+        r.blind ? '<span class="chip na">сначала добавить 1–2 шт</span>'
+                : '<b>' + recTxt(r.rec, r.recLb, r.daily) + '</b>',
         f(r.after),
         shTxt(r.shNow, r.lb) + ' → ' + shTxt(r.shRec, r.lb),
         d >= 0.05 ? '<span class="chip ok">−' + fmtQ(d) + '</span>'
@@ -5857,12 +5878,25 @@ function progOpen(key){
     (r.srok ? ' · срок ' + r.srok + ' ч' : '') + ' · товар есть до вечера в ' +
     Math.round(PROG.cr * 100) + '% дней</div>';
   if (!r.enough){
-    h += '<div class="hint">Мало истории: ' + (r.daily ? r.nObs + ' дн., нужно хотя бы 7.'
+    h += '<div class="hint">Мало истории: ' + (r.daily ? r.nObs + ' дн., нужно хотя бы 14.'
          : r.nObs + ' полных недель, нужно хотя бы 3.') +
       ' Возьмите период длиннее.</div>';
+  } else if (r.blind){
+    h += '<div class="msg wait" style="display:block;margin:0 0 12px"><b>Витрина пустела в ' + r.nCens +
+      (r.daily ? ' дн.' : ' нед.') + ' из ' + r.nObs + '.</b> Всё, что завезли, раскупили, а сколько купили бы ' +
+      'ещё — по истории не узнать. Поэтому число для заявки здесь не считается: оно было бы гаданием. ' +
+      'Добавьте 1–2 шт на две недели и посчитайте снова — тогда станет видно настоящий спрос.</div>' +
+      '<div class="hint" style="margin:0 0 6px">Сейчас: завоз ' + f(r.supNow) + ' шт/нед, на скидку и в списание ' +
+      'уходит ' + f(r.Of) + ' шт/нед.</div>';
   } else if (r.daily){
-    h += '<div style="overflow-x:auto"><table><thead><tr><th>День</th><th>Дней в истории</th><th>Спрос по полной цене, обычно</th>' +
-      '<th>Завоз сейчас</th><th>Рекомендуем</th><th>Излишек сейчас</th><th>Излишек будет</th>' +
+    h += '<div class="hint" style="margin:0 0 8px"><b>Как читать:</b> «Спрос по полной цене» — сколько ' +
+      'обычно покупают без скидки в этот день недели. «Рекомендуем» — сколько завозить, чтобы товар был ' +
+      'до вечера в ' + Math.round(PROG.cr * 100) + '% дней. «Уходит на скидку и в списание» — сколько штук ' +
+      'сейчас в среднем уценивают, списывают или возвращают по сроку; рядом — сколько будет, если завозить ' +
+      'рекомендуемое. «Не хватит» — сколько покупателей ушли бы без товара.</div>' +
+      '<div style="overflow-x:auto"><table><thead><tr><th>День</th><th>Дней в истории</th><th>Спрос по полной цене, обычно</th>' +
+      '<th>Завоз сейчас</th><th>Рекомендуем</th><th>Уходит на скидку и в списание сейчас</th>' +
+      '<th>Будет уходить при рекомендуемом</th>' +
       '<th>Не хватит: сейчас → будет</th></tr></thead><tbody>';
     r.W.forEach(function(x){
       var aft = Math.max(0, x.Of - (x.ovNow - x.ovRec));
@@ -5891,7 +5925,7 @@ function progOpen(key){
       'несколько дней, поэтому считаем по неделям. Рекомендуемый завоз: <b>' +
       recTxt(r.rec, r.recLb) + ' шт в неделю</b> (сейчас ' + f(r.supNow) + ').</div>';
   }
-  if (r.enough){
+  if (r.enough && !r.blind){
     var d = r.Of - r.after;
     h += '<div class="cardTodo" style="margin-top:12px"><h4>Что это значит</h4><ul>' +
       '<li>Если завоз не менять, на скидку и в списание уйдёт около <b>' + f(r.Of) + ' шт в неделю</b>' +
@@ -5901,7 +5935,7 @@ function progOpen(key){
           ' шт</b> — меньше на ' + f(d) + ' шт' + (r.eco >= 1 ? ', экономия ≈ ' + fmtT(r.eco) : '') + ' в неделю.</li>'
        : d <= -0.05 ? '<li>Рекомендуемый завоз <b>больше</b> нынешнего: витрина пустеет раньше вечера. ' +
           'Излишек вырастет на ' + f(-d) + ' шт, зато покупателям будет не хватать меньше: ' +
-          f(r.shNow) + ' → ' + f(r.shRec) + ' шт в неделю.</li>'
+          shTxt(r.shNow, r.lb) + ' → ' + shTxt(r.shRec, r.lb) + ' шт в неделю.</li>'
        : '<li>Завоз уже близок к нужному — менять почти нечего.</li>') +
       (r.nCens ? '<li>Витрина пустела ' + r.nCens + (r.daily ? ' дн.' : ' нед.') + ' из ' + r.nObs +
           ' — в такие дни спрос был выше продаж, поэтому часть цифр со знаком «≥».' +
@@ -5918,6 +5952,340 @@ function progOpen(key){
   m.style.display = 'flex';
 }
 
+
+
+/* ═════════ Нормы потерь ═════════
+   Допустимая доля списания и уценки — отдельно для каждой группы продукции.
+   Группа = срок годности × как продукция хранится и приходит:
+     «Витрина» — только свежая, на витрине;
+     «Обе формы» — бывает и свежей из цеха, и мороженой с тортового склада.
+   У «обеих форм» свежую и размороженную партию считаем разными группами:
+   срок у размороженной идёт от разморозки, и теряется она по-другому.
+   К каждой норме потерь — норма пустой витрины. Без неё норму потерь проще
+   всего выполнить, заказывая меньше, а упущенные продажи никто не увидит. */
+var NORM_SEGS = null, NORM_FW = '';
+
+function normSrok(h){
+  h = N(h);
+  if (!h) return '';
+  if (h <= 24) return '24 ч';
+  if (h <= 48) return '48 ч';
+  if (h <= 72) return '72 ч';
+  return Math.round(h / 24) + ' сут';
+}
+/* группа позиции в филиале: срок + форма хранения + откуда реально пришла */
+function normSeg(info, ser){
+  var sp = SPR[nrm(info.name)] || {};
+  var srok = normSrok(sp.srok || info.srok);
+  if (!srok) return null;                          // свечи, напитки — без нормы
+  var forma = S(sp.forma) || 'Витрина';
+  if (/обе/i.test(forma)){
+    var gp = 0, tt = 0;
+    ser.forEach(function(x){ gp += N(x.gp); tt += N(x.tt); });
+    var src = tt > gp ? 'из заморозки' : 'свежая из цеха';
+    return { id: srok + '|обе|' + src, srok: srok, forma: 'Обе формы', src: src };
+  }
+  return { id: srok + '|витрина', srok: srok, forma: 'Только витрина', src: '' };
+}
+function normSegTitle(g, kz){
+  if (kz) return g.srok.replace('ч', 'сағ').replace('сут', 'тәулік') + ' · ' +
+    (g.forma === 'Обе формы' ? 'екі түрде · ' + (g.src === 'из заморозки' ? 'мұздатылған күйінде келген' : 'цехтан жаңа күйінде')
+                             : 'тек витрина');
+  return g.srok + ' · ' + (g.forma === 'Обе формы' ? 'обе формы · ' + g.src : 'только витрина');
+}
+var NORM_ORDER = ['24 ч|витрина','24 ч|обе|свежая из цеха','24 ч|обе|из заморозки',
+  '48 ч|витрина','72 ч|витрина','72 ч|обе|свежая из цеха','72 ч|обе|из заморозки'];
+function normSortKey(id){
+  var i = NORM_ORDER.indexOf(id); return i < 0 ? 100 + id : ('00' + i).slice(-3);
+}
+
+/* Все позиции филиалов с их группой и цифрами за период */
+function normPositions(){
+  var out = [];
+  Object.keys(SERIES).forEach(function(key){
+    var ser = SERIES[key], inf = ser.info;
+    if (!inf || isDelivery(inf.wh)) return;
+    var g = normSeg(inf, ser); if (!g) return;
+    var P = 0, L = 0, D = 0, mL = 0, mD = 0, stop = 0, days = 0, pr = inf.price || 0;
+    ser.forEach(function(x){
+      P += N(x.p) + N(x.pin);
+      L += N(x.l);
+      var d = N(x.q20), m = N(x.q20) * pr * 0.2;
+      Object.keys(x.dsc || {}).forEach(function(t){
+        var pc = discPct(t); if (!pc) return;      // бонусы и акции без % — не уценка
+        d += N(x.dsc[t]);
+        var mm = (x.dscM || {})[t];
+        m += mm !== undefined ? N(mm) : N(x.dsc[t]) * pr * pc;
+      });
+      D += d; mD += m;
+      if (x.st === 1) stop++;
+      if (x.st === 1 || N(x.bal) > 1e-9) days++;   // день, когда позиция вообще была в филиале
+    });
+    mL = L * pr;
+    if (P < 1e-9) return;
+    out.push({ key: key, wh: inf.wh, name: inf.name, cat: inf.cat, g: g, P: P, L: L, D: D,
+               mL: mL, mD: mD, stop: stop, days: days });
+  });
+  return out;
+}
+function normAgg(list){
+  var a = { P: 0, L: 0, D: 0, mL: 0, mD: 0, stop: 0, days: 0, n: 0 };
+  list.forEach(function(x){ a.P += x.P; a.L += x.L; a.D += x.D; a.mL += x.mL; a.mD += x.mD;
+    a.stop += x.stop; a.days += x.days; a.n++; });
+  a.sL = a.P > 1e-9 ? a.L / a.P : 0; a.sD = a.P > 1e-9 ? a.D / a.P : 0;
+  a.sS = a.days ? a.stop / a.days : 0;
+  return a;
+}
+function med(arr){
+  if (!arr.length) return 0;
+  var a = arr.slice().sort(function(x, y){ return x - y; }), m = a.length >> 1;
+  return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+}
+function ceilTo(v, step){ return Math.ceil(v / step - 1e-9) * step; }
+
+/* Черновик норм. Пустая витрина — медиана филиалов, но от 5% до 30%.
+   Потери — медиана тех филиалов, кто держит витрину в пределах этой нормы:
+   раз они укладываются на том же товаре и сроке, это достижимо. */
+function normDraft(){
+  var pos = normPositions(), segs = {};
+  pos.forEach(function(x){ (segs[x.g.id] = segs[x.g.id] || { g: x.g, pos: [] }).pos.push(x); });
+  Object.keys(segs).forEach(function(id){
+    var S1 = segs[id], byWh = {};
+    S1.pos.forEach(function(x){ (byWh[x.wh] = byWh[x.wh] || []).push(x); });
+    S1.net = normAgg(S1.pos);
+    S1.wh = {};
+    Object.keys(byWh).forEach(function(w){ S1.wh[w] = normAgg(byWh[w]); S1.wh[w].pos = byWh[w]; });
+    var ok = Object.keys(S1.wh).map(function(w){ return S1.wh[w]; })
+                   .filter(function(a){ return a.P >= 20; });
+    S1.few = ok.length < 3;
+    var base = ok.length ? ok : [S1.net];
+    var st = Math.min(0.30, Math.max(0.05, ceilTo(med(base.map(function(a){ return a.sS; })), 0.05)));
+    var good = base.filter(function(a){ return a.sS <= st + 1e-9; });
+    if (good.length < 2) good = base;
+    S1.draft = {
+      sp: ceilTo(med(good.map(function(a){ return a.sL; })) * 100, 0.5),
+      ud: ceilTo(med(good.map(function(a){ return a.sD; })) * 100, 0.5),
+      st: Math.round(st * 100)
+    };
+    var cats = {}; S1.pos.forEach(function(x){ if (x.cat) cats[x.cat] = 1; });
+    S1.cats = Object.keys(cats).sort();
+    var names = {}; S1.pos.forEach(function(x){ names[x.name] = 1; });
+    S1.names = Object.keys(names).sort(function(a, b){ return a.localeCompare(b, 'ru'); });
+  });
+  return segs;
+}
+function normOf(id){
+  var n = (DB.norms && DB.norms.v && DB.norms.v[id]) || null;
+  var d = NORM_SEGS && NORM_SEGS[id] ? NORM_SEGS[id].draft : null;
+  return n || d;
+}
+/* светофор: в норме — зелёный; до полутора норм или лишнего меньше 1 шт в неделю — жёлтый */
+function normLight(fact, norm, P, weeks){
+  if (norm === null || norm === undefined) return '';
+  var over = (fact - norm / 100) * P;
+  if (fact * 100 <= norm + 1e-9 || over / Math.max(weeks, 1) < 1) return 'ok';
+  if (fact * 100 <= norm * 1.5 + 1e-9) return 'na';
+  return 'bad';
+}
+function pctTxt(v){ return (Math.round(v * 1000) / 10) + '%'; }
+
+function renderNorms(){
+  var o = $('outC');
+  NORM_SEGS = normDraft();
+  var ids = Object.keys(NORM_SEGS).sort(function(a, b){
+    return normSortKey(a) < normSortKey(b) ? -1 : 1; });
+  var nDays = daysBetween(CHRONO.from, CHRONO.to) + 1, weeks = nDays / 7;
+  var appr = DB.norms && DB.norms.v ? DB.norms : null;
+
+  var h = '<div class="lossSec"><h3>Нормы потерь — стандарт компании для филиалов</h3>' +
+    '<p class="lead">Норма задаётся для <b>группы продукции</b>: срок годности × как хранится. ' +
+    '«Только витрина» — продукция бывает только свежей. «Обе формы» — приходит и свежей из цеха, и ' +
+    'мороженой с тортового склада; эти партии считаются отдельно: у размороженной срок идёт от разморозки. ' +
+    'У каждой группы три нормы: <b>списание</b> (возврат по сроку, склад 50%, списание — в % от прихода), ' +
+    '<b>уценка</b> (все скидки в процентах: 20%, 10%, 50%…) и <b>пустая витрина</b> — в какой доле дней товар ' +
+    'заканчивался. Третья нужна, чтобы норму потерь не выполняли, просто заказывая меньше.</p>' +
+    (nDays < 42 ? '<div class="msg wait" style="display:block;margin:0 0 10px"><b>Период ' + nDays +
+      ' дн.</b> Для утверждения норм нужно хотя бы 6 недель — иначе цифры случайные. Черновик ниже — ' +
+      'только чтобы посмотреть порядок величин.</div>' : '') +
+    '<div class="hint" style="margin:0 0 10px">Черновик считается так: пустая витрина — медиана по ' +
+    'филиалам (от 5% до 30%); списание и уценка — медиана филиалов, которые держат витрину в пределах этой ' +
+    'нормы. Округление вверх до 0,5%. Филиалы с приходом меньше 20 шт в группе в расчёт не берутся. ' +
+    (appr ? '<b>Утверждено ' + esc(appr.at || '') + '.</b>' : '<b>Нормы пока не утверждены</b> — ' +
+      'сравнение ниже идёт с черновиком.') + '</div>' +
+    '<div class="wrapT"><table><thead><tr><th class="name">Группа</th><th>Позиций</th><th>Категории</th>' +
+    '<th>Приход за период</th><th>Сеть сейчас: списание / уценка / пустая витрина</th>' +
+    '<th>Черновик</th><th>Норма: списание, %</th><th>Норма: уценка, %</th>' +
+    '<th>Норма: пустая витрина, % дней</th></tr></thead><tbody>';
+  ids.forEach(function(id){
+    var S1 = NORM_SEGS[id], n = normOf(id), d = S1.draft, a = S1.net;
+    h += '<tr><td class="name" data-l="Группа"><b>' + esc(normSegTitle(S1.g)) + '</b>' +
+        (S1.few ? '<br><small class="warn">мало филиалов для сравнения</small>' : '') + '</td>' +
+      '<td data-l="Позиций">' + S1.names.length + '</td>' +
+      '<td data-l="Категории" style="white-space:normal;min-width:140px">' + esc(S1.cats.join(', ')) + '</td>' +
+      '<td data-l="Приход за период">' + fmtQ(a.P) + ' шт</td>' +
+      '<td data-l="Сеть сейчас">' + pctTxt(a.sL) + ' / ' + pctTxt(a.sD) + ' / ' + pctTxt(a.sS) + '</td>' +
+      '<td data-l="Черновик">' + d.sp + '% / ' + d.ud + '% / ' + d.st + '%</td>' +
+      ['sp','ud','st'].map(function(f, i){
+        return '<td data-l="' + ['Норма: списание, %','Норма: уценка, %','Норма: пустая витрина, %'][i] + '">' +
+          '<input type="number" step="0.5" min="0" class="normIn" data-id="' + esc(id) + '" data-f="' + f +
+          '" value="' + n[f] + '" style="width:70px;text-align:center"></td>'; }).join('') + '</tr>';
+  });
+  h += '</tbody></table></div>' +
+    '<div class="row" style="gap:8px;flex-wrap:wrap">' +
+      '<button id="normSave">Утвердить нормы</button>' +
+      '<button class="sec" id="normReset">Вернуть черновик</button>' +
+      '<button class="sec" id="normCard">Карточка для филиалов (KZ / RU)</button>' +
+    '</div><div class="msg" id="normMsg"></div></div>';
+
+  // ── филиалы против нормы
+  var whs = {};
+  ids.forEach(function(id){ Object.keys(NORM_SEGS[id].wh).forEach(function(w){ whs[w] = 1; }); });
+  var whList = Object.keys(whs).sort();
+  var rows = [], sumWh = {};
+  ids.forEach(function(id){
+    var S1 = NORM_SEGS[id], n = normOf(id);
+    whList.forEach(function(w){
+      var a = S1.wh[w]; if (!a || a.P < 1e-9) return;
+      var lL = normLight(a.sL, n.sp, a.P, weeks), lD = normLight(a.sD, n.ud, a.P, weeks);
+      var lS = a.sS * 100 <= n.st + 1e-9 ? 'ok' : a.sS * 100 <= n.st * 1.5 ? 'na' : 'bad';
+      var exL = Math.max(0, a.L - n.sp / 100 * a.P), exD = Math.max(0, a.D - n.ud / 100 * a.P);
+      var money = (a.L > 1e-9 ? exL * a.mL / a.L : 0) + (a.D > 1e-9 ? exD * a.mD / a.D : 0);
+      var worst = [lL, lD, lS].indexOf('bad') >= 0 ? 'bad' : [lL, lD, lS].indexOf('na') >= 0 ? 'na' : 'ok';
+      rows.push({ id: id, w: w, a: a, lL: lL, lD: lD, lS: lS, worst: worst, money: money, exL: exL, exD: exD });
+      var s = sumWh[w] || (sumWh[w] = { bad: 0, na: 0, ok: 0, money: 0 });
+      s[worst]++; s.money += money;
+    });
+  });
+  h += '<div class="lossSec"><h3>Филиалы против нормы</h3>' +
+    '<div class="kpi" style="margin-bottom:10px">' + whList.map(function(w){
+      var s = sumWh[w] || { bad: 0, na: 0, ok: 0, money: 0 };
+      return '<div class="normWh" data-w="' + esc(w) + '" style="cursor:pointer"><span>' + esc(w) + '</span><b style="color:var(--' +
+        (s.bad ? 'badT' : s.na ? 'naT' : 'okT') + ')">' + (s.bad ? s.bad + ' выше нормы' : s.na ? s.na + ' на грани' :
+        'в норме') + '</b><span>' + (s.money >= 1 ? 'сверх нормы ≈ ' + fmtT(s.money) : 'сверх нормы — 0 ₸') +
+        '</span></div>'; }).join('') + '</div>' +
+    '<div class="row" style="gap:8px;margin:0 0 8px"><select id="normWh" class="flt"><option value="">все филиалы</option>' +
+      whList.map(function(w){ return '<option' + (w === NORM_FW ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('') +
+    '</select></div>' +
+    '<div class="wrapT"><table><thead><tr><th class="name">Филиал</th><th class="name">Группа</th><th>Приход</th>' +
+    '<th>Списание: факт / норма</th><th>Уценка: факт / норма</th><th>Пустая витрина: факт / норма</th>' +
+    '<th>Сверх нормы, шт</th><th>Сверх нормы, ₸</th></tr></thead><tbody>';
+  rows.filter(function(r){ return !NORM_FW || r.w === NORM_FW; })
+      .sort(function(x, y){ return x.w.localeCompare(y.w, 'ru') || (normSortKey(x.id) < normSortKey(y.id) ? -1 : 1); })
+      .forEach(function(r){
+    var n = normOf(r.id);
+    function cell(l, f, nv){ return '<span class="chip ' + l + '">' + pctTxt(f) + '</span> / ' + nv + '%'; }
+    h += '<tr class="clk" data-k="' + esc(r.w + '\u0001' + r.id) + '"><td class="name" data-l="Филиал">' + esc(r.w) + '</td>' +
+      '<td class="name" data-l="Группа"><span class="exp">▸</span>' + esc(normSegTitle(NORM_SEGS[r.id].g)) + '</td>' +
+      '<td data-l="Приход">' + fmtQ(r.a.P) + '</td>' +
+      '<td data-l="Списание: факт / норма">' + cell(r.lL, r.a.sL, n.sp) + '</td>' +
+      '<td data-l="Уценка: факт / норма">' + cell(r.lD, r.a.sD, n.ud) + '</td>' +
+      '<td data-l="Пустая витрина: факт / норма">' + cell(r.lS, r.a.sS, n.st) + '</td>' +
+      '<td data-l="Сверх нормы, шт">' + (r.exL + r.exD >= 0.5 ? fmtQ(r.exL + r.exD) : '') + '</td>' +
+      '<td data-l="Сверх нормы, ₸">' + (r.money >= 1 ? fmtQ(Math.round(r.money)) : '') + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="hint">Зелёный — в норме или лишнего меньше 1 шт в неделю. ' +
+    'Жёлтый — до полутора норм. Красный — больше, нужен разбор. Нажмите на строку — откроются позиции. ' +
+    '«Сверх нормы, ₸» — сколько потеряно сверх допустимого по той же формуле, что «Потери в деньгах».</div></div>';
+  o.innerHTML = h;
+  $('cntC').textContent = '';
+
+  o.querySelectorAll('.normIn').forEach(function(inp){
+    inp.onchange = function(){
+      var id = this.dataset.id, f = this.dataset.f, v = Math.max(0, N(this.value));
+      DB.norms = DB.norms || {};
+      DB.normsDraft = DB.normsDraft || {};
+      var cur = DB.normsDraft[id] || Object.assign({}, normOf(id));
+      cur[f] = v; DB.normsDraft[id] = cur;
+      msg('normMsg', 'Изменено, но ещё не утверждено — нажмите «Утвердить нормы».', 'wait');
+    };
+  });
+  $('normSave').onclick = function(){
+    var v = {};
+    ids.forEach(function(id){
+      v[id] = (DB.normsDraft && DB.normsDraft[id]) || Object.assign({}, normOf(id)); });
+    DB.norms = { v: v, at: ru(isoToday()), period: ru(CHRONO.from) + ' — ' + ru(CHRONO.to) };
+    DB.normsDraft = {};
+    saveDB();
+    renderNorms();
+    msg('normMsg', 'Нормы утверждены и сохранены на этом устройстве.', 'ok');
+  };
+  $('normReset').onclick = function(){
+    DB.norms = {}; DB.normsDraft = {}; saveDB(); renderNorms();
+    msg('normMsg', 'Вернула черновик по данным периода.', 'ok');
+  };
+  $('normCard').onclick = normCard;
+  $('normWh').onchange = function(){ NORM_FW = this.value; renderNorms(); };
+  o.querySelectorAll('.normWh').forEach(function(d){
+    d.onclick = function(){ NORM_FW = this.dataset.w; renderNorms(); }; });
+  o.querySelectorAll('tr.clk').forEach(function(tr){
+    tr.onclick = function(){ var p = this.dataset.k.split('\u0001'); normOpen(p[0], p[1]); }; });
+}
+
+/* позиции филиала в группе — кто тянет за норму */
+function normOpen(w, id){
+  var S1 = NORM_SEGS[id]; if (!S1 || !S1.wh[w]) return;
+  var n = normOf(id), a = S1.wh[w];
+  var weeks = (daysBetween(CHRONO.from, CHRONO.to) + 1) / 7;
+  var list = a.pos.slice().sort(function(x, y){ return (y.mL + y.mD) - (x.mL + x.mD); });
+  var h = '<h3 style="margin:0 0 2px">' + esc(w) + '</h3><div class="hint" style="margin:0 0 10px">' +
+    esc(normSegTitle(S1.g)) + ' · норма: списание ' + n.sp + '%, уценка ' + n.ud + '%, пустая витрина ' +
+    n.st + '% дней</div><div class="wrapT"><table><thead><tr><th class="name">Позиция</th><th>Приход</th>' +
+    '<th>Списание</th><th>Уценка</th><th>Пустая витрина</th><th>Потери, ₸</th></tr></thead><tbody>';
+  list.forEach(function(x){
+    var sL = x.P ? x.L / x.P : 0, sD = x.P ? x.D / x.P : 0, sS = x.days ? x.stop / x.days : 0;
+    var lS = sS * 100 <= n.st + 1e-9 ? 'ok' : sS * 100 <= n.st * 1.5 ? 'na' : 'bad';
+    h += '<tr><td class="name" data-l="Позиция">' + esc(x.name) + '</td><td data-l="Приход">' + fmtQ(x.P) + '</td>' +
+      '<td data-l="Списание"><span class="chip ' + normLight(sL, n.sp, x.P, weeks) + '">' + pctTxt(sL) + '</span> ' +
+        (x.L ? fmtQ(x.L) + ' шт' : '') + '</td>' +
+      '<td data-l="Уценка"><span class="chip ' + normLight(sD, n.ud, x.P, weeks) + '">' + pctTxt(sD) + '</span> ' +
+        (x.D ? fmtQ(x.D) + ' шт' : '') + '</td>' +
+      '<td data-l="Пустая витрина"><span class="chip ' + lS + '">' + pctTxt(sS) + '</span> ' +
+        (x.stop ? x.stop + ' из ' + x.days + ' дн.' : '') + '</td>' +
+      '<td data-l="Потери, ₸">' + (x.mL + x.mD >= 1 ? fmtQ(Math.round(x.mL + x.mD)) : '') + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="hint">Отсортировано по потерям в деньгах. Если позиция ' +
+    'часто уходит в уценку, а витрина почти не пустеет — заявку можно снижать. Если витрина пустеет чаще ' +
+    'нормы — снижать нельзя, дело в том, на какие дни ложится завоз.</div>';
+  var m = $('dayModal'); m.querySelector('.mBody').innerHTML = h; m.style.display = 'flex';
+}
+
+/* Карточка стандартов на двух языках — отдельным окном, сразу на печать или в PDF */
+function normCard(){
+  var ids = Object.keys(NORM_SEGS).sort(function(a, b){ return normSortKey(a) < normSortKey(b) ? -1 : 1; });
+  var appr = DB.norms && DB.norms.v ? DB.norms : null;
+  var body = ids.map(function(id){
+    var S1 = NORM_SEGS[id], n = normOf(id);
+    return '<section><h2>' + esc(normSegTitle(S1.g, true)) + '<br><span>' + esc(normSegTitle(S1.g)) + '</span></h2>' +
+      '<table><tr><th>Есептен шығару<br><span>Списание</span></th><th>Жеңілдікпен сату<br><span>Уценка</span></th>' +
+      '<th>Бос витрина<br><span>Пустая витрина</span></th></tr><tr>' +
+      '<td>≤ ' + n.sp + '%</td><td>≤ ' + n.ud + '%</td><td>≤ ' + n.st + '%</td></tr></table>' +
+      '<p class="names"><b>Өнімдер / Позиции:</b> ' + esc(S1.names.join(', ')) + '</p></section>';
+  }).join('');
+  var html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Шығын нормалары · Нормы потерь</title><style>' +
+    'body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:24px;color:#111;background:#fff}' +
+    'h1{font-size:22px;margin:0 0 4px}h1 span,h2 span,th span{font-weight:400;color:#555}' +
+    '.lead{color:#333;font-size:13px;line-height:1.5;margin:6px 0 16px}' +
+    'section{border:1px solid #ddd;border-radius:10px;padding:12px 14px;margin:0 0 12px;page-break-inside:avoid}' +
+    'h2{font-size:15px;margin:0 0 8px}table{border-collapse:collapse;width:100%}' +
+    'th,td{border:1px solid #ddd;padding:6px 8px;text-align:center;font-size:13px}td{font-size:18px;font-weight:700}' +
+    '.names{font-size:12px;color:#333;line-height:1.5;margin:8px 0 0}' +
+    '@media print{body{margin:10mm}}</style></head><body>' +
+    '<h1>Тәп-Тәтті · Шығын нормалары<br><span>Нормы потерь для филиалов</span></h1>' +
+    '<p class="lead"><b>Есептен шығару</b> — мерзімі бойынша қайтару, 50% қойма, есептен шығару; келген тауардан %. ' +
+    '<b>Жеңілдікпен сату</b> — 20%, 10%, 50% жеңілдіктер; келген тауардан %. ' +
+    '<b>Бос витрина</b> — тауар таусылған күндердің үлесі. Екі жағын да ұстау керек: шығынды азайту үшін ' +
+    'тапсырысты тым азайтуға болмайды.<br>' +
+    '<b>Списание</b> — возврат по сроку, склад 50%, списание; % от прихода. <b>Уценка</b> — скидки 20%, 10%, 50%; ' +
+    '% от прихода. <b>Пустая витрина</b> — доля дней, когда товар закончился. Держать нужно обе стороны: ' +
+    'нельзя снижать потери, просто заказывая слишком мало.<br>' +
+    (appr ? 'Бекітілді / Утверждено: ' + esc(appr.at) + ' (кезең / период ' + esc(appr.period || '') + ')'
+          : '<b style="color:#b54708">Жоба — әлі бекітілмеген / Черновик — ещё не утверждено</b>') + '</p>' +
+    body + '<script>setTimeout(function(){ window.print(); }, 300);<\/script></body></html>';
+  var wnd = window.open('', '_blank');
+  if (!wnd){ msg('normMsg', 'Браузер не дал открыть окно — разрешите всплывающие окна для сайта.', 'err'); return; }
+  wnd.document.open(); wnd.document.write(html); wnd.document.close();
+}
 
 function routeHint(){
   var bs = branches();
@@ -6100,16 +6468,25 @@ $('btnChrXlsx').onclick = function(){
     // прогноз — тем уровнем сервиса, что выбран на вкладке
     if (!PROG || PROG.src !== CHRONO) PROG = progData(PROG_CR);
     if (!PROG) return [];
-    return [{ name: 'Прогноз излишка',
+    var NS = normDraft(), nIds = Object.keys(NS).sort(function(a, b){ return normSortKey(a) < normSortKey(b) ? -1 : 1; });
+    NORM_SEGS = NS;
+    var normSheet = { name: 'Нормы потерь',
+      head: ['Группа','Позиций','Категории','Приход','Сеть: списание %','Сеть: уценка %','Сеть: пустая витрина %',
+             'Норма: списание %','Норма: уценка %','Норма: пустая витрина %','Статус'],
+      rows: nIds.map(function(id){ var S1 = NS[id], n = normOf(id), a = S1.net;
+        return [normSegTitle(S1.g), S1.names.length, S1.cats.join(', '), r3(a.P),
+          r3(a.sL * 100), r3(a.sD * 100), r3(a.sS * 100), n.sp, n.ud, n.st,
+          DB.norms && DB.norms.v ? 'утверждено ' + DB.norms.at : 'черновик']; }) };
+    return [normSheet, { name: 'Прогноз излишка',
       head: ['Филиал','Позиция','Категория','Считаем','Дней/недель в истории','Из них со стопом',
-             'Излишек сейчас, шт/нед','Обычно от','Обычно до','Завоз сейчас, шт/нед',
-             'Рекомендуемый завоз, шт/нед','Излишек будет, шт/нед','Не хватит сейчас, шт/нед',
+             'Уходит на скидку и в списание сейчас, шт/нед','Обычно от','Обычно до','Завоз сейчас, шт/нед',
+             'Рекомендуемый завоз, шт/нед','Будет уходить на скидку и в списание, шт/нед','Не хватит сейчас, шт/нед',
              'Не хватит будет, шт/нед','Экономия, ₸/нед','Проверка: прогноз','Проверка: факт',
              'Уровень сервиса'],
       rows: PROG.rows.filter(function(r){ return r.enough; }).map(function(r){
         return [r.wh, r.name, r.cat, r.daily ? 'по дням недели' : 'по неделям', r.nObs, r.nCens,
           r3(r.Of), r.lo === null ? '' : r3(r.lo), r.hi === null ? '' : r3(r.hi), r3(r.supNow),
-          (r.recLb ? '≥ ' : '') + r3(r.rec), r3(r.after), r3(r.shNow), r3(r.shRec),
+          r.blind ? 'сначала добавить 1–2 шт' : (r.recLb ? '≥ ' : '') + r3(r.rec), r3(r.after), r3(r.shNow), r3(r.shRec),
           Math.round(r.eco), r.btPred === null ? '' : r3(r.btPred), r.btAct === null ? '' : r3(r.btAct),
           Math.round(PROG.cr * 100) + '%']; }) }];
   })()));
