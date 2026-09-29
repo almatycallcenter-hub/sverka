@@ -553,6 +553,17 @@
   .chartScroll svg{display:block;max-width:100%;height:auto}
   .bar rect{transition:opacity .12s}
   .chartScroll g:hover rect{opacity:.82}
+  .chartScroll g.drill{cursor:pointer}
+  .chartScroll g.drill:active rect{opacity:.6}
+  .drillSum{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 12px}
+  .drillSum div{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+  .drillSum span{display:block;font-size:11px;color:var(--mut)}
+  .drillSum b{font-size:16px}
+  .drillBar{height:6px;border-radius:3px;background:var(--mark);min-width:2px}
+  .modal .wrapT{max-height:none}
+  .modal .wrapT td.name{min-width:150px}
+  .modal .wrapT th{min-width:58px;padding:8px 6px}
+  .modal .wrapT td{padding:7px 6px}
 
   .quick{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:10px;
     font-size:12px;color:var(--mut)}
@@ -613,7 +624,7 @@
     .wrapT td.name:first-of-type,.wrapT td.c1{display:block;text-align:left;
       font-size:14px;font-weight:600;color:var(--txt);padding:0 0 6px;
       border-bottom:1px solid var(--bd)}
-    .wrapT td.c1::before{display:none}
+    .wrapT td.c1::before,.wrapT td.name:first-of-type::before{display:none}
     .wrapT td.c0{border-bottom:1px solid var(--bd2)}
     .wrapT td.chev{display:none}
     .wrapT tr.det{display:none}
@@ -4628,7 +4639,7 @@ function fmtNum(n){
 }
 
 /* Столбики по дням: одна серия, поэтому легенда не нужна — её называет заголовок. */
-function chartDays(days, title, unit){
+function chartDays(days, title, unit, drill){
   if (!days.length) return '<div class="hint">Нет данных за период.</div>';
   var H = 210, R = 14, T = 26, B = 34;
   var max = 0; days.forEach(function(d){ if (d.v > max) max = d.v; });
@@ -4649,7 +4660,9 @@ function chartDays(days, title, unit){
   }
   days.forEach(function(d, i){
     var h = ih * d.v / max, x = L + i * step + (step - bw) / 2, y = T + ih - h;
-    g += '<g class="bar"><title>' + esc2(ru(d.d)) + ' — ' + fmtNum(d.v) + ' ' + unit + '</title>' +
+    g += '<g class="bar' + (drill ? ' drill" data-drill="' + esc2(drill + '|' + d.d) : '') + '"><title>' +
+      esc2(ru(d.d)) + ' — ' + fmtNum(d.v) + ' ' + unit + (drill ? ' · нажмите, чтобы увидеть из чего' : '') +
+      '</title>' +
       '<rect x="' + x.toFixed(1) + '" y="' + (T).toFixed(1) + '" width="' + bw.toFixed(1) +
         '" height="' + ih.toFixed(1) + '" fill="transparent"/>' +
       (d.v > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + bw.toFixed(1) +
@@ -4681,7 +4694,10 @@ function chartBars(rows, title, unit){
   var g = '';
   rows.forEach(function(r, i){
     var y = T + i * (bh + gap), w = iw * r.v / max;
-    g += '<g><title>' + esc2(r.k) + ' — ' + esc2(r.label || (fmtNum(r.v) + ' ' + unit)) + '</title>' +
+    g += '<g' + (r.drill ? ' class="drill" data-drill="' + esc2(r.drill) + '"' : '') + '><title>' +
+      esc2(r.k) + ' — ' + esc2(r.label || (fmtNum(r.v) + ' ' + unit)) +
+      (r.drill ? ' · нажмите, чтобы увидеть из чего' : '') + '</title>' +
+      '<rect x="0" y="' + (y - gap / 2) + '" width="' + W + '" height="' + (bh + gap) + '" fill="transparent"/>' +
       '<text x="' + (L - 10) + '" y="' + (y + bh / 2 + 4) + '" text-anchor="end" font-size="12" ' +
         'fill="var(--txt)">' + esc2(r.k.length > 24 ? r.k.slice(0, 23) + '…' : r.k) + '</text>' +
       '<rect x="' + L + '" y="' + y + '" width="' + iw + '" height="' + bh + '" rx="4" ' +
@@ -4701,20 +4717,22 @@ function renderDyn(){
   var o = $('outC');
   if (!CHRONO || !CHRONO.days){ o.innerHTML = ''; return; }
   var unitMoney = CHRONO.days.some(function(d){ return d.money > 0; });
-  var h = chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.loss }; }),
-                    'Потери по дням, шт', 'шт');
+  var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0"><b>Нажмите на любой столбик</b> — ' +
+    'откроется, из каких позиций он сложился и как посчитан.</div>';
+  h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.loss }; }),
+                    'Потери по дням, шт', 'шт', 'dayQ');
   if (unitMoney)
     h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.money }; }),
-                   'Потери по дням, ₸', '₸');
+                   'Потери по дням, ₸', '₸', 'dayM');
   var bs = Object.keys(CHRONO.byWh).map(function(w){
     var x = CHRONO.byWh[w];
-    return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0,
+    return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0, drill: 'whQ|' + w,
              label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 1000) / 10) : 0) + '%  ·  ' +
                     fmtNum(x.loss) + ' шт' };
   }).sort(function(a, b){ return b.v - a.v; });
   h += chartBars(bs, 'Доля потерь по филиалам — сколько из пришедшего не продали', '');
   var money = Object.keys(CHRONO.byWh).map(function(w){
-    return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸' };
+    return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸', drill: 'whM|' + w };
   }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
   if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам', '₸');
 
@@ -4731,7 +4749,7 @@ function renderDyn(){
   var poDengam = Object.keys(poBlyudu).some(function(k){ return poBlyudu[k].m > 0; });
   var top = Object.keys(poBlyudu).map(function(k){
     var t = poBlyudu[k];
-    return { k: k, v: poDengam ? t.m : t.sht,
+    return { k: k, v: poDengam ? t.m : t.sht, drill: 'dish|' + k,
              label: poDengam ? fmtNum(Math.round(t.m)) + ' ₸  ·  ' + r3(t.sht) + ' шт'
                              : r3(t.sht) + ' шт' };
   }).sort(function(a, b){ return b.v - a.v; }).slice(0, 10);
@@ -4740,9 +4758,125 @@ function renderDyn(){
                         (dv ? ' — торты, пироги, пирожные' : ' — все категории'),
                    poDengam ? '₸' : 'шт');
   h += '<div class="hint" style="padding:0 4px 6px">Те же числа таблицей — на вкладке ' +
-       '«Позиции». Наведите на столбик, чтобы увидеть точное значение.</div>';
+       '«Позиции».</div>';
   o.innerHTML = h;
   $('cntC').textContent = '';
+  o.querySelectorAll('[data-drill]').forEach(function(g){
+    g.addEventListener('click', function(){ dynDrill(this.getAttribute('data-drill')); });
+  });
+}
+
+/* ═════════ «Из чего сложился столбик» ═════════
+   Деньги в Хронологии = непроданное × цена + продано со скидкой 20% × цена × 0,2.
+   Доля потерь — только непроданное в штуках к приходу. Поэтому филиал может быть
+   внизу по доле и наверху по деньгам: много уценки по 20% и дорогие позиции.
+   Здесь показываем это по каждой позиции, с той же формулой, что в отчёте. */
+function dynParts(filter, dayOnly){
+  var out = [];
+  Object.keys(SERIES).forEach(function(key){
+    var ser = SERIES[key], inf = ser.info; if (!inf || !filter(inf)) return;
+    var L = 0, D = 0, V = 0, F = 0, SP = 0, P = 0;
+    ser.forEach(function(x){
+      if (dayOnly && x.d !== dayOnly) return;
+      L += N(x.l); D += N(x.q20); V += N(x.v); F += N(x.f50); SP += N(x.sp); P += N(x.p);
+    });
+    if (L < 1e-9 && D < 1e-9) return;
+    var pr = inf.price || 0;
+    out.push({ wh: inf.wh, name: inf.name, cat: inf.cat, price: pr, P: P, L: L, D: D, V: V, F: F, SP: SP,
+               mL: L * pr, mD: D * pr * 0.2, m: L * pr + D * pr * 0.2 });
+  });
+  return out;
+}
+function dynDrill(code){
+  if (!CHRONO) return;
+  var i = code.indexOf('|'), kind = code.slice(0, i), key = code.slice(i + 1);
+  var parts, title, sub, byQty = kind === 'whQ' || kind === 'dayQ', showWh = true, showName = true;
+  if (kind === 'whQ' || kind === 'whM'){
+    parts = dynParts(function(inf){ return inf.wh === key; });
+    title = key; showWh = false;
+    sub = 'Период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to);
+  } else if (kind === 'dish'){
+    var dv = $('onlyMove').checked;
+    parts = dynParts(function(inf){ return inf.name === key && !isDelivery(inf.wh); });
+    title = key; showName = false;
+    sub = 'По филиалам · ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to);
+  } else {
+    parts = dynParts(function(inf){ return !isDelivery(inf.wh); }, key);
+    title = 'Потери за ' + ru(key); sub = 'Все филиалы';
+  }
+  parts.sort(function(a, b){ return byQty ? (b.L - a.L) || (b.m - a.m) : (b.m - a.m) || (b.L - a.L); });
+  var T = { L: 0, D: 0, mL: 0, mD: 0, m: 0, P: 0, noPrice: 0 };
+  parts.forEach(function(x){ T.L += x.L; T.D += x.D; T.mL += x.mL; T.mD += x.mD; T.m += x.m; T.P += x.P;
+                             if (!x.price) T.noPrice++; });
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+  var wh = kind === 'whQ' || kind === 'whM' ? CHRONO.byWh[key] : null;
+  var h = '<h3 style="margin:0 0 2px">' + esc(title) + '</h3>' +
+    '<div class="hint" style="margin:0 0 12px">' + esc(sub) + '</div>';
+  h += '<div class="drillSum">' +
+    '<div><span>Потери в деньгах</span><b style="color:var(--badT)">' + fmtT(T.m) + '</b></div>' +
+    '<div><span>из них непроданное</span><b>' + fmtT(T.mL) + '</b><span>' + fmtQ(T.L) + ' шт · ' +
+      pc(T.mL, T.m) + ' суммы</span></div>' +
+    '<div><span>из них скидка 20%</span><b>' + fmtT(T.mD) + '</b><span>' + fmtQ(T.D) + ' шт · ' +
+      pc(T.mD, T.m) + ' суммы</span></div>' +
+    (wh ? '<div><span>Доля потерь</span><b>' + pc(wh.loss, wh.prih) + '</b><span>' + fmtQ(wh.loss) +
+      ' шт непроданного из ' + fmtQ(wh.prih) + ' пришедших</span></div>' : '') +
+    '</div>';
+  if (wh){
+    // чем этот филиал отличается от сети — одной фразой, с числами
+    var net = { m: 0, mD: 0, loss: 0, prih: 0 };
+    dynParts(function(inf){ return !isDelivery(inf.wh); }).forEach(function(x){ net.m += x.m; net.mD += x.mD; });
+    Object.keys(CHRONO.byWh).forEach(function(w){ net.loss += CHRONO.byWh[w].loss; net.prih += CHRONO.byWh[w].prih; });
+    var why = [];
+    if (T.m > 1e-9 && net.m > 1e-9 && T.mD / T.m > net.mD / net.m + 0.1)
+      why.push('<b>' + pc(T.mD, T.m) + ' потерь — скидка 20%</b> (по сети ' + pc(net.mD, net.m) + '). ' +
+        'В «Доле потерь» уценка не считается — там только непроданное, поэтому по доле филиал ниже, ' +
+        'а по деньгам выше.');
+    var top3 = parts.slice().sort(function(a, b){ return b.m - a.m; }).slice(0, 3);
+    var t3 = 0; top3.forEach(function(x){ t3 += x.m; });
+    if (top3.length && T.m > 1e-9)
+      why.push(['', 'Одна позиция даёт', 'Две позиции дают', 'Три позиции дают'][top3.length] + ' <b>' + pc(t3, T.m) + '</b> суммы: ' + top3.map(function(x){
+        return esc(x.name) + ' — ' + fmtT(x.m); }).join(', ') + '.');
+    if (why.length)
+      h += '<div class="cardTodo" style="margin:0 0 12px"><h4>Почему так высоко</h4><ul>' +
+        why.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></div>';
+  }
+  var max = 0; parts.forEach(function(x){ var v = byQty ? x.L : x.m; if (v > max) max = v; });
+  h += '<div class="wrapT"><table><thead><tr>' +
+    (showWh ? '<th>Филиал</th>' : '') + (showName ? '<th>Позиция</th>' : '') +
+    '<th>Цена</th><th>Не продано, шт</th><th>возврат / склад 50% / списание</th>' +
+    '<th>Непроданное, ₸<br><small>шт × цена</small></th><th>Скидка 20%, шт</th>' +
+    '<th>Скидка 20%, ₸<br><small>шт × цена × 0,2</small></th><th>Итого, ₸</th><th>Доля</th>' +
+    '</tr></thead><tbody>';
+  parts.forEach(function(x){
+    var v = byQty ? x.L : x.m;
+    h += '<tr>' + (showWh ? '<td class="name" data-l="Филиал">' + esc(x.wh) + '</td>' : '') +
+      (showName ? '<td class="name" data-l="Позиция">' + esc(x.name) + '</td>' : '') +
+      '<td data-l="Цена">' + (x.price ? fmtQ(Math.round(x.price)) : '<span class="warn">нет цены</span>') + '</td>' +
+      '<td data-l="Не продано, шт">' + (x.L ? fmtQ(x.L) : '') + '</td>' +
+      '<td data-l="возврат / склад 50% / списание">' + (x.L ? fmtQ(x.V) + ' / ' + fmtQ(x.F) + ' / ' + fmtQ(x.SP) : '') + '</td>' +
+      '<td data-l="Непроданное, ₸">' + (x.mL ? fmtQ(Math.round(x.mL)) : '') + '</td>' +
+      '<td data-l="Скидка 20%, шт">' + (x.D ? fmtQ(x.D) : '') + '</td>' +
+      '<td data-l="Скидка 20%, ₸">' + (x.mD ? fmtQ(Math.round(x.mD)) : '') + '</td>' +
+      '<td data-l="Итого, ₸"><b>' + (x.m ? fmtQ(Math.round(x.m)) : '') + '</b></td>' +
+      '<td data-l="Доля" style="min-width:90px">' + pc(v, byQty ? T.L : T.m) +
+        '<div class="drillBar" style="width:' + (max ? Math.round(v / max * 100) : 0) + '%"></div></td></tr>';
+  });
+  h += '<tr class="totRow">' + (showWh ? '<td class="name"><b>Всего</b></td>' : '') +
+    (showName ? '<td class="name">' + (showWh ? '' : '<b>Всего</b>') + '</td>' : '') +
+    '<td></td><td data-l="Не продано, шт"><b>' + fmtQ(T.L) + '</b></td><td></td>' +
+    '<td data-l="Непроданное, ₸"><b>' + fmtQ(Math.round(T.mL)) + '</b></td>' +
+    '<td data-l="Скидка 20%, шт"><b>' + fmtQ(T.D) + '</b></td>' +
+    '<td data-l="Скидка 20%, ₸"><b>' + fmtQ(Math.round(T.mD)) + '</b></td>' +
+    '<td data-l="Итого, ₸"><b>' + fmtQ(Math.round(T.m)) + '</b></td><td></td></tr></tbody></table></div>';
+  h += '<div class="hint">Формула та же, что в отчёте: непроданное (возврат по сроку + склад 50% + списание) ' +
+    'по полной цене плюс продажи со скидкой 20% — пятая часть цены. Цена — полная, из чеков со скидкой 20% ' +
+    '(сумма без скидки ÷ штуки). ' +
+    'Другие скидки (10%, бонусы, 50% сотрудникам) сюда не входят — они на вкладке «Скидки и потери». ' +
+    'Склад доставки не считается.' +
+    (T.noPrice ? ' <span class="warn">' + T.noPrice + ' поз. без цены — в деньгах не учтены.</span>' : '') + '</div>';
+  var m = $('dayModal');
+  m.querySelector('.mBody').innerHTML = h;
+  m.style.display = 'flex';
 }
 
 function routeOf(wh){ return (DB.routes && DB.routes[wh]) || '— вне маршрутов —'; }
