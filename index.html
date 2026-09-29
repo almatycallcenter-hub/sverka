@@ -505,6 +505,8 @@
   table.det2 th:first-child,table.det2 td:first-child,
   table.det2 th:nth-child(2),table.det2 td:nth-child(2){text-align:left}
   table.det2 tr.stopRow>td{background:var(--badBg)}
+  table.det2 th.gin{color:var(--okT)}
+  table.det2 th.gout{color:var(--badT)}
   @media(max-width:560px){
     .modal{padding:8px}
     .modal .mBody{padding:0 10px 12px}
@@ -686,6 +688,7 @@
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
       <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
       <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
+      <a data-page="chr" data-tab="prog"><span class="ic">🔮</span>Прогноз излишка</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
@@ -727,6 +730,10 @@
             <div class="f"><label>Продажи со скидкой 50%</label>
               <div class="h">С колонкой «В кредит на...» — кто из сотрудников выкупил</div>
               <input type="file" id="fProd50" accept=".xlsx"></div>
+            <div class="f"><label>Инвентаризации (фактический остаток)</label>
+              <div class="h">Отчёт по инвентаризациям филиалов с колонкой «Фактический остаток».
+                По нему «По дням» сверяет остаток по учёту с тем, что реально стоит на витрине.</div>
+              <input type="file" id="fInv" accept=".xlsx"></div>
           </div>
           <div class="row"><button id="btnLoad">Загрузить</button></div>
           <div class="msg" id="m1"></div>
@@ -1103,6 +1110,7 @@
             <button data-c="trio">Топ-20: худший / средний / лучший</button>
             <button data-c="pair">Перемещать вместо уценки</button>
             <button data-c="loss">Скидки и потери</button>
+            <button data-c="prog">Прогноз излишка</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
@@ -1286,6 +1294,19 @@
             Срок на витрине идёт от разморозки, а её время в учёте не фиксируется.</p>
           <div class="hint" style="margin-top:0">Поэтому проверки по приходу для таких партий
             не считаются — ставится «не известна разморозка». Колонки такого прихода помечены голубым.</div>
+        </div>
+        <div class="card">
+          <h2>Прогноз излишка</h2>
+          <p class="lead">Излишек — всё, что ушло со скидкой в процентах, списано, вернулось по сроку
+            или на склад 50%. «Излишек сейчас» — среднее по истории за неделю, если завоз не менять.
+            Спрос — продажи по полной цене; дни, когда витрина опустела, считаются как «спрос не меньше
+            проданного» (оценка Каплана — Мейера), чтобы не занижать спрос у ходовых позиций.</p>
+          <div class="hint" style="margin-top:0">Рекомендуемый завоз — наименьшее количество, при котором
+            товар есть до вечера в выбранной доле дней (обычно 70%). Выпечка до 36 ч считается по дням
+            недели, остальное — по неделям. «Излишек будет» = излишек сейчас минус то, на сколько он
+            уменьшится по расчёту. Проверка: последние 7 дней периода скрываются, прогноз строится по
+            предыдущим и сравнивается с фактом; рядом ошибка простого способа «как неделю назад».
+            Нужно хотя бы 4 недели истории, лучше 6–8.</div>
         </div>
         <div class="card">
           <h2>Потери в деньгах</h2>
@@ -1529,7 +1550,8 @@ function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg 
 function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
-var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], dsc: [], list: [], syn: {} };
+var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], dsc: [], fact: [], list: [], syn: {},
+           flow: { zc: [], off: [], book: [] } };
 /* В движениях одни и те же названия складов, блюд и видов повторяются
    десятками тысяч раз. Храним их словарём, а в строках — номера.
    В памяти формат прежний, поэтому остальной код не меняется. */
@@ -1542,7 +1564,10 @@ function packDB(db){
     if (k !== 'mov' && k !== 'cheki' && k !== 's20' && k !== 'full') out[k] = db[k];
   out.dict = list;
   out.movP = (db.mov || []).map(function(r){
-    return [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]]; });
+    var x = [id(r[0]), id(r[1]), id(r[2]), id(r[3]), r[4]];
+    // перемещения: с кем и в какую сторону — есть только у части строк
+    if (r.length > 5) x.push(id(r[5] || ''), id(r[6] || ''));
+    return x; });
   out.chekiP = (db.cheki || []).map(function(r){
     return [id(r[0]), id(r[1]), id(r[2]), id(r[3])]; });
   /* строк 20% десятки тысяч, и в них появился ещё и час — без словаря
@@ -1557,7 +1582,10 @@ function packDB(db){
 function unpackDB(db){
   if (!db || !db.packed) return db;
   var L = db.dict || [];
-  db.mov = (db.movP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]]; });
+  db.mov = (db.movP || []).map(function(r){
+    var x = [L[r[0]], L[r[1]], L[r[2]], L[r[3]], r[4]];
+    if (r.length > 5) x.push(L[r[5]] || '', L[r[6]] || '');
+    return x; });
   db.cheki = (db.chekiP || []).map(function(r){ return [L[r[0]], L[r[1]], L[r[2]], L[r[3]]]; });
   if (db.s20P) db.s20 = db.s20P.map(function(r){
     return [L[r[0]], L[r[1]], L[r[2]], r[3], r[4], L[r[5]] || '']; });
@@ -1654,7 +1682,8 @@ function loadDB(){
   Object.keys(EMBED.syn).forEach(function(k){
     if (DB.syn[k] === undefined) DB.syn[k] = EMBED.syn[k];
   });
-  ['mov','s20','s50','cheki','full','disc','dsc','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  ['mov','s20','s50','cheki','full','disc','dsc','fact','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  if (!DB.flow) DB.flow = { zc: [], off: [], book: [] };
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
   /* Справочник из облака, если он когда-то приезжал. Лежит в базе браузера,
@@ -1811,7 +1840,7 @@ function parseTovarnaya(v, kinds){
       iWo = col(h,'Склад расхода'), iWi = col(h,'Склад прихода');
   if (iNm === undefined || iWi === undefined)
     throw new Error('Не нашёл колонки «Номенклатура» / «Склад прихода» в товарной ведомости.');
-  var out = [], seen = 0, missed = 0;
+  var out = [], seen = 0, missed = 0, seenT = {};
   for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row || !S(row[iNm])) continue;
     var wo = S(row[iWo]), wi = S(row[iWi]);
@@ -1834,7 +1863,27 @@ function parseTovarnaya(v, kinds){
         : vid === 'Инвентаризация' ? (tip === 'Приход' ? 'inv_in' : 'inv_out') : 'other';
     }
     if (k.indexOf('prihod') === 0 && wi !== wh) k = 'other';
-    out.push([den, wh, S(row[iNm]), k, N(row[iQ])]);
+    var q = N(row[iQ]);
+    /* Перемещение между двумя филиалами. Раньше строка доставалась только
+       получателю и молча пропадала («прочее»), а у отправителя её не было вовсе —
+       остаток отправителя висел лишним. Теперь пишем обе стороны. В ведомости
+       такое перемещение бывает и одной строкой, и двумя (приход + расход) —
+       поэтому одну и ту же пару берём один раз. */
+    if (vid === 'Внутреннее перемещение' && k === 'other' &&
+        isBranchWh(wi) && isBranchWh(wo) && wi !== wo){
+      var tk = num + '|' + den + '|' + S(row[iNm]) + '|' + wo + '|' + wi + '|' + Math.abs(q);
+      if (seenT[tk]) continue;
+      seenT[tk] = 1;
+      out.push([den, wo, S(row[iNm]), 'perem_out', Math.abs(q), wi, 'out']);
+      out.push([den, wi, S(row[iNm]), 'perem_in',  Math.abs(q), wo, 'in']);
+      continue;
+    }
+    // нераспознанное: хотя бы запомним, пришло оно или ушло и откуда/куда
+    if (k === 'other'){
+      out.push([den, wh, S(row[iNm]), k, q, wh === wi ? wo : wi, wh === wi ? 'in' : 'out']);
+      continue;
+    }
+    out.push([den, wh, S(row[iNm]), k, q]);
   }
   DOCCOVER = { seen: seen, missed: missed };
   return out;
@@ -1945,6 +1994,58 @@ function parseCheki(v){
   return { times: times, s20: s20, full: fullRows, disc: discRows, dsc: dscRows };
 }
 
+/* Инвентаризации iiko: по каждой позиции — «Фактический остаток».
+   Выгрузки бывают разные: дата и склад то колонкой, то строкой-заголовком
+   над группой («Инвентаризация № 12 от 24.09.2026, ТТ1 Атакент склад»).
+   Поэтому шапку ищем по одной обязательной колонке, а дату и склад тянем
+   вниз по строкам, как только они где-то встретились. */
+function parseInvFact(v){
+  var hi = -1, H = null;
+  for (var i = 0; i < Math.min(v.length, 60); i++){
+    var h = hdr(v[i]);
+    if (col(h, 'Фактический остаток') !== undefined){ hi = i; H = h; break; }
+  }
+  if (hi < 0) throw new Error('Не нашла колонку «Фактический остаток». Выгрузите отчёт по ' +
+    'инвентаризациям так, чтобы эта колонка была в шапке.');
+  function any(names){ for (var k = 0; k < names.length; k++){
+    var c = col(H, names[k]); if (c !== undefined) return c; } return undefined; }
+  var iF = col(H, 'Фактический остаток');
+  var iN = any(['Номенклатура','Товар','Наименование','Блюдо','Наименование товара']);
+  var iD = any(['Дата документа','Дата инвентаризации','Учетный день','Дата']);
+  var iW = any(['Склад','Место хранения','Подразделение','Торговое предприятие']);
+  var iB = any(['Учетный остаток','Расчетный остаток','Остаток по учету','Остаток учетный']);
+  if (iN === undefined) throw new Error('В отчёте по инвентаризациям нет колонки с названием товара ' +
+    '(«Номенклатура» или «Товар»).');
+  // дата и склад могли стоять в заголовке над шапкой
+  var day = '', wh = '';
+  for (var t = 0; t < hi; t++){
+    var line = (v[t] || []).map(S).join(' ');
+    if (!day && D(line)) day = D(line);
+    if (!wh){ var mb = matchBranch(line); if (mb) wh = mb; }
+  }
+  var out = [], noWh = 0;
+  for (var r = hi + 1; r < v.length; r++){
+    var row = v[r]; if (!row) continue;
+    var joined = row.map(S).join(' ');
+    if (iD !== undefined && S(row[iD])) day = D(row[iD]) || day;
+    if (iW !== undefined && S(row[iW])){ var w = matchBranch(S(row[iW])); wh = w || S(row[iW]); }
+    var nm = S(row[iN]);
+    // строка-заголовок группы: «Инвентаризация … от 24.09.2026 … ТТ3»
+    if (!nm || S(row[iF]) === ''){
+      if (/инвентар/i.test(joined)){ if (D(joined)) day = D(joined);
+        var w2 = matchBranch(joined); if (w2) wh = w2; }
+      continue;
+    }
+    if (/всего|итого/i.test(nm)) continue;
+    if (!day) continue;
+    if (!wh){ noWh++; continue; }
+    out.push([day, wh, nm, N(row[iF]), iB === undefined ? '' : N(row[iB])]);
+  }
+  if (!out.length) throw new Error('В отчёте по инвентаризациям не нашлось строк с датой и филиалом' +
+    (noWh ? ' (у ' + noWh + ' строк не определился склад)' : '') + '.');
+  return out;
+}
+
 function mergeRows(key, rows){
   var dates = {}; rows.forEach(function(r){ dates[r[0]] = 1; });
   DB[key] = DB[key].filter(function(r){ return !dates[r[0]]; }).concat(rows);
@@ -1999,6 +2100,19 @@ $('btnLoad').onclick = async function(){
         else problems.push('В «' + f.name + '» нет продаж со скидкой 20%. ' +
           'При выгрузке не отфильтровывайте тип скидки — нужны все.');
       }catch(e){ problems.push('Продажи по чекам: ' + (e.message || e)); }
+    }
+
+    f = $('fInv').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
+      try{
+        var ri = parseInvFact(await readXlsx(f));
+        /* Заменяем только пары «день + филиал», которые пришли в файле: инвентаризацию
+           одного филиала можно догрузить, не стерев остальные. */
+        var dw = {}; ri.forEach(function(r){ dw[r[0] + '|' + r[1]] = 1; });
+        DB.fact = (DB.fact || []).filter(function(r){ return !dw[r[0] + '|' + r[1]]; }).concat(ri);
+        done.push('инвентаризации: ' + ri.length + ' строк, ' + Object.keys(dw).length +
+                  ' пар «день × филиал»');
+      }catch(e){ problems.push('Инвентаризации: ' + (e.message || e)); }
     }
 
     f = $('fProd50').files[0];
@@ -2256,7 +2370,7 @@ var LIST_ROWS = [];   // строки «Списка филиала» в том 
  */
 var EXP_IN  = { prihod_gp:1, prihod_tort:1, prihod_other:1, prigotovlenie:1, inv_in:1 };
 var EXP_OUT = { realiz:1, spisanie:1, vozvrat_srok:1, vozvrat_kach:1, perem_50:1,
-                perem_dost:1, ap_rashod:1, inv_out:1 };
+                perem_dost:1, ap_rashod:1, inv_out:1, perem_out:1 };
 
 var _expM = {}, _expSig = '';
 function expMov(wh){
@@ -3663,7 +3777,9 @@ function movKinds(){
     prihod_other:'приход прочий', realiz:'реализация', spisanie:'списание',
     vozvrat_srok:'возврат по сроку', vozvrat_kach:'возврат по качеству',
     perem_50:'перемещение на склад 50%', perem_dost:'перемещение на доставку',
-    prigotovlenie:'акт приготовления', inv_in:'инвентаризация приход',
+    prigotovlenie:'акт приготовления', ap_rashod:'акт приготовления (расход)',
+    perem_in:'перемещение из другого филиала', perem_out:'перемещение в другой филиал',
+    inv_in:'инвентаризация приход',
     inv_out:'инвентаризация расход', other:'не распознано' };
   var out = [], warn = '';
   Object.keys(NAMES).forEach(function(k){
@@ -3979,6 +4095,58 @@ function chrono(dFrom, dTo){
       S20[key] = (S20[key] || 0) + N(r[3]) * f;
     });
   });
+  // продажи по остальным типам скидки — по филиалу, блюду и дню
+  var DSC = {};
+  (DB.dsc || []).forEach(function(r){
+    var d = r[0]; if (!d || d < dFrom || d > dTo) return;
+    var k = nrm(r[2]); if (!SPR[k]) return;
+    var t = S(r[3]); if (!t) return;
+    var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
+    var f = isKus[k] ? 1 / KUSOK : 1;
+    brOf(r[1]).forEach(function(w){
+      var o = DSC[w + '|' + base + '|' + d] || (DSC[w + '|' + base + '|' + d] = {});
+      o[t] = (o[t] || 0) + N(r[4]) * f;
+    });
+  });
+  // что филиал заявил на скидку в этот день — рядом с тем, что реально ушло
+  var LST = {};
+  DB.list.forEach(function(r){
+    var d = r[0]; if (!d || d < dFrom || d > dTo || S(r[3]) === '') return;
+    var b = baseOf(nrm(r[4])); if (!b.k) return;
+    var key = r[1] + '|' + b.k + '|' + d;
+    LST[key] = (LST[key] || 0) + N(r[3]) * b.f;
+  });
+  /* Из таблицы: заявка в цех (снимок «ЗАЯВКИ»), приёмка списаний, брони.
+     В «ЗАЯВКИ» названия свои («Эклер ваниль»), поэтому переводим их в позицию
+     справочника тем же способом, что и списки филиалов. */
+  var _sprI = sprIndex(), _rn = {};
+  function sprKey(name){
+    var raw = S(name); if (!raw) return null;
+    if (_rn[raw] !== undefined) return _rn[raw];
+    var k = nrm(raw);
+    if (!SPR[k]){ var t = resolveName(raw, _sprI).target; k = t ? nrm(t) : ''; }
+    return (_rn[raw] = k ? baseOf(k) : null);
+  }
+  function addFlow(M, br, name, d, fn){
+    if (!d || d < dFrom || d > dTo) return;
+    var b = sprKey(name); if (!b) return;
+    brOf(br).forEach(function(w){
+      var key = w + '|' + b.k + '|' + d, o = M[key] || (M[key] = {});
+      fn(o, b.f);
+    });
+  }
+  var FL = DB.flow || {}, ZC = {}, OFG = {}, BK = {}, FACT = {};
+  (FL.zc || []).forEach(function(r){ addFlow(ZC, r[1], r[2], r[0], function(o, f){
+    o.v = (o.v || 0) + N(r[3]) * f; o.z = (o.z || 0) + N(r[4]) * f; }); });
+  (FL.off || []).forEach(function(r){ addFlow(OFG, r[1], r[2], r[0], function(o, f){
+    o.q = (o.q || 0) + N(r[3]) * f;
+    if (r[4] !== '' && r[4] != null){ o.got = (o.got || 0) + N(r[4]) * f; o.has = 1; } }); });
+  (FL.book || []).forEach(function(r){ addFlow(BK, r[1], r[2], r[0], function(o, f){
+    o.q = (o.q || 0) + N(r[3]) * f;
+    var who = S(r[4]); if (who) (o.who = o.who || {})[who] = (o.who[who] || 0) + N(r[3]) * f; }); });
+  (DB.fact || []).forEach(function(r){ addFlow(FACT, r[1], r[2], r[0], function(o, f){
+    o.q = (o.q || 0) + N(r[3]) * f; o.has = 1; }); });
+
   DB.mov.forEach(function(r){
     var d = r[0]; if (d < dFrom || d > dTo) return;
     var wh = r[1], k = nrm(r[2]), kind = r[3], q = N(r[4]);
@@ -3994,10 +4162,31 @@ function chrono(dFrom, dTo){
     var a = acc[key] || (acc[key] = { wh: wh, k: base, days: {} });
     var dd = a.days[d] || (a.days[d] = { p:0, s:0, l:0, v:0, f50:0, sp:0 });
     if (kind === 'perem_dost'){ dd.dost = (dd.dost || 0) + q * f; return; }
+    /* Возврат по качеству и инвентаризация — не потери в смысле «не продали»,
+       но товар с витрины они меняют. Без них остаток расходился с iiko. */
+    if (kind === 'vozvrat_kach'){ dd.kach = (dd.kach || 0) + q * f; return; }
+    function addTo(fld, cpFld){
+      dd[fld] = (dd[fld] || 0) + Math.abs(q) * f;
+      if (cpFld && r[5]){ var m = dd[cpFld] || (dd[cpFld] = {});
+                          m[r[5]] = (m[r[5]] || 0) + Math.abs(q) * f; }
+    }
+    if (kind === 'perem_in'){  addTo('pin',  'pinFrom'); return; }
+    if (kind === 'perem_out'){ addTo('pout', 'poutTo');  return; }
+    if (kind === 'prigotovlenie'){ addTo('prig'); return; }
+    if (kind === 'ap_rashod'){     addTo('apr');  return; }
+    if (kind === 'other'){        // старые строки без направления в остаток не идут
+      if (r[6] === 'in')  addTo('othIn',  'othFrom');
+      if (r[6] === 'out') addTo('othOut', 'othTo');
+      return;
+    }
+    if (kind === 'inv_in'){  dd.invIn  = (dd.invIn  || 0) + Math.abs(q) * f; return; }
+    if (kind === 'inv_out'){ dd.invOut = (dd.invOut || 0) + Math.abs(q) * f; return; }
     if (kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other'){
       dd.p += q * f;
       // приход из Цеха ГП датирован точно — только по нему можно отмотать ФИФО
       if (kind === 'prihod_gp') dd.gp = (dd.gp || 0) + q * f;
+      if (kind === 'prihod_tort')  dd.tt = (dd.tt || 0) + q * f;
+      if (kind === 'prihod_other') dd.po = (dd.po || 0) + q * f;
     }
     else if (kind === 'realiz')       dd.s  += q * f;
     else if (kind === 'vozvrat_srok'){ dd.v += q * f; dd.l += q * f; }
@@ -4029,13 +4218,34 @@ function chrono(dFrom, dTo){
       /* Перемещение на склад доставки — не потеря, но продукция физически уезжает
          с витрины. Раньше её не вычитали из остатка: у позиций, которые возят на
          доставку, «Остаток на конец» показывал десятки штук, которых там нет. */
-      cum += x.p - x.s - x.l - (x.dost || 0);
+      cum += x.p - x.s - x.l - (x.dost || 0) - (x.kach || 0) + (x.invIn || 0) - (x.invOut || 0)
+           + (x.pin || 0) - (x.pout || 0) + (x.prig || 0) - (x.apr || 0)
+           + (x.othIn || 0) - (x.othOut || 0);
       if (cum < minCum) minCum = cum;
       series.push({ d: dd, cum: cum, p: x.p, l: x.l, s: x.s, gp: x.gp || 0,
-                    dost: x.dost || 0 });
+                    dost: x.dost || 0, v: x.v, f50: x.f50, sp: x.sp,
+                    kach: x.kach || 0, inv: (x.invIn || 0) - (x.invOut || 0), raw: x });
     });
-    if (P < 1e-9 && S_ < 1e-9) return;
+    // позиция, которую только перевезли или приготовили, тоже движение — не прячем
+    var moved = series.some(function(x){ var w = x.raw || {};
+      return (w.pin || w.pout || w.prig || w.othIn || w.othOut) > 1e-9; });
+    if (P < 1e-9 && S_ < 1e-9 && !moved) return;
     var open = Math.max(0, -minCum), prev = 0, stopDays = [], stopTimes = {};
+    /* Фактический остаток из инвентаризации — единственное место, где остаток
+       известен наверняка. Если он есть, от него и считаем: начальный остаток =
+       факт − накопленное движение к этому дню. Берём медиану по всем
+       инвентаризациям периода — одна опечатка в подсчёте не собьёт весь ряд. */
+    var anc = [];
+    series.forEach(function(x){
+      var fo = FACT[a.wh + '|' + a.k + '|' + x.d];
+      if (fo && fo.has) anc.push(fo.q - x.cum);
+    });
+    if (anc.length){
+      anc.sort(function(p, q){ return p - q; });
+      var mid = anc.length % 2 ? anc[(anc.length - 1) / 2]
+                               : (anc[anc.length / 2 - 1] + anc[anc.length / 2]) / 2;
+      open = Math.max(0, mid);
+    }
     series.forEach(function(x, i){
       bal = open + x.cum;
       x.bal = r3(bal);
@@ -4152,9 +4362,28 @@ function chrono(dFrom, dTo){
     }
     var sKey = a.wh + '|' + sp.name;
     SERIES[sKey] = series.map(function(x){
+      var ot = DSC[a.wh + '|' + a.k + '|' + x.d] || {}, oq = {};
+      Object.keys(ot).forEach(function(t){ oq[t] = r3(ot[t]); });
       return { d: x.d, p: r3(x.p), s: r3(x.s), l: r3(x.l), bal: x.bal, st: x.st,
                q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0),
-               dost: r3(x.dost || 0),
+               dost: r3(x.dost || 0), v: r3(x.v), f50: r3(x.f50), sp: r3(x.sp),
+               kach: r3(x.kach), inv: r3(x.inv), dsc: oq,
+               gp: r3(x.gp || 0), tt: r3(x.raw.tt || 0), po: r3(x.raw.po || 0),
+               pin: r3(x.raw.pin || 0), pout: r3(x.raw.pout || 0),
+               prig: r3(x.raw.prig || 0), apr: r3(x.raw.apr || 0),
+               othIn: r3(x.raw.othIn || 0), othOut: r3(x.raw.othOut || 0),
+               pinFrom: cpText(x.raw.pinFrom), poutTo: cpText(x.raw.poutTo),
+               othFrom: cpText(x.raw.othFrom), othTo: cpText(x.raw.othTo),
+               list: r3(LST[a.wh + '|' + a.k + '|' + x.d] || 0),
+               zcV: r3((ZC[a.wh + '|' + a.k + '|' + x.d] || {}).v || 0),
+               zcZ: r3((ZC[a.wh + '|' + a.k + '|' + x.d] || {}).z || 0),
+               offQ: r3((OFG[a.wh + '|' + a.k + '|' + x.d] || {}).q || 0),
+               offGot: (OFG[a.wh + '|' + a.k + '|' + x.d] || {}).has
+                         ? r3(OFG[a.wh + '|' + a.k + '|' + x.d].got) : null,
+               book: r3((BK[a.wh + '|' + a.k + '|' + x.d] || {}).q || 0),
+               bookWho: cpText((BK[a.wh + '|' + a.k + '|' + x.d] || {}).who),
+               fact: (FACT[a.wh + '|' + a.k + '|' + x.d] || {}).has
+                       ? r3(FACT[a.wh + '|' + a.k + '|' + x.d].q) : null,
                age: x.age === null ? null : Math.round(x.age * 10) / 10,
                tm: TM[a.wh + '|' + a.k + '|' + x.d] || '' };
     });
@@ -4653,45 +4882,164 @@ function cardHead(info){
       li.map(function(x){ return '<li>' + x + '</li>'; }).join('') + '</ul></div>' : '');
 }
 
+/* «ТТ3 Ламия склад: 2, ТТ4 Ньютон склад: 1» — для подсказки у числа */
+function cpText(m){
+  if (!m) return '';
+  return Object.keys(m).map(function(w){ return w + ': ' + r3(m[w]); }).join(', ');
+}
 function dayTable(key){
   var ser = SERIES[key] || [];
   if (!ser.length) return '<div class="hint">Нет данных по дням.</div>';
-  // колонку скидки показываем, только если скидка вообще была — иначе она съедает ширину
-  var has20 = ser.some(function(x){ return x.q20 > 1e-9; });
-  var hasTm = ser.some(function(x){ return x.tm; });
-  var hasDs = ser.some(function(x){ return x.dost > 1e-9; });
-  var hasAge = ser.some(function(x){ return x.age !== null; });
-  var head = ['Дата','День','Приход','Продано'].concat(has20 ? ['со скидкой'] : [])
-    .concat(hasAge ? ['Возраст, дн'] : [])
-    .concat(['Потери']).concat(hasDs ? ['На доставку'] : []).concat(['Остаток'])
-    .concat(hasTm ? ['Посл. продажа'] : []).concat(['']);
+  /* Колонку показываем, только если по ней в периоде что-то было —
+     иначе пустые столбцы съедают ширину на телефоне. */
+  function has(f){ return ser.some(function(x){ return N(f(x)) > 1e-9; }); }
+  var types = {};
+  ser.forEach(function(x){ Object.keys(x.dsc || {}).forEach(function(t){
+    types[t] = (types[t] || 0) + N(x.dsc[t]); }); });
+  types = Object.keys(types).filter(function(t){ return types[t] > 1e-9; })
+                .sort(function(a, b){ return types[b] - types[a]; });
+  function full(x){   // без скидки = всё проданное минус все скидки
+    var d = N(x.q20); types.forEach(function(t){ d += N((x.dsc || {})[t]); });
+    return Math.max(0, r3(N(x.s) - d));
+  }
+  var anyDisc = has(function(x){ return x.q20; }) || types.length > 0;
+  function num(v, tip){
+    v = N(v); if (Math.abs(v) < 1e-9) return '';
+    return tip ? '<span title="' + esc(tip) + '" style="border-bottom:1px dotted var(--mut2);cursor:help">' +
+                 r3(v) + '</span>' : r3(v);
+  }
+  function col(h, f, g){ return { h: h, f: f, g: g || '' }; }
+  var C = [
+    col('Дата', function(x){ return S(x.d).slice(8, 10) + '.' + S(x.d).slice(5, 7); }),
+    col('День', function(x){ return DOW[dowMon(x.d)]; })
+  ];
+  if (has(function(x){ return x.list; }))
+    C.push(col('Заявлено на скидку', function(x){ return num(x.list); }));
+
+  // ── заявка в цех (снимок «ЗАЯВКИ») ─────────────────
+  var hasZc = has(function(x){ return N(x.zcV) + N(x.zcZ); });
+  if (hasZc){
+    C.push(col('Заявка в цех', function(x){
+      var z = N(x.zcV) + N(x.zcZ); if (z < 1e-9) return '';
+      return num(z, 'витрина ' + r3(N(x.zcV)) + (N(x.zcZ) ? ', заказ ' + r3(N(x.zcZ)) : ''));
+    }, 'in'));
+    C.push(col('Привезли − заявка', function(x){
+      var z = N(x.zcV) + N(x.zcZ); if (z < 1e-9) return '';
+      var d = r3(N(x.p) - z); if (Math.abs(d) < 1e-9) return '<span class="chip ok">0</span>';
+      return '<span class="chip ' + (d < 0 ? 'bad' : 'na') + '" title="' +
+             (d < 0 ? 'недовоз' : 'перевоз') + '">' + (d > 0 ? '+' : '') + d + '</span>';
+    }));
+  }
+
+  // ── приход ──────────────────────────────────────────
+  var srcN = [has(function(x){ return x.gp; }), has(function(x){ return x.tt; }),
+              has(function(x){ return x.po; })].filter(Boolean).length;
+  if (srcN > 1) C.push(col('Приход всего', function(x){ return num(x.p); }, 'in'));
+  if (srcN <= 1) C.push(col('Приход', function(x){ return num(x.p); }, 'in'));
+  else {
+    if (has(function(x){ return x.gp; })) C.push(col('Цех ГП', function(x){ return num(x.gp); }, 'in'));
+    if (has(function(x){ return x.tt; })) C.push(col('Таугуль (заморозка)', function(x){ return num(x.tt); }, 'in'));
+    if (has(function(x){ return x.po; })) C.push(col('Прочий приход', function(x){ return num(x.po); }, 'in'));
+  }
+  if (has(function(x){ return x.pin; }))
+    C.push(col('Из другого филиала', function(x){ return num(x.pin, x.pinFrom); }, 'in'));
+  if (has(function(x){ return x.prig; }))
+    C.push(col('Акт приготовления +', function(x){ return num(x.prig); }, 'in'));
+
+  // ── продажи ─────────────────────────────────────────
+  C.push(col('Продано всего', function(x){ return num(x.s); }, 'out'));
+  if (anyDisc) C.push(col('без скидки', function(x){ return full(x) || ''; }, 'out'));
+  if (has(function(x){ return x.q20; }))
+    C.push(col('Скидка 20%', function(x){ return num(x.q20); }, 'out'));
+  types.forEach(function(t){
+    C.push(col(esc(t), function(x){ return num((x.dsc || {})[t]); }, 'out')); });
+  if (has(function(x){ return x.book; }))
+    C.push(col('Бронь сотрудников', function(x){ return num(x.book, x.bookWho); }));
+
+  // ── прочий расход ───────────────────────────────────
+  C.push(col('По срокам', function(x){ return num(x.v); }, 'out'));
+  if (ser.some(function(x){ return N(x.offQ) > 1e-9 || x.offGot !== null; }))
+    C.push(col('Приёмка в цеху', function(x){
+      var q = N(x.offQ); if (q < 1e-9 && x.offGot === null) return '';
+      if (x.offGot === null) return '<span class="chip na" title="заявлено к списанию ' + r3(q) +
+                                    ', цех ещё не принял">не принято</span>';
+      var g = N(x.offGot), d = r3(g - q);
+      return '<span title="заявлено к списанию ' + r3(q) + ', привезли ' + r3(g) + '">' + r3(g) +
+             (Math.abs(d) > 1e-9 ? ' <span class="chip ' + (d < 0 ? 'bad' : 'na') + '">' +
+                                   (d > 0 ? '+' : '') + d + '</span>' : '') + '</span>';
+    }));
+  if (has(function(x){ return x.f50; })) C.push(col('Склад 50%', function(x){ return num(x.f50); }, 'out'));
+  C.push(col('Акт списания', function(x){ return num(x.sp); }, 'out'));
+  if (has(function(x){ return x.kach; })) C.push(col('Возврат по качеству', function(x){ return num(x.kach); }, 'out'));
+  if (has(function(x){ return x.dost; })) C.push(col('На доставку', function(x){ return num(x.dost); }, 'out'));
+  if (has(function(x){ return x.pout; }))
+    C.push(col('В другой филиал', function(x){ return num(x.pout, x.poutTo); }, 'out'));
+  if (has(function(x){ return x.apr; }))
+    C.push(col('Акт приготовления −', function(x){ return num(x.apr); }, 'out'));
+  if (has(function(x){ return x.othIn; }) || has(function(x){ return x.othOut; }))
+    C.push(col('Не распознано ±', function(x){
+      var v = N(x.othIn) - N(x.othOut); if (Math.abs(v) < 1e-9) return '';
+      var t = [x.othFrom ? 'пришло: ' + x.othFrom : '', x.othTo ? 'ушло: ' + x.othTo : '']
+                .filter(Boolean).join('; ');
+      return '<span class="chip na" title="' + esc(t) + '">' + (v > 0 ? '+' : '') + r3(v) + '</span>'; }));
+  if (ser.some(function(x){ return Math.abs(N(x.inv)) > 1e-9; }))
+    C.push(col('Инвентаризация', function(x){
+      var v = N(x.inv); if (Math.abs(v) < 1e-9) return '';
+      return '<span class="chip ' + (v < 0 ? 'bad' : 'na') + '" title="' +
+             (v < 0 ? 'недостача' : 'излишек') + '">' + (v > 0 ? '+' : '') + r3(v) + '</span>'; }));
+
+  // ── итог дня ────────────────────────────────────────
+  var hasFact = ser.some(function(x){ return x.fact !== null && x.fact !== undefined; });
+  C.push(col(hasFact ? 'Остаток по учёту' : 'Остаток', function(x){ return '<b>' + x.bal + '</b>'; }));
+  if (hasFact)
+    C.push(col('Факт (инвентаризация)', function(x){
+      if (x.fact === null || x.fact === undefined) return '';
+      var d = r3(N(x.fact) - N(x.bal));
+      return r3(N(x.fact)) + (Math.abs(d) >= 0.5 ? ' <span class="chip ' + (d < 0 ? 'bad' : 'na') +
+        '" title="факт минус учёт">' + (d > 0 ? '+' : '') + d + '</span>' : '');
+    }));
+  if (ser.some(function(x){ return x.tm; }))
+    C.push(col('Посл. продажа', function(x){ return x.tm || ''; }));
+  C.push(col('Время стопа', function(x){
+    return x.st ? '<span class="chip bad">' + (x.tm || 'стоп') + '</span>' : ''; }));
+
+  // ── деньги ─────────────────────────────────────────
+  /* Скидка — недополученная часть цены: 20% от цены за штуку по 20%, по другим
+     типам — их процент (бонусы — это оплата, а не скидка, их не считаем).
+     Потери — полная цена того, что ушло по срокам, на склад 50% и в списание,
+     так же, как в карточке сверху. */
+  var price = N((ser.info || {}).price);
+  if (price > 0){
+    C.push(col('Скидки, ₸', function(x){
+      var m = N(x.q20) * price * 0.2;
+      types.forEach(function(t){ var pc = discPct(t); if (pc) m += N((x.dsc || {})[t]) * price * pc; });
+      return m >= 1 ? fmtNum(Math.round(m)) : '';
+    }, 'out'));
+    C.push(col('Потери, ₸', function(x){
+      var m = (N(x.v) + N(x.f50) + N(x.sp)) * price;
+      return m >= 1 ? '<span style="color:var(--badT)">' + fmtNum(Math.round(m)) + '</span>' : '';
+    }, 'out'));
+  }
+
   var h = '<div class="detWrap"><div class="detT">' + esc(key.replace('|', ' · ')) +
     '</div>' + cardHead(ser.info) +
     '<div class="detT">По дням</div><table class="det2"><thead><tr>' +
-    head.map(function(t){ return '<th>' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
+    C.map(function(c){ return '<th' + (c.g ? ' class="g' + c.g + '"' : '') + '>' + c.h + '</th>'; }).join('') + '</tr></thead><tbody>';
   ser.forEach(function(x){
-    var ageCls = x.age === null ? '' : x.age <= 1 ? 'ok' : x.age <= 2 ? 'na' : 'bad';
     h += '<tr' + (x.st ? ' class="stopRow"' : '') + '>' +
-      '<td>' + S(x.d).slice(8, 10) + '.' + S(x.d).slice(5, 7) + '</td>' +
-      '<td>' + DOW[dowMon(x.d)] + '</td>' +
-      '<td>' + (x.p || '') + '</td>' +
-      '<td>' + (x.s || '') + '</td>' +
-      (has20 ? '<td>' + (x.q20 || '') + '</td>' : '') +
-      (hasAge ? '<td>' + (x.age === null ? ''
-                : '<span class="chip ' + ageCls + '">' + x.age + '</span>') + '</td>' : '') +
-      '<td>' + (x.l || '') + '</td>' +
-      (hasDs ? '<td>' + (x.dost || '') + '</td>' : '') +
-      '<td>' + x.bal + '</td>' +
-      (hasTm ? '<td>' + (x.tm || '') + '</td>' : '') +
-      '<td>' + (x.st ? '<span class="chip bad">стоп' + (x.tm ? ' в ' + x.tm : '') + '</span>'
-                     : (x.l > 1e-9 ? '<span class="chip na">потери</span>' : '')) + '</td></tr>';
+      C.map(function(c){ return '<td>' + c.f(x) + '</td>'; }).join('') + '</tr>';
   });
+  var hasTm = ser.some(function(x){ return x.tm; });
   h += '</tbody></table>' +
-    (hasAge ? '<div class="hint" style="margin:8px 2px 0">«Возраст» — сколько суток ' +
-      'пролежала проданная в этот день штука. Считается по ФИФО: сперва уходит ' +
-      'вчерашний остаток, потом сегодняшний завоз. <span class="chip ok">0–1</span> — ' +
-      'хорошо, <span class="chip na">1–2</span> — есть запас, ' +
-      '<span class="chip bad">больше 2</span> — держим склад вместо витрины.</div>' : '') +
+    '<div class="hint" style="margin:8px 2px 0">Зелёные заголовки — что пришло, ' +
+    'красные — что ушло. Остаток = вчерашний + приход − расход ± инвентаризация. ' +
+    '«Продано всего» — по акту реализации, «без скидки» — оно минус все скидки из чеков. ' +
+    '«По срокам» — возврат по сроку, «Акт списания» — списание на месте. ' +
+    'У перемещений между филиалами наведите на число — будет видно откуда и куда. ' +
+    '«Не распознано» — накладная, назначение которой не определилось: догрузите ' +
+    'товарный отчёт за этот день. «Заявка в цех» — снимок таблицы «ЗАЯВКИ» на дату поставки; ' +
+    '«Приёмка в цеху» — сколько цех реально принял из заявленного к списанию. ' +
+    'Если загружены инвентаризации, остаток по учёту выравнивается по фактическому.</div>' +
     (hasTm
     ? '<div class="hint" style="margin:8px 2px 0">«Посл. продажа» — час, когда блюдо купили ' +
       'в последний раз за день, из отчёта по чекам. В день стопа это и есть время, ' +
@@ -4722,6 +5070,7 @@ function renderChrono(view){
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
   if (view === 'loss'){ $('fbarC').style.display = 'none'; renderLoss(); return; }
+  if (view === 'prog'){ $('fbarC').style.display = 'none'; renderProg(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -4944,6 +5293,435 @@ function renderLoss(){
 }
 var LOSSDATA = null;
 
+/* ═════════ Прогноз излишка ═════════
+   Сколько штук в неделю уйдёт на скидку и в списание, если завоз не менять,
+   и сколько — если завозить рекомендуемое количество.
+
+   Считаем по истории, без предположений о форме спроса: при 1–5 штуках в день
+   нормальное распределение не подходит. Спрос — это продажи по полной цене.
+   В дни, когда витрина опустела, настоящий спрос был больше проданного; такие
+   дни не выбрасываем и не принимаем за обычные, а учитываем как «не меньше» —
+   это оценка Каплана — Мейера. Иначе прогноз занижает спрос ровно у тех
+   позиций, которые чаще всего заканчиваются. */
+var PROG = null, PROG_CR = 0.7, PROG_SORT = { i: 12, d: -1 };
+
+/* распределение спроса по наблюдениям; c = 1 — день со стопом (спрос ≥ x) */
+function kmDist(obs){
+  obs = obs.slice().sort(function(a, b){ return a.x - b.x || a.c - b.c; });
+  var n = obs.length, S1 = 1, steps = [], i = 0, nc = 0;
+  while (i < n){
+    var x = obs[i].x, d = 0, j = i;
+    while (j < n && Math.abs(obs[j].x - x) < 1e-9){ if (obs[j].c) nc++; else d++; j++; }
+    if (d > 0){ S1 *= (1 - d / (n - i)); steps.push({ t: x, F: 1 - S1 }); }
+    i = j;
+  }
+  return { steps: steps, rest: S1, max: n ? obs[n - 1].x : 0, n: n, nc: nc };
+}
+/* наименьший спрос, которого хватает в доле q дней; lb — «не меньше» */
+function kmQuant(D, q){
+  for (var i = 0; i < D.steps.length; i++)
+    if (D.steps[i].F >= q - 1e-9) return { v: D.steps[i].t, lb: false };
+  return { v: D.max, lb: true };
+}
+/* сколько в среднем останется при завозе X: ∫₀ˣ F(t) dt */
+function kmOver(D, X){
+  var s = 0, st = D.steps;
+  for (var i = 0; i < st.length && st[i].t < X; i++){
+    var t1 = i + 1 < st.length ? Math.min(X, st[i + 1].t) : X;
+    s += st[i].F * (t1 - st[i].t);
+  }
+  return s;
+}
+function kmMean(D){
+  var m = 0, prev = 0;
+  D.steps.forEach(function(s){ m += (s.F - prev) * s.t; prev = s.F; });
+  return { v: m + D.rest * D.max, lb: D.rest > 1e-9 };
+}
+/* сколько покупателям не хватит при завозе X */
+function kmShort(D, X){
+  var m = kmMean(D);
+  return { v: Math.max(0, m.v - X + kmOver(D, X)), lb: m.lb };
+}
+function qtl(arr, p){
+  if (!arr.length) return 0;
+  var a = arr.slice().sort(function(x, y){ return x - y; }), h = (a.length - 1) * p;
+  var lo = Math.floor(h), hi = Math.ceil(h);
+  return a[lo] + (a[hi] - a[lo]) * (h - lo);
+}
+function avg(arr){ if (!arr.length) return 0; var s = 0; arr.forEach(function(v){ s += v; }); return s / arr.length; }
+
+function progData(cr){
+  if (!CHRONO) return null;
+  var from = CHRONO.from, to = CHRONO.to;
+  var nDays = daysBetween(from, to) + 1;
+  var hold = shift(to, -6);                       // последняя неделя — для проверки
+  var train = daysBetween(from, hold);
+  var bt = { ok: train >= 14, pred: 0, act: 0, naive: 0, n: 0, aeM: 0, aeN: 0,
+             nD: 0, aeDM: 0, aeDN: 0, from: hold, to: to };
+  // полные недели с понедельника
+  var wk = [], d0 = from;
+  while (dowMon(d0) !== 0 && d0 <= to) d0 = shift(d0, 1);
+  while (shift(d0, 6) <= to){ wk.push(d0); d0 = shift(d0, 7); }
+
+  var rows = [];
+  Object.keys(SERIES).forEach(function(key){
+    var ser = SERIES[key], info = ser.info;
+    if (!info || !ser.length || isDelivery(info.wh)) return;
+    var price = info.price || 0, kg = isKg(nrm(info.name));
+    var sup = 0, sold = 0, Otot = 0, Mtot = 0;
+    var X = ser.map(function(x){
+      var md = 0, money = N(x.l) * price + N(x.q20) * price * 0.2;
+      Object.keys(x.dsc || {}).forEach(function(t){
+        var pc = discPct(t); if (!pc) return;         // бонусы и акции без % — обычный спрос
+        md += N(x.dsc[t]); money += N(x.dsc[t]) * price * pc; });
+      var O = N(x.q20) + md + N(x.l);
+      var F = r3(Math.max(0, N(x.s) - N(x.q20) - md));
+      var su = Math.max(0, N(x.p) + N(x.pin) - N(x.pout) + N(x.prig));
+      sup += su; sold += N(x.s); Otot += O; Mtot += money;
+      /* «Спрос был не меньше» — только если витрина опустела и уценки в этот день не было:
+         раз уценивали, значит, по полной цене товар был, и спрос этого дня известен. */
+      var c = N(x.bal) <= 1e-9 && N(x.q20) + md < 1e-9 ? 1 : 0;
+      return { d: x.d, w: dowMon(x.d), O: O, F: F, su: su, c: c };
+    });
+    if (sup < 1e-9 && sold < 1e-9) return;
+    var costU = Otot > 1e-9 ? Mtot / Otot : price * 0.2;
+    var srok = info.srok || 0;
+    var daily = srok ? srok <= 36
+                     : X.filter(function(x){ return x.su > 1e-9; }).length >= X.length * 0.6;
+    function rnd(v){ return kg ? r3(v) : (v <= 1e-9 ? 0 : Math.ceil(v - 1e-6)); }
+
+    // недельные итоги — для диапазона «обычно» и для тортов
+    var byD = {}; X.forEach(function(x){ byD[x.d] = x; });
+    var weeks = wk.map(function(m){
+      var o = { d: m, O: 0, F: 0, su: 0, c: 0 };
+      for (var k = 0; k < 7; k++){ var x = byD[shift(m, k)]; if (!x) continue;
+        o.O += x.O; o.F += x.F; o.su += x.su; if (x.c) o.c = 1; }
+      o.F = r3(o.F); return o;
+    });
+    var OW = weeks.map(function(w){ return w.O; });
+
+    var r = { key: key, wh: info.wh, name: info.name, cat: info.cat, srok: srok,
+              daily: daily, kg: kg, price: price, costU: costU, weeks: weeks, W: null };
+    if (daily){
+      r.nObs = X.length; r.nCens = X.filter(function(x){ return x.c; }).length;
+      r.enough = X.length >= 7;
+      var pooled = kmDist(X.map(function(x){ return { x: x.F, c: x.c }; }));
+      var W = [], own = 0;
+      for (var w = 0; w < 7; w++){
+        var arr = X.filter(function(x){ return x.w === w; });
+        var isOwn = arr.length >= 4; if (isOwn) own++;
+        var D = isOwn ? kmDist(arr.map(function(x){ return { x: x.F, c: x.c }; })) : pooled;
+        var base = arr.length ? arr : X;
+        var q = kmQuant(D, cr), rec = rnd(q.v);
+        var sN = base.map(function(x){ return kmShort(D, x.su); });
+        var sR = kmShort(D, rec);
+        W.push({ w: w, n: arr.length, nc: arr.filter(function(x){ return x.c; }).length,
+          own: isOwn, med: kmQuant(D, 0.5), supNow: avg(base.map(function(x){ return x.su; })),
+          rec: rec, recLb: q.lb, Of: avg(base.map(function(x){ return x.O; })),
+          ovNow: avg(base.map(function(x){ return kmOver(D, x.su); })), ovRec: kmOver(D, rec),
+          shNow: avg(sN.map(function(s){ return s.v; })), shRec: sR.v,
+          lb: sR.lb || sN.some(function(s){ return s.lb; }) });
+      }
+      r.W = W; r.own = own;
+      ['supNow','rec','Of','ovNow','ovRec','shNow','shRec'].forEach(function(f){
+        r[f] = W.reduce(function(s, x){ return s + x[f]; }, 0); });
+      r.recLb = W.some(function(x){ return x.recLb; });
+      r.lb = W.some(function(x){ return x.lb; });
+    } else {
+      r.nObs = weeks.length; r.nCens = weeks.filter(function(x){ return x.c; }).length;
+      r.enough = weeks.length >= 3;
+      if (weeks.length){
+        var DW = kmDist(weeks.map(function(x){ return { x: x.F, c: x.c }; }));
+        var qW = kmQuant(DW, cr), recW = rnd(qW.v);
+        var sNW = weeks.map(function(x){ return kmShort(DW, x.su); }), sRW = kmShort(DW, recW);
+        r.med = kmQuant(DW, 0.5);
+        r.supNow = avg(weeks.map(function(x){ return x.su; }));
+        r.rec = recW; r.recLb = qW.lb; r.Of = avg(OW);
+        r.ovNow = avg(weeks.map(function(x){ return kmOver(DW, x.su); }));
+        r.ovRec = kmOver(DW, recW);
+        r.shNow = avg(sNW.map(function(s){ return s.v; })); r.shRec = sRW.v;
+        r.lb = sRW.lb || sNW.some(function(s){ return s.lb; });
+      } else {
+        // полной недели нет — берём среднее в день × 7, только для справки
+        r.Of = avg(X.map(function(x){ return x.O; })) * 7;
+        r.supNow = avg(X.map(function(x){ return x.su; })) * 7;
+      }
+    }
+    /* Расчёт сравнивает завоз со спросом «в лоб», а в жизни есть вчерашний остаток,
+       перемещения, брони. Поэтому «будет» = факт сейчас минус то, на сколько
+       излишек уменьшится по расчёту, а не голая цифра модели. */
+    r.delta = r.enough ? (r.ovNow || 0) - (r.ovRec || 0) : 0;
+    r.after = r.enough ? Math.max(0, r.Of - r.delta) : null;
+    r.eco = r.enough && costU ? (r.Of - r.after) * costU : 0;
+    r.lo = OW.length >= 3 ? qtl(OW, 0.25) : null;
+    r.hi = OW.length >= 3 ? qtl(OW, 0.75) : null;
+
+    // ── проверка: прогноз на последнюю неделю по предыдущим
+    r.btPred = null; r.btAct = null;
+    if (bt.ok){
+      var tr = X.filter(function(x){ return x.d < hold; }), te = X.filter(function(x){ return x.d >= hold; });
+      var act0 = tr.some(function(x){ return x.su > 1e-9 || x.F > 1e-9 || x.O > 1e-9; });
+      if (act0 && te.length){
+        var pool = avg(tr.map(function(x){ return x.O; }));
+        var pS = 0, aS = 0, nS = 0;
+        te.forEach(function(x){
+          var same = tr.filter(function(y){ return y.w === x.w; });
+          var p = daily && same.length >= 2 ? avg(same.map(function(y){ return y.O; })) : pool;
+          var nv = byD[shift(x.d, -7)] ? byD[shift(x.d, -7)].O : pool;
+          pS += p; aS += x.O; nS += nv;
+          if (daily){ bt.nD++; bt.aeDM += Math.abs(p - x.O); bt.aeDN += Math.abs(nv - x.O); }
+        });
+        r.btPred = pS; r.btAct = aS;
+        bt.pred += pS; bt.act += aS; bt.naive += nS; bt.n++;
+        bt.aeM += Math.abs(pS - aS); bt.aeN += Math.abs(nS - aS);
+      }
+    }
+    rows.push(r);
+  });
+  return { rows: rows, bt: bt, cr: cr, nDays: nDays, weeks: wk.length, src: CHRONO };
+}
+
+function renderProg(){
+  var o = $('outC');
+  if (!o.querySelector('#progBody')){
+    o.innerHTML =
+      '<div class="lossSec"><h3>Прогноз излишка: сколько уйдёт на скидку и в списание</h3>' +
+      '<p class="lead">Считается по истории выбранного периода, отдельно для каждого дня недели. ' +
+      '<b>Излишек</b> — всё, что ушло со скидкой в процентах (20%, 10%, 50%…), списано, ' +
+      'вернулось по сроку или уехало на склад 50%. <b>Спрос</b> — продажи по полной цене. ' +
+      'Дни, когда витрина опустела, считаются как «спрос был не меньше проданного» — иначе ' +
+      'прогноз занижает спрос у тех позиций, которые чаще всего заканчиваются. ' +
+      'Выпечка со сроком до 36 ч считается по дням недели, торты и всё с долгим сроком — по неделям.</p>' +
+      '<div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">' +
+        '<div style="flex:0 0 230px"><label class="lbl">Товар есть до вечера в</label>' +
+          '<select id="pgCr" class="flt">' + [0.5, 0.6, 0.7, 0.8, 0.9].map(function(v){
+            return '<option value="' + v + '"' + (Math.abs(v - PROG_CR) < 1e-9 ? ' selected' : '') + '>' +
+              Math.round(v * 100) + '% дней' + (v === 0.7 ? ' (обычно)' : '') + '</option>'; }).join('') +
+          '</select></div>' +
+        '<div style="flex:1 1 180px"><label class="lbl">Поиск</label>' +
+          '<input type="text" id="pgQ" placeholder="Блюдо или филиал"></div>' +
+        '<div style="flex:0 0 190px"><label class="lbl">Филиал</label>' +
+          '<select id="pgWh" class="flt"><option value="">все филиалы</option></select></div>' +
+        '<div style="flex:0 0 190px"><label class="lbl">Категория</label>' +
+          '<select id="pgCat" class="flt"><option value="">все категории</option></select></div>' +
+      '</div>' +
+      '<div class="row" style="gap:14px;flex-wrap:wrap;margin-top:6px">' +
+        '<label><input type="checkbox" id="pgCut"> только где излишек снизится хотя бы на 1 шт в неделю</label>' +
+        '<label><input type="checkbox" id="pgAll"> показать позиции, по которым мало истории</label>' +
+      '</div></div>' +
+      '<div id="progKpi"></div><div id="progNote"></div><div id="progBody"></div>';
+    $('pgCr').onchange = function(){ PROG_CR = +this.value; PROG = null; renderProg(); };
+    ['pgWh','pgCat','pgCut','pgAll'].forEach(function(id){ $(id).onchange = progBody; });
+    $('pgQ').oninput = progBody;
+  }
+  if (!PROG || PROG.src !== CHRONO || PROG.cr !== PROG_CR) PROG = progData(PROG_CR);
+  var P = PROG;
+  // списки фильтров
+  var whs = {}, cats = {};
+  P.rows.forEach(function(r){ whs[r.wh] = 1; if (r.cat) cats[r.cat] = 1; });
+  function fill(id, m, all){
+    var s = $(id), v = s.value;
+    s.innerHTML = '<option value="">' + all + '</option>' + Object.keys(m).sort().map(function(x){
+      return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('');
+  }
+  fill('pgWh', whs, 'все филиалы'); fill('pgCat', cats, 'все категории');
+
+  var note = [];
+  if (P.nDays < 28)
+    note.push('<b>Период ' + P.nDays + ' дн. — прогноз грубый.</b> Чтобы учесть день недели, нужно хотя бы ' +
+      '4 одинаковых дня (4 недели), а для проверки на прошлой неделе — 3 недели. ' +
+      'Точнее всего — период 6–8 недель: загрузите выгрузки iiko за это время и посчитайте заново.');
+  if (!Object.keys(SERIES).some(function(k){ return SERIES[k].some(function(x){ return x.q20 > 0; }); }))
+    note.push('Нет продаж со скидкой 20% за период — загрузите «Продажи по чекам», иначе излишек занижен.');
+  $('progNote').innerHTML = note.length
+    ? '<div class="msg wait" style="margin:0 0 12px;display:block">' + note.join('<br>') + '</div>' : '';
+  progBody();
+}
+
+function progBody(){
+  var P = PROG; if (!P) return;
+  var q = nrm($('pgQ').value), fw = $('pgWh').value, fc = $('pgCat').value;
+  var cut = $('pgCut').checked, all = $('pgAll').checked;
+  var rows = P.rows.filter(function(r){
+    if (!all && !r.enough) return false;
+    if (fw && r.wh !== fw) return false;
+    if (fc && r.cat !== fc) return false;
+    if (cut && !(r.enough && r.Of - r.after >= 1)) return false;
+    return !q || nrm(r.name).indexOf(q) >= 0 || nrm(r.wh).indexOf(q) >= 0;
+  });
+
+  // ── итоги по отфильтрованному
+  var T = { Of: 0, after: 0, eco: 0, money: 0, shN: 0, shR: 0, lb: false, bp: 0, ba: 0, n: 0 };
+  rows.forEach(function(r){ if (!r.enough) return;
+    T.Of += r.Of; T.after += r.after; T.eco += r.eco; T.money += r.Of * r.costU;
+    T.shN += r.shNow; T.shR += r.shRec; if (r.lb) T.lb = true; T.n++; });
+  var bt = P.bt;
+  function tile(t, v, sub, cls){
+    return '<div><span>' + t + '</span><b' + (cls ? ' style="color:var(--' + cls + ')"' : '') + '>' + v +
+           '</b>' + (sub ? '<span>' + sub + '</span>' : '') + '</div>';
+  }
+  var btTile;
+  if (!bt.ok) btTile = tile('Проверка на последней неделе', '—', 'нужно хотя бы 3 недели истории');
+  else {
+    var errM = bt.n ? bt.aeM / bt.n : 0, errN = bt.n ? bt.aeN / bt.n : 0;
+    var devP = bt.act > 1e-9 ? Math.round((bt.pred - bt.act) / bt.act * 100) : 0;
+    btTile = tile('Проверка ' + ru(bt.from).slice(0, 5) + '–' + ru(bt.to).slice(0, 5) + ': прогноз / факт',
+      fmtQ(bt.pred) + ' / ' + fmtQ(bt.act) + ' шт',
+      'по сети ' + (devP > 0 ? '+' : '') + devP + '%; по позиции ошибка ±' + fmtQ(errM) +
+      ' шт/нед (если брать «как неделю назад» — ±' + fmtQ(errN) + ')',
+      Math.abs(devP) <= 15 ? 'okT' : Math.abs(devP) <= 30 ? 'naT' : 'badT');
+  }
+  $('progKpi').innerHTML = '<div class="kpi">' +
+    tile('Излишек сейчас', fmtQ(T.Of) + ' шт/нед',
+         T.money ? '≈ ' + fmtT(T.money) + ' в неделю' : 'по ' + T.n + ' позициям', 'badT') +
+    tile('При рекомендуемом завозе', fmtQ(T.after) + ' шт/нед',
+         'меньше на ' + fmtQ(T.Of - T.after) + ' шт' + (T.eco ? ' · ' + fmtT(T.eco) : ''), 'okT') +
+    tile('Не хватит покупателям', fmtQ(T.shN) + ' → ' + fmtQ(T.shR) + ' шт/нед',
+         'сейчас → при рекомендуемом' + (T.lb ? '; где витрина пустела — не меньше' : '')) +
+    btTile + '</div>';
+
+  var st = PROG_SORT;
+  var HEAD = ['Филиал','Позиция','Категория','Считаем','История','Излишек сейчас, шт/нед',
+    'Обычно, шт/нед','Завоз сейчас, шт/нед','Рекомендуемый завоз, шт/нед','Излишек будет, шт/нед',
+    'Не хватит: сейчас → будет','Меньше на, шт/нед','Экономия, ₸/нед','Проверка: прогноз / факт'];
+  var SK = [
+    function(r){ return r.wh; }, function(r){ return r.name; }, function(r){ return r.cat; },
+    function(r){ return r.daily ? 0 : 1; }, function(r){ return r.nObs; },
+    function(r){ return r.Of; }, function(r){ return r.hi === null ? -1 : r.hi; },
+    function(r){ return r.supNow || 0; }, function(r){ return r.enough ? r.rec : -1; },
+    function(r){ return r.enough ? r.after : -1; }, function(r){ return r.enough ? r.shNow : -1; },
+    function(r){ return r.enough ? r.Of - r.after : -1; }, function(r){ return r.eco; },
+    function(r){ return r.btAct === null ? -1 : Math.abs(r.btPred - r.btAct); }];
+  rows = rows.slice().sort(function(a, b){
+    var x = SK[st.i](a), y = SK[st.i](b);
+    if (typeof x === 'string') return st.d * x.localeCompare(y, 'ru');
+    return st.d * (x - y);
+  });
+  function f(v){ return v === null || v === undefined ? '' : fmtQ(v); }
+  var h = '<table><thead><tr>' + HEAD.map(function(t, i){
+      return '<th class="srt" data-s="' + i + '">' + t + arrow(st, i) + '</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(function(r){
+    var hist = r.daily ? r.nObs + ' дн.' : r.nObs + ' нед.';
+    if (r.nCens) hist += ', стоп ' + r.nCens;
+    var cells;
+    if (!r.enough)
+      cells = [esc(r.wh), '<span class="exp">▸</span>' + esc(r.name), esc(r.cat),
+        r.daily ? 'по дням недели' : 'по неделям', hist, f(r.Of), '', f(r.supNow),
+        '<span class="chip zero">мало истории</span>', '', '', '', '', ''];
+    else {
+      var d = r.Of - r.after;
+      cells = [esc(r.wh), '<span class="exp">▸</span>' + esc(r.name), esc(r.cat),
+        r.daily ? (r.own ? 'по дням недели' : 'по дням (без дня недели)') : 'по неделям', hist,
+        '<b>' + f(r.Of) + '</b>',
+        r.lo === null ? '' : f(r.lo) + '–' + f(r.hi),
+        f(r.supNow),
+        '<b>' + recTxt(r.rec, r.recLb, r.daily) + '</b>',
+        f(r.after),
+        shTxt(r.shNow, r.lb) + ' → ' + shTxt(r.shRec, r.lb),
+        d >= 0.05 ? '<span class="chip ok">−' + fmtQ(d) + '</span>'
+                  : d <= -0.05 ? '<span class="chip na">+' + fmtQ(-d) + '</span>' : '0',
+        r.eco >= 1 ? fmtQ(Math.round(r.eco)) : '',
+        r.btAct === null ? '' : f(r.btPred) + ' / ' + f(r.btAct)];
+    }
+    h += '<tr class="clk" data-k="' + esc(r.key) + '">' + cells.map(function(c, i){
+      return '<td class="' + (i < 3 ? 'name' : '') + '" data-l="' + esc(HEAD[i]) + '">' + c + '</td>';
+    }).join('') + '</tr>';
+  });
+  h += '</tbody></table>';
+  if (!rows.length) h = '<div class="hint">Нет позиций под эти условия.</div>';
+  $('progBody').innerHTML = h;
+  $('cntC').textContent = 'строк: ' + rows.length;
+  $('progBody').querySelectorAll('tr.clk').forEach(function(tr){
+    tr.onclick = function(){ progOpen(this.dataset.k); }; });
+  $('progBody').querySelectorAll('th.srt').forEach(function(th){
+    th.onclick = function(){
+      var i = +this.dataset.s;
+      if (st.i === i) st.d = -st.d; else { st.i = i; st.d = i < 3 ? 1 : -1; }
+      progBody();
+    };
+  });
+}
+
+/* Карточка позиции: по каждому дню недели — сколько везут, сколько надо и почему */
+/* «не меньше» по нехватке: если витрина пустела, сколько не хватило — известно только снизу */
+function shTxt(v, lb){
+  if (!lb) return fmtQ(v);
+  return v < 0.05 ? 'есть' : '≥ ' + fmtQ(v);
+}
+/* рекомендуемый завоз, когда спрос выше всего, что когда-либо завозили */
+function recTxt(v, lb, sum){ return lb ? (sum ? '≥ ' : 'больше ') + fmtQ(v) : fmtQ(v); }
+function progOpen(key){
+  var r = null; (PROG ? PROG.rows : []).forEach(function(x){ if (x.key === key) r = x; });
+  if (!r) return;
+  function f(v){ return v === null || v === undefined ? '' : fmtQ(v); }
+  var h = '<h3 style="margin:0 0 4px">' + esc(r.name) + '</h3>' +
+    '<div class="hint" style="margin-bottom:10px">' + esc(r.wh) + ' · ' + esc(r.cat || '') +
+    (r.srok ? ' · срок ' + r.srok + ' ч' : '') + ' · товар есть до вечера в ' +
+    Math.round(PROG.cr * 100) + '% дней</div>';
+  if (!r.enough){
+    h += '<div class="hint">Мало истории: ' + (r.daily ? r.nObs + ' дн., нужно хотя бы 7.'
+         : r.nObs + ' полных недель, нужно хотя бы 3.') +
+      ' Возьмите период длиннее.</div>';
+  } else if (r.daily){
+    h += '<div style="overflow-x:auto"><table><thead><tr><th>День</th><th>Дней в истории</th><th>Спрос по полной цене, обычно</th>' +
+      '<th>Завоз сейчас</th><th>Рекомендуем</th><th>Излишек сейчас</th><th>Излишек будет</th>' +
+      '<th>Не хватит: сейчас → будет</th></tr></thead><tbody>';
+    r.W.forEach(function(x){
+      var aft = Math.max(0, x.Of - (x.ovNow - x.ovRec));
+      h += '<tr><td class="name">' + DOW[x.w] + (x.own ? '' : ' <span class="hint">(все дни)</span>') + '</td>' +
+        '<td>' + x.n + (x.nc ? ', стоп ' + x.nc : '') + '</td>' +
+        '<td>' + (x.med.lb ? 'не меньше ' : '') + f(x.med.v) + '</td>' +
+        '<td>' + f(x.supNow) + '</td><td><b>' + recTxt(x.rec, x.recLb) + '</b></td>' +
+        '<td class="bad">' + f(x.Of) + '</td><td>' + f(aft) + '</td>' +
+        '<td>' + shTxt(x.shNow, x.lb) + ' → ' + shTxt(x.shRec, x.lb) + '</td></tr>';
+    });
+    h += '<tr class="totRow"><td class="name"><b>Неделя</b></td><td></td><td></td><td><b>' + f(r.supNow) +
+      '</b></td><td><b>' + recTxt(r.rec, r.recLb, true) + '</b></td><td class="bad"><b>' + f(r.Of) + '</b></td><td><b>' +
+      f(r.after) + '</b></td><td><b>' + shTxt(r.shNow, r.lb) + ' → ' + shTxt(r.shRec, r.lb) +
+      '</b></td></tr></tbody></table></div>';
+    if (r.own < 7)
+      h += '<div class="hint" style="margin-top:8px">«(все дни)» — такого дня недели в истории меньше 4 раз, ' +
+           'поэтому для него взяты все дни периода вместе.</div>';
+  } else {
+    h += '<div style="overflow-x:auto"><table><thead><tr><th>Неделя с</th><th>Завоз</th><th>Продано по полной</th>' +
+      '<th>Излишек</th><th>Витрина пустела</th></tr></thead><tbody>' +
+      r.weeks.map(function(w){
+        return '<tr><td class="name">' + ru(w.d) + '</td><td>' + f(w.su) + '</td><td>' + f(w.F) + '</td>' +
+          '<td class="bad">' + f(w.O) + '</td><td>' + (w.c ? 'да — спрос был больше' : '') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="hint" style="margin-top:8px">Срок ' + (r.srok || '?') + ' ч — продукция живёт ' +
+      'несколько дней, поэтому считаем по неделям. Рекомендуемый завоз: <b>' +
+      recTxt(r.rec, r.recLb) + ' шт в неделю</b> (сейчас ' + f(r.supNow) + ').</div>';
+  }
+  if (r.enough){
+    var d = r.Of - r.after;
+    h += '<div class="cardTodo" style="margin-top:12px"><h4>Что это значит</h4><ul>' +
+      '<li>Если завоз не менять, на скидку и в списание уйдёт около <b>' + f(r.Of) + ' шт в неделю</b>' +
+      (r.lo !== null ? ' (обычно от ' + f(r.lo) + ' до ' + f(r.hi) + ')' : '') +
+      (r.costU ? ', это ≈ ' + fmtT(r.Of * r.costU) : '') + '.</li>' +
+      (d >= 0.05 ? '<li>При рекомендуемом завозе излишек станет ≈ <b>' + f(r.after) +
+          ' шт</b> — меньше на ' + f(d) + ' шт' + (r.eco >= 1 ? ', экономия ≈ ' + fmtT(r.eco) : '') + ' в неделю.</li>'
+       : d <= -0.05 ? '<li>Рекомендуемый завоз <b>больше</b> нынешнего: витрина пустеет раньше вечера. ' +
+          'Излишек вырастет на ' + f(-d) + ' шт, зато покупателям будет не хватать меньше: ' +
+          f(r.shNow) + ' → ' + f(r.shRec) + ' шт в неделю.</li>'
+       : '<li>Завоз уже близок к нужному — менять почти нечего.</li>') +
+      (r.nCens ? '<li>Витрина пустела ' + r.nCens + (r.daily ? ' дн.' : ' нед.') + ' из ' + r.nObs +
+          ' — в такие дни спрос был выше продаж, поэтому часть цифр со знаком «≥».' +
+          (r.recLb ? ' <b>' + (r.daily ? 'По ' + r.W.filter(function(x){ return x.recLb; })
+               .map(function(x){ return DOW[x.w]; }).join(', ') + ' в' : 'В') +
+             'итрина пустеет почти всегда</b> — сколько купили бы на самом деле, по истории не узнать. ' +
+             'Добавьте 1–2 шт' + (r.daily ? ' в эти дни' : '') + ' на пару недель и посчитайте снова.' : '') +
+          '</li>' : '') +
+      '<li>Это ожидаемое значение, а не обещание: в конкретный день бывает и 0, и вдвое больше. ' +
+      'По неделе и по всему филиалу цифры точнее, чем по одному дню.</li></ul></div>';
+  }
+  var m = $('dayModal');
+  m.querySelector('.mBody').innerHTML = h;
+  m.style.display = 'flex';
+}
+
+
 function routeHint(){
   var bs = branches();
   var dlv = bs.filter(isDelivery), cl = bs.filter(isClosed);
@@ -5013,10 +5791,35 @@ $('btnRoutes').onclick = function(){
   }
 };
 
-$('btnChrono').onclick = function(){
+/* Заявка в цех, приёмка списаний и брони лежат не в выгрузках iiko, а в таблице.
+   Подтягиваем их за период перед расчётом; не вышло — считаем по сохранённому. */
+async function flowPull(f, t){
+  var c = apiCfg(), me = (typeof a0Me === 'function') ? a0Me() : null;
+  if (!c.read && !(me && me.role === 'бухгалтерия')) return 'нет ключа';
+  var j = await Promise.race([
+    apiCall('flow', { key: c.read || '', from: f, to: t }),
+    new Promise(function(_, no){ setTimeout(function(){ no(new Error('таблица не ответила за 25 с')); }, 25000); })
+  ]);
+  if (!DB.flow) DB.flow = { zc: [], off: [], book: [] };
+  ['zc', 'off', 'book'].forEach(function(k){
+    DB.flow[k] = (DB.flow[k] || []).filter(function(r){ return r[0] < f || r[0] > t; })
+                                   .concat(j[k] || []);
+  });
+  saveDB();
+  return '';
+}
+$('btnChrono').onclick = async function(){
   var f = D($('cFrom').value), t = D($('cTo').value);
   if (!DB.mov.length) return msg('m4','Сначала загрузите выгрузки iiko.','err');
   if (!f || !t) return msg('m4','Укажите период.','err');
+  var flowNote = '';
+  msg('m4','Подтягиваю из таблицы заявку в цех, приёмку списаний и брони…','wait');
+  try{
+    var why = await flowPull(f, t);
+    if (why === 'нет ключа') flowNote = ' Заявка в цех, приёмка и брони не подтянуты: на странице ' +
+      '«Списки филиалов» не задан ключ бухгалтерии (или войдите как бухгалтерия).';
+  }catch(e){ flowNote = ' Из таблицы не подтянулось (' + (e.message || e) +
+                        ') — заявка, приёмка и брони показаны по сохранённому.'; }
   msg('m4','Считаю…','wait');
   try{
     var minP = N($('cMin').value) || 0;
@@ -5049,7 +5852,8 @@ $('btnChrono').onclick = function(){
     renderChrono(keep);
     histAdd({ ts: new Date().toISOString(), kind: 'chr', wh: '', from: f, to: t,
               loss: Math.round(L), money: Math.round(M), pairs: CHRONO.pair.length });
-    msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.', 'ok');
+    msg('m4','Готово: ' + pos.length + ' строк, пар для перемещения ' + CHRONO.pair.length + '.' +
+        flowNote, flowNote ? 'wait' : 'ok');
   } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
 };
 function fmtT(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₸'; }
@@ -5095,7 +5899,23 @@ $('btnChrXlsx').onclick = function(){
     { name: 'Недостачи', head: ['Филиал','Недостача, шт','Излишки, шт','Недостача, ₸'],
       rows: L.inv.map(function(a){
         return [a.wh, r3(a.minus), r3(a.plus), Math.round(a.mMoney)]; }) }
-  ]);
+  ].concat((function(){
+    // прогноз — тем уровнем сервиса, что выбран на вкладке
+    if (!PROG || PROG.src !== CHRONO) PROG = progData(PROG_CR);
+    if (!PROG) return [];
+    return [{ name: 'Прогноз излишка',
+      head: ['Филиал','Позиция','Категория','Считаем','Дней/недель в истории','Из них со стопом',
+             'Излишек сейчас, шт/нед','Обычно от','Обычно до','Завоз сейчас, шт/нед',
+             'Рекомендуемый завоз, шт/нед','Излишек будет, шт/нед','Не хватит сейчас, шт/нед',
+             'Не хватит будет, шт/нед','Экономия, ₸/нед','Проверка: прогноз','Проверка: факт',
+             'Уровень сервиса'],
+      rows: PROG.rows.filter(function(r){ return r.enough; }).map(function(r){
+        return [r.wh, r.name, r.cat, r.daily ? 'по дням недели' : 'по неделям', r.nObs, r.nCens,
+          r3(r.Of), r.lo === null ? '' : r3(r.lo), r.hi === null ? '' : r3(r.hi), r3(r.supNow),
+          (r.recLb ? '≥ ' : '') + r3(r.rec), r3(r.after), r3(r.shNow), r3(r.shRec),
+          Math.round(r.eco), r.btPred === null ? '' : r3(r.btPred), r.btAct === null ? '' : r3(r.btAct),
+          Math.round(PROG.cr * 100) + '%']; }) }];
+  })()));
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'Хронология ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) + '.xlsx';
