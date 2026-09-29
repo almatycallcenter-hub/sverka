@@ -1322,7 +1322,9 @@
         <div class="card">
           <h2>Потери в деньгах</h2>
           <p class="lead">Потеря = непроданное (возврат по сроку + склад 50% + списание) по полной цене
-            <b>плюс</b> продажи со скидкой 20% — по размеру скидки, то есть 20% от цены.</p>
+            <b>плюс</b> продажи со скидкой 20% — по размеру скидки, то есть 20% от цены,
+            <b>плюс</b> все остальные скидки из чеков (10%, 50% сотрудникам, бонусы, акции) —
+            сколько недополучили: сумма без скидки минус сумма со скидкой.</p>
           <div class="hint" style="margin-top:0">«Что делать»: если позиция часто попадает на скидку —
             «снизить заявку»; если подолгу стоит в стопе с нулевым остатком — «увеличить заявку».
             Колонка «Последняя продажа» показывает, когда позицию купили в последний раз.</div>
@@ -1943,7 +1945,7 @@ function parseCheki(v){
 
   var iTip = col(h,'Тип скидки'), iS0 = col(h,'Сумма без скидки, тенге');
   var iS1 = col(h,'Сумма со скидкой, тенге');
-  var poz = {}, s20 = [], full = {}, disc = {}, dsc = {}, day = '', tm = '', conc = '';
+  var poz = {}, s20 = [], full = {}, disc = {}, dsc = {}, dscM = {}, day = '', tm = '', conc = '';
   for (var r = fh.row + 1; r < v.length; r++){
     var row = v[r]; if (!row) continue;
     var c0 = S(row[iT]);
@@ -1991,6 +1993,9 @@ function parseCheki(v){
          что заявленное ушло, скажем, по «Скидке 10%», а не пропало. */
       var qk = day + '\u0001' + conc + '\u0001' + dish + '\u0001' + S(row[iTip]);
       dsc[qk] = (dsc[qk] || 0) + q;
+      // сколько недополучили по этой строке: сумма без скидки минус со скидкой
+      if (iS0 !== undefined && iS1 !== undefined)
+        dscM[qk] = (dscM[qk] || 0) + N(row[iS0]) - N(row[iS1]);
     }
   }
   var times = Object.keys(poz).map(function(k){
@@ -2001,7 +2006,10 @@ function parseCheki(v){
     var p = k.split('|'), a = disc[k];
     return [p[0], p[1], p.slice(2).join('|'), r3(a.q), Math.round(a.s0), Math.round(a.s1)]; });
   var dscRows = Object.keys(dsc).map(function(k){
-    var p = k.split('\u0001'); return [p[0], p[1], p[2], p[3], r3(dsc[k])]; });
+    var p = k.split('\u0001'), row = [p[0], p[1], p[2], p[3], r3(dsc[k])];
+    // шестое поле — недополученные деньги; в старых сохранённых строках его нет
+    if (dscM[k] !== undefined) row.push(Math.round(dscM[k]));
+    return row; });
   return { times: times, s20: s20, full: fullRows, disc: discRows, dsc: dscRows };
 }
 
@@ -4107,18 +4115,30 @@ function chrono(dFrom, dTo){
     });
   });
   // продажи по остальным типам скидки — по филиалу, блюду и дню
-  var DSC = {};
+  /* И деньги по ним: сколько недополучили. Берём прямо из чека (без скидки
+     минус со скидкой). В строках, загруженных до этой версии, суммы нет —
+     тогда считаем по проценту из названия («Скидка 10%» → цена × 0,1), а для
+     бонусов и акций без процента сумму узнать нельзя, их помечаем. */
+  var DSC = {}, DSCM = {}, dscNoSum = {};
   (DB.dsc || []).forEach(function(r){
     var d = r[0]; if (!d || d < dFrom || d > dTo) return;
     var k = nrm(r[2]); if (!SPR[k]) return;
     var t = S(r[3]); if (!t) return;
     var base = isKus[k] ? k.replace(/\s*\(?кусочек\)?\s*$/, '').trim() : k;
     var f = isKus[k] ? 1 / KUSOK : 1;
-    brOf(r[1]).forEach(function(w){
-      var o = DSC[w + '|' + base + '|' + d] || (DSC[w + '|' + base + '|' + d] = {});
+    var m = null;
+    if (r.length > 5 && r[5] !== '' && r[5] != null) m = N(r[5]);
+    else { var pc = discPct(t); if (pc) m = N(r[4]) * f * (PR[base] || 0) * pc; else dscNoSum[t] = 1; }
+    var ws = brOf(r[1]);
+    ws.forEach(function(w){
+      var kk = w + '|' + base + '|' + d;
+      var o = DSC[kk] || (DSC[kk] = {});
       o[t] = (o[t] || 0) + N(r[4]) * f;
+      if (m !== null){ var om = DSCM[kk] || (DSCM[kk] = {});
+        om[t] = (om[t] || 0) + m / ws.length; }
     });
   });
+  function omOf(kk){ var o = DSCM[kk], s = 0; if (o) for (var t in o) s += o[t]; return s; }
   // что филиал заявил на скидку в этот день — рядом с тем, что реально ушло
   var LST = {};
   DB.list.forEach(function(r){
@@ -4213,7 +4233,7 @@ function chrono(dFrom, dTo){
   var rows = [];
   Object.keys(acc).forEach(function(key){
     var a = acc[key], sp = SPR[a.k];
-    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0;
+    var P = 0, S_ = 0, L = 0, V = 0, F = 0, SP = 0, DS = 0, OM = 0;
     var dLoss = 0, dArr = 0, onShelf = 0, stop = 0, D20 = 0, dDisc = 0;
     var lastS = '', lastT = '', gpP = 0;
     var bal = 0, minCum = 0, cum = 0, series = [];
@@ -4226,6 +4246,7 @@ function chrono(dFrom, dTo){
       if (x.s > 1e-9){ lastS = dd; lastT = TM[a.wh + '|' + a.k + '|' + dd] || ''; }
       var q20 = S20[a.wh + '|' + a.k + '|' + dd] || 0;
       if (q20 > 1e-9){ D20 += q20; dDisc++; }
+      OM += omOf(a.wh + '|' + a.k + '|' + dd);
       /* Перемещение на склад доставки — не потеря, но продукция физически уезжает
          с витрины. Раньше её не вычитали из остатка: у позиций, которые возят на
          доставку, «Остаток на конец» показывал десятки штук, которых там нет. */
@@ -4346,8 +4367,10 @@ function chrono(dFrom, dTo){
     });
     var price = PR[a.k] || 0;
     var endBal = r3(open + cum);
-    // деньги: непроданное теряем целиком, уценённое — на размер скидки
-    var money = price ? L * price + D20 * price * 0.2 : 0;
+    /* деньги: непроданное теряем целиком, уценённое по 20% — пятую часть цены,
+       по остальным скидкам (10%, 50% сотрудникам, бонусы, акции) — сколько
+       недополучили по чеку */
+    var money = (price ? L * price + D20 * price * 0.2 : 0) + OM;
     var discShare = onShelf ? dDisc / onShelf : 0;
     var stopShare = onShelf ? stop / days.length : 0;
     var lossShare = P > 1e-9 ? L / P : 0, todo = '';
@@ -4366,19 +4389,21 @@ function chrono(dFrom, dTo){
         if (!byDay[x.d]) return;
         var q = S20[a.wh + '|' + a.k + '|' + x.d] || 0;
         byDay[x.d].loss += x.l; byDay[x.d].sold += x.s;
-        byDay[x.d].money += x.l * price + q * price * 0.2;
+        byDay[x.d].money += x.l * price + q * price * 0.2 + omOf(a.wh + '|' + a.k + '|' + x.d);
       });
       var w = byWh[a.wh] || (byWh[a.wh] = { loss:0, prih:0, money:0, sold:0, disc:0 });
       w.loss += L; w.prih += P; w.money += money; w.sold += S_; w.disc += D20;
     }
     var sKey = a.wh + '|' + sp.name;
     SERIES[sKey] = series.map(function(x){
-      var ot = DSC[a.wh + '|' + a.k + '|' + x.d] || {}, oq = {};
+      var ot = DSC[a.wh + '|' + a.k + '|' + x.d] || {}, oq = {}, om = {};
       Object.keys(ot).forEach(function(t){ oq[t] = r3(ot[t]); });
+      var otm = DSCM[a.wh + '|' + a.k + '|' + x.d] || {};
+      Object.keys(otm).forEach(function(t){ om[t] = Math.round(otm[t]); });
       return { d: x.d, p: r3(x.p), s: r3(x.s), l: r3(x.l), bal: x.bal, st: x.st,
                q20: r3(S20[a.wh + '|' + a.k + '|' + x.d] || 0),
                dost: r3(x.dost || 0), v: r3(x.v), f50: r3(x.f50), sp: r3(x.sp),
-               kach: r3(x.kach), inv: r3(x.inv), dsc: oq,
+               kach: r3(x.kach), inv: r3(x.inv), dsc: oq, dscM: om,
                gp: r3(x.gp || 0), tt: r3(x.raw.tt || 0), po: r3(x.raw.po || 0),
                pin: r3(x.raw.pin || 0), pout: r3(x.raw.pout || 0),
                prig: r3(x.raw.prig || 0), apr: r3(x.raw.apr || 0),
@@ -4401,7 +4426,7 @@ function chrono(dFrom, dTo){
     // всё, что нужно карточке товара и чего нет в строке таблицы
     SERIES[sKey].info = { wh: a.wh, name: sp.name, srok: sp.srok || 0,
       cat: catOf(sp.name), price: price, P: r3(P), S: r3(S_), L: r3(L), D20: r3(D20),
-      V: r3(V), F: r3(F), SP: r3(SP), DS: r3(DS), money: Math.round(money),
+      V: r3(V), F: r3(F), SP: r3(SP), DS: r3(DS), money: Math.round(money), OM: Math.round(OM),
       onShelf: onShelf, stop: stop, ageAvg: ageAvg, zakaz: zakaz, nowDay: nowDay,
       med: med, todo: todo, cut: cut, discShare: discShare, lossShare: lossShare,
       dni: days.length, bestD: bestD, frozen: frozenPos, dSold: dSold };
@@ -4415,9 +4440,10 @@ function chrono(dFrom, dTo){
   });
   CHRONO_DAYS = days.map(function(d){ return byDay[d]; });
   CHRONO_WH = byWh;
+  CHRONO_NOSUM = Object.keys(dscNoSum);
   return rows;
 }
-var CHRONO_DAYS = null, CHRONO_WH = null, SERIES = {};
+var CHRONO_DAYS = null, CHRONO_WH = null, SERIES = {}, CHRONO_NOSUM = [];
 
 /* «2026-08-05, 2026-08-12, 2026-08-13, 2026-08-14» → «05.08, 12–14.08».
    Если известен час выхода в стоп, одиночный день показываем с ним: «05.08 в 18:42». */
@@ -4734,7 +4760,7 @@ function renderDyn(){
   var money = Object.keys(CHRONO.byWh).map(function(w){
     return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸', drill: 'whM|' + w };
   }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
-  if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам', '₸');
+  if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам — непроданное и все скидки', '₸');
 
   // Топ-10 позиций — то же, что в питоновском дашборде, но прямо на телефоне.
   // Уважает галочку «только торты, пироги, пирожные».
@@ -4775,15 +4801,21 @@ function dynParts(filter, dayOnly){
   var out = [];
   Object.keys(SERIES).forEach(function(key){
     var ser = SERIES[key], inf = ser.info; if (!inf || !filter(inf)) return;
-    var L = 0, D = 0, V = 0, F = 0, SP = 0, P = 0;
+    var L = 0, D = 0, V = 0, F = 0, SP = 0, P = 0, qO = 0, mO = 0, T = {};
     ser.forEach(function(x){
       if (dayOnly && x.d !== dayOnly) return;
       L += N(x.l); D += N(x.q20); V += N(x.v); F += N(x.f50); SP += N(x.sp); P += N(x.p);
+      Object.keys(x.dsc || {}).forEach(function(t){
+        var o = T[t] || (T[t] = { q: 0, m: 0 });
+        o.q += N(x.dsc[t]); qO += N(x.dsc[t]);
+        var mm = N((x.dscM || {})[t]); o.m += mm; mO += mm;
+      });
     });
-    if (L < 1e-9 && D < 1e-9) return;
+    if (L < 1e-9 && D < 1e-9 && qO < 1e-9) return;
     var pr = inf.price || 0;
     out.push({ wh: inf.wh, name: inf.name, cat: inf.cat, price: pr, P: P, L: L, D: D, V: V, F: F, SP: SP,
-               mL: L * pr, mD: D * pr * 0.2, m: L * pr + D * pr * 0.2 });
+               qO: qO, mO: mO, T: T,
+               mL: L * pr, mD: D * pr * 0.2, m: L * pr + D * pr * 0.2 + mO });
   });
   return out;
 }
@@ -4805,9 +4837,13 @@ function dynDrill(code){
     title = 'Потери за ' + ru(key); sub = 'Все филиалы';
   }
   parts.sort(function(a, b){ return byQty ? (b.L - a.L) || (b.m - a.m) : (b.m - a.m) || (b.L - a.L); });
-  var T = { L: 0, D: 0, mL: 0, mD: 0, m: 0, P: 0, noPrice: 0 };
+  var T = { L: 0, D: 0, mL: 0, mD: 0, m: 0, P: 0, qO: 0, mO: 0, noPrice: 0, byT: {} };
   parts.forEach(function(x){ T.L += x.L; T.D += x.D; T.mL += x.mL; T.mD += x.mD; T.m += x.m; T.P += x.P;
-                             if (!x.price) T.noPrice++; });
+    T.qO += x.qO; T.mO += x.mO;
+    Object.keys(x.T).forEach(function(t){ var o = T.byT[t] || (T.byT[t] = { q: 0, m: 0 });
+      o.q += x.T[t].q; o.m += x.T[t].m; });
+    if (!x.price && (x.L > 1e-9 || x.D > 1e-9)) T.noPrice++; });
+  var tipy = Object.keys(T.byT).sort(function(a, b){ return T.byT[b].m - T.byT[a].m || T.byT[b].q - T.byT[a].q; });
   function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
   var wh = kind === 'whQ' || kind === 'whM' ? CHRONO.byWh[key] : null;
   var h = '<h3 style="margin:0 0 2px">' + esc(title) + '</h3>' +
@@ -4818,19 +4854,30 @@ function dynDrill(code){
       pc(T.mL, T.m) + ' суммы</span></div>' +
     '<div><span>из них скидка 20%</span><b>' + fmtT(T.mD) + '</b><span>' + fmtQ(T.D) + ' шт · ' +
       pc(T.mD, T.m) + ' суммы</span></div>' +
+    '<div><span>из них другие скидки</span><b>' + fmtT(T.mO) + '</b><span>' + fmtQ(T.qO) + ' шт · ' +
+      pc(T.mO, T.m) + ' суммы</span></div>' +
     (wh ? '<div><span>Доля потерь</span><b>' + pc(wh.loss, wh.prih) + '</b><span>' + fmtQ(wh.loss) +
       ' шт непроданного из ' + fmtQ(wh.prih) + ' пришедших</span></div>' : '') +
     '</div>';
+  if (tipy.length)
+    h += '<div class="hint" style="margin:-4px 0 12px"><b>Другие скидки по типам:</b> ' + tipy.map(function(t){
+      return esc(t) + ' — ' + fmtQ(T.byT[t].q) + ' шт, ' +
+        (T.byT[t].m >= 1 ? fmtT(T.byT[t].m) : (CHRONO_NOSUM.indexOf(t) >= 0 ? 'сумма неизвестна' : '0 ₸'));
+    }).join('; ') + '.</div>';
   if (wh){
     // чем этот филиал отличается от сети — одной фразой, с числами
-    var net = { m: 0, mD: 0, loss: 0, prih: 0 };
-    dynParts(function(inf){ return !isDelivery(inf.wh); }).forEach(function(x){ net.m += x.m; net.mD += x.mD; });
+    var net = { m: 0, mD: 0, mO: 0, loss: 0, prih: 0 };
+    dynParts(function(inf){ return !isDelivery(inf.wh); }).forEach(function(x){
+      net.m += x.m; net.mD += x.mD; net.mO += x.mO; });
     Object.keys(CHRONO.byWh).forEach(function(w){ net.loss += CHRONO.byWh[w].loss; net.prih += CHRONO.byWh[w].prih; });
     var why = [];
     if (T.m > 1e-9 && net.m > 1e-9 && T.mD / T.m > net.mD / net.m + 0.1)
       why.push('<b>' + pc(T.mD, T.m) + ' потерь — скидка 20%</b> (по сети ' + pc(net.mD, net.m) + '). ' +
         'В «Доле потерь» уценка не считается — там только непроданное, поэтому по доле филиал ниже, ' +
         'а по деньгам выше.');
+    if (T.m > 1e-9 && net.m > 1e-9 && T.mO / T.m > net.mO / net.m + 0.1)
+      why.push('<b>' + pc(T.mO, T.m) + ' потерь — другие скидки</b> (по сети ' + pc(net.mO, net.m) + ')' +
+        (tipy.length ? ', больше всего — ' + esc(tipy[0]) : '') + '. В «Доле потерь» их тоже нет.');
     var top3 = parts.slice().sort(function(a, b){ return b.m - a.m; }).slice(0, 3);
     var t3 = 0; top3.forEach(function(x){ t3 += x.m; });
     if (top3.length && T.m > 1e-9)
@@ -4845,7 +4892,9 @@ function dynDrill(code){
     (showWh ? '<th>Филиал</th>' : '') + (showName ? '<th>Позиция</th>' : '') +
     '<th>Цена</th><th>Не продано, шт</th><th>возврат / склад 50% / списание</th>' +
     '<th>Непроданное, ₸<br><small>шт × цена</small></th><th>Скидка 20%, шт</th>' +
-    '<th>Скидка 20%, ₸<br><small>шт × цена × 0,2</small></th><th>Итого, ₸</th><th>Доля</th>' +
+    '<th>Скидка 20%, ₸<br><small>шт × цена × 0,2</small></th>' +
+    '<th>Другие скидки, шт</th><th>Другие скидки, ₸<br><small>без скидки − со скидкой</small></th>' +
+    '<th>Итого, ₸</th><th>Доля</th>' +
     '</tr></thead><tbody>';
   parts.forEach(function(x){
     var v = byQty ? x.L : x.m;
@@ -4857,6 +4906,9 @@ function dynDrill(code){
       '<td data-l="Непроданное, ₸">' + (x.mL ? fmtQ(Math.round(x.mL)) : '') + '</td>' +
       '<td data-l="Скидка 20%, шт">' + (x.D ? fmtQ(x.D) : '') + '</td>' +
       '<td data-l="Скидка 20%, ₸">' + (x.mD ? fmtQ(Math.round(x.mD)) : '') + '</td>' +
+      '<td data-l="Другие скидки, шт">' + (x.qO ? fmtQ(x.qO) +
+        '<br><small style="color:var(--mut)">' + esc(Object.keys(x.T).join(', ')) + '</small>' : '') + '</td>' +
+      '<td data-l="Другие скидки, ₸">' + (x.mO >= 1 ? fmtQ(Math.round(x.mO)) : '') + '</td>' +
       '<td data-l="Итого, ₸"><b>' + (x.m ? fmtQ(Math.round(x.m)) : '') + '</b></td>' +
       '<td data-l="Доля" style="min-width:90px">' + pc(v, byQty ? T.L : T.m) +
         '<div class="drillBar" style="width:' + (max ? Math.round(v / max * 100) : 0) + '%"></div></td></tr>';
@@ -4867,13 +4919,19 @@ function dynDrill(code){
     '<td data-l="Непроданное, ₸"><b>' + fmtQ(Math.round(T.mL)) + '</b></td>' +
     '<td data-l="Скидка 20%, шт"><b>' + fmtQ(T.D) + '</b></td>' +
     '<td data-l="Скидка 20%, ₸"><b>' + fmtQ(Math.round(T.mD)) + '</b></td>' +
+    '<td data-l="Другие скидки, шт"><b>' + fmtQ(T.qO) + '</b></td>' +
+    '<td data-l="Другие скидки, ₸"><b>' + fmtQ(Math.round(T.mO)) + '</b></td>' +
     '<td data-l="Итого, ₸"><b>' + fmtQ(Math.round(T.m)) + '</b></td><td></td></tr></tbody></table></div>';
+  var noSum = tipy.filter(function(t){ return CHRONO_NOSUM.indexOf(t) >= 0; });
   h += '<div class="hint">Формула та же, что в отчёте: непроданное (возврат по сроку + склад 50% + списание) ' +
-    'по полной цене плюс продажи со скидкой 20% — пятая часть цены. Цена — полная, из чеков со скидкой 20% ' +
-    '(сумма без скидки ÷ штуки). ' +
-    'Другие скидки (10%, бонусы, 50% сотрудникам) сюда не входят — они на вкладке «Скидки и потери». ' +
-    'Склад доставки не считается.' +
-    (T.noPrice ? ' <span class="warn">' + T.noPrice + ' поз. без цены — в деньгах не учтены.</span>' : '') + '</div>';
+    'по полной цене, плюс скидка 20% — пятая часть цены, плюс все остальные скидки из чеков ' +
+    '(10%, 50% сотрудникам, бонусы, акции) — сколько недополучили: сумма без скидки минус сумма со скидкой. ' +
+    'Цена — полная, из чеков со скидкой 20% (сумма без скидки ÷ штуки). Склад доставки не считается.' +
+    (T.noPrice ? ' <span class="warn">' + T.noPrice + ' поз. без цены — непроданное и скидка 20% по ним ' +
+      'в деньгах не учтены.</span>' : '') +
+    (noSum.length ? ' <span class="warn">По «' + noSum.map(esc).join('», «') + '» сумма неизвестна: ' +
+      'эти строки загружены старой версией. Загрузите «Продажи по чекам» заново — суммы подтянутся.</span>' : '') +
+    '</div>';
   var m = $('dayModal');
   m.querySelector('.mBody').innerHTML = h;
   m.style.display = 'flex';
@@ -5139,14 +5197,17 @@ function dayTable(key){
 
   // ── деньги ─────────────────────────────────────────
   /* Скидка — недополученная часть цены: 20% от цены за штуку по 20%, по другим
-     типам — их процент (бонусы — это оплата, а не скидка, их не считаем).
+     типам — сколько недополучили по чеку (в старых выгрузках — их процент).
      Потери — полная цена того, что ушло по срокам, на склад 50% и в списание,
      так же, как в карточке сверху. */
   var price = N((ser.info || {}).price);
   if (price > 0){
     C.push(col('Скидки, ₸', function(x){
       var m = N(x.q20) * price * 0.2;
-      types.forEach(function(t){ var pc = discPct(t); if (pc) m += N((x.dsc || {})[t]) * price * pc; });
+      types.forEach(function(t){
+        var mm = (x.dscM || {})[t];
+        if (mm !== undefined) m += N(mm);
+        else { var pc = discPct(t); if (pc) m += N((x.dsc || {})[t]) * price * pc; } });
       return m >= 1 ? fmtNum(Math.round(m)) : '';
     }, 'out'));
     C.push(col('Потери, ₸', function(x){
@@ -5507,7 +5568,9 @@ function progData(cr){
       var md = 0, money = N(x.l) * price + N(x.q20) * price * 0.2;
       Object.keys(x.dsc || {}).forEach(function(t){
         var pc = discPct(t); if (!pc) return;         // бонусы и акции без % — обычный спрос
-        md += N(x.dsc[t]); money += N(x.dsc[t]) * price * pc; });
+        md += N(x.dsc[t]);
+        var mm = (x.dscM || {})[t];
+        money += mm !== undefined ? N(mm) : N(x.dsc[t]) * price * pc; });
       var O = N(x.q20) + md + N(x.l);
       var F = r3(Math.max(0, N(x.s) - N(x.q20) - md));
       var su = Math.max(0, N(x.p) + N(x.pin) - N(x.pout) + N(x.prig));
