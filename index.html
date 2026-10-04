@@ -8257,7 +8257,6 @@ function askSwitch(now, next, apply){
     var c = apiCfg(), nw = p.get('wh'), pg = p.get('p');
     function apply(){
       var c = apiCfg();
-      if (p.get('api')) c.url = p.get('api');
       if (p.get('k'))   c.send = p.get('k');
       if (p.get('check')) c.check = p.get('check');
       if (nw) c.wh = nw;
@@ -8282,7 +8281,11 @@ function askSwitch(now, next, apply){
   }catch(e){}
 })();
 
-function apiUrlOf(){ return S(apiCfg().url || API_URL).replace(/\/+$/, ''); }
+/* Приёмник один — тот, что зашит в странице. Адрес из старых ссылок филиалов
+   (?api=…) раньше запоминался в телефоне навсегда и после смены развёртывания
+   вёл в пустоту: «приёмник ответил 404». Теперь его не слушаем. */
+function apiUrlOf(){ return S(API_URL).replace(/\/+$/, ''); }
+try{ (function(){ var c = apiCfg(); if (c.url){ delete c.url; apiSave(c); } })(); }catch(e){}
 
 /* Приёмников два, и страница понимает оба. Google-таблица проще ставится,
    Cloudflare быстрее — выбирает тот, кто настраивает; сотрудник филиала
@@ -9102,14 +9105,12 @@ function a0SkipBtn_(){
   return A0_OPTIONAL ? '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' : '';
 }
 async function a0Mode(){
+  /* Без входа пускаем, только если приёмник прямо сказал «можно».
+     Любая ошибка — сеть, 404, что угодно — значит «нельзя». */
   try{
     var r = await apiCall('mode', {});
-    A0_OPTIONAL = r && r.required === false;
-  }catch(e){
-    /* Старый приёмник не знает «mode» и отвечает ошибкой — значит, он и вход
-       не требует. А вот сеть не ответила совсем — тогда молчим. */
-    A0_OPTIONAL = !!(e && e.message && !/fetch|network|сеть|Failed/i.test(e.message));
-  }
+    A0_OPTIONAL = !!(r && r.required === false);
+  }catch(e){ A0_OPTIONAL = false; }
   return A0_OPTIONAL;
 }
 
