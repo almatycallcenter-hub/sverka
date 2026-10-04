@@ -9068,7 +9068,7 @@ async function a0Who(){
   if (!t) return null;
   var r = await apiCall('me', {});
   var v = a0Load() || {};
-  v.me = { email: r.email, name: r.name, role: r.role, branch: r.branch, required: !!r.required };
+  v.me = { email: r.email, name: r.name, role: r.role, branch: r.branch, required: !!r.required }; delete v.err;
   a0Save(v);
   return v.me;
 }
@@ -9141,6 +9141,16 @@ function a0Paint(){
   box.hidden = true;
   if (!gate) return;
   if (a0Skipped_()){ gate.style.display = 'none'; a0RenderIfNeeded_(); return; }
+  if (A0_BUSY && (v || /[?&]code=/.test(location.search))){
+    gate.className = 'loginGate';
+    gate.innerHTML = '<div class="gCard">' +
+      '<div class="gLogo">ТТ</div>' +
+      '<h2>Проверяем доступ…</h2>' +
+      '<p>Кіру тексерілуде, бір сәт күтіңіз.</p>' +
+      '</div>';
+    gate.style.display = 'flex';
+    return;
+  }
   if (v){
     /* Auth0 впустил, а приёмник не узнал — почта не на листе «Доступ» и т.п. */
     gate.className = 'loginGate warn';
@@ -9178,7 +9188,15 @@ document.addEventListener('click', function(e){
 
 /* Запуск входа. Всё под try: сломанный вход не должен уносить с собой
    страницу — филиал в этом случае просто работает по ключу, как раньше. */
+/* Пока идёт проверка входа (вернулись из Auth0, спрашиваем приёмник, кто это),
+   «Нет доступа» показывать рано: человек есть в списке, ответ просто ещё не
+   пришёл. В это время — «Проверяем доступ…». */
+var A0_BUSY = true;
 async function a0Boot(){
+  try{ return await a0Boot_(); }
+  finally{ A0_BUSY = false; try{ a0Paint(); }catch(e){} }
+}
+async function a0Boot_(){
   if (!a0On()){ a0Paint(); return ''; }
   var свежий = false;
   try{ свежий = await a0Back(); }
@@ -9188,7 +9206,7 @@ async function a0Boot(){
   try{ me = await a0Who(); }
   catch(e){
     /* Вошли, но приёмник не признал — показываем это, а не молчим. */
-    var v = a0Load(); if (v){ v.me = null; v.err = e.message || ''; a0Save(v); }
+    var v = a0Load(); if (v){ v.me = null; v.err = e.message || 'Приёмник не ответил. Обновите страницу.'; a0Save(v); }
     try{ msg('m2e', 'Auth0 вас впустил, а приёмник — нет: ' + e.message, 'err'); }catch(_){}
   }
   if (me) a0Apply(me);
