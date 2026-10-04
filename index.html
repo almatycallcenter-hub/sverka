@@ -252,6 +252,23 @@
   .hmSum ul{margin:0 0 12px;padding-left:18px}
   .hmSum li{margin:3px 0}
   .hmNote{color:var(--mut);font-size:12.5px}
+  .rkCtl{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:0 0 12px;font-size:13px}
+  .rkCtl select{width:auto;flex:0 0 auto}
+  .rkGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .rkCard{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+  .rkHead{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+  .rkHead b{display:block;font-size:14px}.rkHead span{font-size:11.5px;color:var(--mut)}
+  .rkIc{font-size:22px}
+  .rkList{list-style:none;margin:0;padding:0}
+  .rkList li{display:flex;gap:8px;align-items:center;padding:5px 0;border-bottom:1px solid var(--bd2);font-size:12.5px}
+  .rkList li:last-child{border-bottom:0}
+  .rkN{width:22px;text-align:center;color:var(--mut);flex:0 0 22px}
+  .rkName{flex:1 1 auto;min-width:0;white-space:normal}
+  .rkBar{display:block;height:4px;border-radius:2px;background:var(--mark);margin-top:3px;opacity:.75}
+  .rkQ{text-align:right;font-weight:600;white-space:nowrap}
+  .rkQ small{display:block;font-weight:400;color:var(--mut);font-size:10.5px}
+  .rkLift{margin-top:8px;font-size:12px;color:var(--txt);background:var(--panel);border-radius:8px;padding:6px 8px}
+  .rkLift span{color:var(--okT);font-weight:600}
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;font:14px/1.5 -apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
@@ -700,6 +717,8 @@
       <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
       <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
       <a data-page="chr" data-tab="prog"><span class="ic">🔮</span>Прогноз излишка</a>
+      <a data-page="heat" data-tab="rank"><span class="ic">⏰</span>Что покупают по времени</a>
+      <a data-page="heat" data-tab="qty"><span class="ic">🔥</span>Когда уценивают</a>
       <a data-page="chr" data-tab="norm"><span class="ic">📏</span>Нормы потерь</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
@@ -1184,6 +1203,7 @@
             <button data-h="first">Час первой уценки</button>
             <button data-h="mix">Уценка и полная цена</button>
             <button data-h="arr">Дни от завоза</button>
+            <button data-h="rank">Что покупают по времени</button>
           </div>
           <div class="fbar" id="fbarH">
             <input type="text" id="qH" placeholder="Поиск по продукции">
@@ -6360,7 +6380,7 @@ $('btnRoutes').onclick = function(){
    Подтягиваем их за период перед расчётом; не вышло — считаем по сохранённому. */
 async function flowPull(f, t){
   var c = apiCfg(), me = (typeof a0Me === 'function') ? a0Me() : null;
-  if (!c.read && !(me && me.role === 'бухгалтерия')) return 'нет ключа';
+  if (!c.read && !(me && (me.role === 'бухгалтерия' || me.role === 'ауп'))) return 'нет ключа';
   var j = await Promise.race([
     apiCall('flow', { key: c.read || '', from: f, to: t }),
     new Promise(function(_, no){ setTimeout(function(){ no(new Error('таблица не ответила за 25 с')); }, 25000); })
@@ -6757,7 +6777,7 @@ function heatOptions(){
 
 $('btnHeat').onclick = function(){
   var f = D($('hFrom').value), t = D($('hTo').value);
-  if (!DB.s20.length) return msg('m6','Сначала загрузите отчёт по продажам филиала.','err');
+  if (!DB.s20.length && !DB.full.length) return msg('m6','Сначала загрузите отчёт по продажам по чекам.','err');
   if (!f || !t) return msg('m6','Укажите период.','err');
   if (f > t) return msg('m6','Начало периода позже конца.','err');
   HEAT = { from: f, to: t, prev: prevPeriod(f, t) };
@@ -6833,7 +6853,7 @@ function renderHeat(view){
   $('labAnom').style.display  = (v === 'qty') ? '' : 'none';
   /* Без продаж по полной цене доли считать нельзя — выйдет ровно 100% везде,
      и это соврёт. Лучше честно сказать, какой файл перезагрузить. */
-  if ((v === 'mix' || v === 'arr') && !DB.full.length){
+  if ((v === 'mix' || v === 'arr' || v === 'rank') && !DB.full.length){
     $('heatGrid').innerHTML = '';
     $('heatLeg').innerHTML = '';
     $('kpiH').innerHTML = '';
@@ -6848,6 +6868,7 @@ function renderHeat(view){
   if (v === 'qty')       renderHeatQty(flt);
   else if (v === 'first') renderHeatFirst(flt);
   else if (v === 'mix')   renderHeatMix(flt);
+  else if (v === 'rank')  renderHeatRank(flt);
   else                    renderHeatArr(flt);
 }
 
@@ -7076,6 +7097,147 @@ function renderHeatMix(flt){
     'Продажи со скидкой 50% сюда не входят: это выкуп сотрудниками, а не витрина.</p></div>';
 }
 
+
+/* ── 5. Что покупают по времени дня ─────────────────────────────
+   Рейтинг продукции по частям дня: что берут с утра, в обед, днём, вечером,
+   и что раскупают первым. Спрос считаем по продажам по ПОЛНОЙ цене: вечерняя
+   уценка иначе «поднимает» в рейтинге вечера то, что просто не продали днём.
+   Сырой рейтинг почти везде одинаков — хиты продаются весь день. Поэтому у
+   каждой части дня есть второй список: что продаётся в это время заметно
+   чаще, чем в среднем за день (во сколько раз доля выше обычной). */
+var RANK_SLOTS = [
+  { id: 'm', ru: 'Утро',  kz: 'Таңертең', from: 0,  to: 11, ic: '🌅' },
+  { id: 'l', ru: 'Обед',  kz: 'Түскі ас', from: 11, to: 15, ic: '🍽️' },
+  { id: 'a', ru: 'День',  kz: 'Күндіз',   from: 15, to: 18, ic: '☀️' },
+  { id: 'e', ru: 'Вечер', kz: 'Кешке',    from: 18, to: 24, ic: '🌙' }
+];
+var RANK_DAYS = '', RANK_DISC = false;
+function rankSlot(h){
+  for (var i = 0; i < RANK_SLOTS.length; i++) if (h >= RANK_SLOTS[i].from && h < RANK_SLOTS[i].to) return i;
+  return RANK_SLOTS.length - 1;
+}
+function rankData(from, to, flt){
+  var whOf = whResolver(), gp = gpPositions(), P = {}, slotTot = [0,0,0,0], tot = 0, days = {};
+  function okDay(d){
+    var w = dowMon(d);
+    if (RANK_DAYS === 'wd') return w < 5;
+    if (RANK_DAYS === 'we') return w >= 5;
+    return true;
+  }
+  function add(r, d, raw, q, h){
+    var k = nrm(raw);
+    var p = P[k] || (P[k] = { name: SPR[k] ? SPR[k].name : raw, cat: heatCat(k, raw), s: [0,0,0,0], h: {}, tot: 0 });
+    var i = rankSlot(h);
+    p.s[i] += q; p.tot += q; p.h[h] = (p.h[h] || 0) + q;
+    slotTot[i] += q; tot += q; days[d] = 1;
+  }
+  DB.full.forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to || !okDay(d)) return;
+    if (!heatPass(r, flt, whOf, gp)) return;
+    var q = N(r[4]); if (!q) return;
+    add(r, d, r[2], q, N(r[3]));
+  });
+  if (RANK_DISC) DB.s20.forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to || !okDay(d)) return;
+    if (!heatPass(r, flt, whOf, gp)) return;
+    var q = N(r[3]), tm = S(r[5]); if (!q || !tm) return;
+    add(r, d, r[2], q, +tm.slice(0, 2));
+  });
+  var nDays = Object.keys(days).length || 1;
+  var list = Object.keys(P).map(function(k){
+    var p = P[k];
+    // медиана времени покупки: середина часа, в котором набралась половина продаж
+    var hs = Object.keys(p.h).map(Number).sort(function(a, b){ return a - b; }), acc = 0, med = null;
+    for (var i = 0; i < hs.length; i++){
+      var q = p.h[hs[i]];
+      if (acc + q >= p.tot / 2){ med = hs[i] + (p.tot / 2 - acc) / q; break; }
+      acc += q;
+    }
+    var noon = 0, eve = 0;
+    hs.forEach(function(h){ if (h < 12) noon += p.h[h]; if (h >= 18) eve += p.h[h]; });
+    p.med = med; p.noon = p.tot ? noon / p.tot : 0; p.eve = p.tot ? eve / p.tot : 0;
+    return p;
+  });
+  return { list: list, slotTot: slotTot, tot: tot, nDays: nDays };
+}
+
+function renderHeatRank(flt){
+  var R = rankData(HEAT.from, HEAT.to, flt);
+  HEAT.rank = R;
+  var minQ = Math.max(5, Math.round(R.nDays));     // хотя бы ~1 шт в день, иначе случайность
+  function bar(v, max){ return '<span class="rkBar" style="width:' + (max ? Math.max(3, Math.round(v / max * 100)) : 0) + '%"></span>'; }
+  var medal = ['🥇','🥈','🥉'];
+
+  var ctl = '<div class="rkCtl">' +
+    '<select id="rkDays" class="flt">' +
+      '<option value=""' + (RANK_DAYS === '' ? ' selected' : '') + '>все дни</option>' +
+      '<option value="wd"' + (RANK_DAYS === 'wd' ? ' selected' : '') + '>будни (пн–пт)</option>' +
+      '<option value="we"' + (RANK_DAYS === 'we' ? ' selected' : '') + '>выходные (сб–вс)</option></select>' +
+    '<label><input type="checkbox" id="rkDisc"' + (RANK_DISC ? ' checked' : '') + '> считать и проданное со скидкой 20%</label>' +
+    '</div>';
+
+  var cards = RANK_SLOTS.map(function(sl, i){
+    var st = R.slotTot[i], share = R.tot ? st / R.tot : 0;
+    var top = R.list.filter(function(p){ return p.s[i] > 0; })
+                    .sort(function(a, b){ return b.s[i] - a.s[i]; }).slice(0, 10);
+    var mx = top.length ? top[0].s[i] : 0;
+    // «характерно для этого времени»: доля позиции в этой части дня выше общей
+    var lift = R.list.filter(function(p){ return p.tot >= minQ && p.s[i] >= minQ / 2 && share > 0; })
+      .map(function(p){ return { p: p, x: (p.s[i] / p.tot) / share }; })
+      .filter(function(o){ return o.x >= 1.3; })
+      .sort(function(a, b){ return b.x - a.x; }).slice(0, 5);
+    return '<div class="rkCard"><div class="rkHead"><span class="rkIc">' + sl.ic + '</span><div><b>' + sl.ru +
+        ' · ' + sl.kz + '</b><span>' + (sl.from ? pad(sl.from) + ':00' : 'открытие') + '–' + (sl.to === 24 ? 'закрытия' : pad(sl.to) + ':00') +
+        ' · ' + Math.round(share * 100) + '% продаж дня · ≈ ' + fmtQ(st / R.nDays) + ' шт в день</span></div></div>' +
+      (top.length ? '<ol class="rkList">' + top.map(function(p, j){
+          return '<li><span class="rkN">' + (medal[j] || (j + 1)) + '</span><span class="rkName">' + esc(p.name) +
+            bar(p.s[i], mx) + '</span><span class="rkQ">' + fmtQ(p.s[i]) + '<small>' +
+            Math.round(p.s[i] / p.tot * 100) + '% его продаж</small></span></li>';
+        }).join('') + '</ol>' : '<div class="hint">Продаж в это время нет.</div>') +
+      (lift.length ? '<div class="rkLift"><b>Особенно в это время:</b> ' + lift.map(function(o){
+          return esc(o.p.name) + ' <span>×' + (Math.round(o.x * 10) / 10) + '</span>'; }).join(', ') + '</div>' : '') +
+      '</div>';
+  }).join('');
+
+  var first = R.list.filter(function(p){ return p.tot >= minQ && p.med !== null; })
+                    .sort(function(a, b){ return a.med - b.med; });
+  var tbl = '<div class="hmSum"><h3>Что раскупают первым · Алдымен не алынады</h3>' +
+    '<p class="hmNote" style="margin-top:0">Позиции по времени, к которому продана половина за день: чем раньше, ' +
+    'тем быстрее её разбирают. Такие позиции должны быть на витрине с открытия — если их привозят ' +
+    'вторым рейсом, утренние продажи теряются. Позиции, которые продаются меньше ' + minQ + ' шт за период, не показаны.</p>' +
+    '<div class="wrapT"><table><thead><tr><th>#</th><th class="name">Позиция</th><th>Категория</th>' +
+    '<th>Половина продана к</th><th>До 12:00</th><th>После 18:00</th><th>Всего, шт</th><th>В день</th></tr></thead><tbody>' +
+    first.slice(0, 40).map(function(p, j){
+      return '<tr><td data-l="#">' + (j + 1) + '</td><td class="name" data-l="Позиция">' + esc(p.name) + '</td>' +
+        '<td data-l="Категория">' + esc(p.cat || '') + '</td>' +
+        '<td data-l="Половина продана к"><b>' + hhmm(p.med) + '</b></td>' +
+        '<td data-l="До 12:00">' + Math.round(p.noon * 100) + '%</td>' +
+        '<td data-l="После 18:00">' + Math.round(p.eve * 100) + '%</td>' +
+        '<td data-l="Всего, шт">' + fmtQ(p.tot) + '</td>' +
+        '<td data-l="В день">' + fmtQ(p.tot / R.nDays) + '</td></tr>';
+    }).join('') + '</tbody></table></div>' +
+    (first.length > 40 ? '<p class="hmNote">Показаны первые 40 из ' + first.length + '. Все — в «Скачать Excel».</p>' : '') +
+    '<p class="hmNote">Считается по продажам по полной цене из отчёта по чекам: время — час закрытия чека. ' +
+    (RANK_DISC ? 'Продажи со скидкой 20% тоже включены. ' : 'Продажи со скидкой 20% не входят: вечерняя уценка показывает не спрос, а остаток. ') +
+    'Учитываются фильтры сверху: филиал, категория, поиск, «только продукция с Цеха ГП».</p></div>';
+
+  $('heatGrid').innerHTML = ctl + (R.tot ? '<div class="rkGrid">' + cards + '</div>'
+    : '<div class="hint">За период нет продаж по полной цене под эти фильтры. Если их нет совсем — загрузите ' +
+      'отчёт по продажам по чекам заново.</div>');
+  $('heatLeg').innerHTML = '';
+  var best = R.slotTot.indexOf(Math.max.apply(null, R.slotTot));
+  $('kpiH').innerHTML =
+    '<div><span>Продано по полной цене</span><b>' + fmtQ(R.tot) + ' шт</b><span>за ' + R.nDays + ' дн.</span></div>' +
+    '<div><span>Самое загруженное время</span><b>' + (R.tot ? RANK_SLOTS[best].ru : '—') + '</b><span>' +
+      (R.tot ? Math.round(R.slotTot[best] / R.tot * 100) + '% продаж дня' : '') + '</span></div>' +
+    '<div><span>Раскупают первым</span><b style="font-size:15px">' + (first[0] ? esc(first[0].name) : '—') + '</b><span>' +
+      (first[0] ? 'половина продана к ' + hhmm(first[0].med) : '') + '</span></div>';
+  $('cntH').textContent = 'позиций: ' + R.list.length;
+  $('heatSum').innerHTML = R.tot ? tbl : '';
+  $('rkDays').onchange = function(){ RANK_DAYS = this.value; renderHeat(); };
+  $('rkDisc').onchange = function(){ RANK_DISC = this.checked; renderHeat(); };
+}
+
 /* ── 4. Дни от завоза ───────────────────────────────────────── */
 function renderHeatArr(flt){
   var res = arrivalRows(HEAT.from, HEAT.to, flt);
@@ -7271,6 +7433,13 @@ $('btnHeatXlsx').onclick = function(){
     rows: first.map(function(a){
       return [a.wh].concat(a.avg.map(function(x){ return x === null ? '' : hhmm(x); }))
                    .concat([hhmm(a.mid)]); }) });
+  var RK = HEAT.rank || (DB.full.length ? rankData(HEAT.from, HEAT.to, flt) : null);
+  if (RK && RK.tot > 0) sheets.push({ name: 'Что покупают по времени',
+    head: ['Позиция','Категория','Утро, шт','Обед, шт','День, шт','Вечер, шт','Всего, шт','В день, шт',
+           'Половина продана к','До 12:00, %','После 18:00, %'],
+    rows: RK.list.slice().sort(function(a, b){ return b.tot - a.tot; }).map(function(p){
+      return [p.name, p.cat || ''].concat(p.s.map(r3)).concat([r3(p.tot), r3(p.tot / RK.nDays),
+        p.med === null ? '' : hhmm(p.med), Math.round(p.noon * 100), Math.round(p.eve * 100)]); }) });
   var mix = HEAT.mix || { disc: cur, full: fullGrid(HEAT.from, HEAT.to, flt) };
   if (mix.full.tot > 0) sheets.push({ name: 'Уценка и полная цена',
     head: ['Час','День','Со скидкой','Без скидки','Доля уценки'],
@@ -8772,7 +8941,8 @@ var A0_LS = 'tt_auth_v1';
    не пересобирая страницу. Слово «нет» в поле выключает вход совсем. */
 function a0Cfg(){
   var c = apiCfg(), d = S(c.a0d), k = S(c.a0c);
-  if (d === 'нет' || k === 'нет') return { domain: '', client: '' };
+  /* Выключить вход со страницы больше нельзя: без входа сюда не пускаем. */
+  if (d === 'нет' || k === 'нет'){ d = ''; k = ''; }
   return { domain: d || A0_DOMAIN, client: k || A0_CLIENT };
 }
 /* Вход возможен только на настоящем адресе: из файла на диске Auth0 некуда
@@ -8919,7 +9089,29 @@ function a0Start(me){
 
 /* Спросили один раз за вкладку — не всплываем повторно поверх работы.
    Хранить дольше вкладки незачем: AUTH_REQUIRED=false, ключ и так работает. */
-function a0Skipped_(){ try{ return sessionStorage.getItem('a0_skip') === '1'; }catch(e){ return false; } }
+/* «Продолжить без входа» есть, только пока приёмник сам пускает по ключам
+   (AUTH_REQUIRED = false в Apps Script). Включат вход по списку — кнопка
+   пропадёт сама, править страницу не придётся. Не ответил приёмник — не
+   показываем: лучше лишний раз попросить войти, чем пустить чужого. */
+var A0_OPTIONAL = false;
+function a0Skipped_(){
+  if (!A0_OPTIONAL) return false;
+  try{ return sessionStorage.getItem('a0_skip') === '1'; }catch(e){ return false; }
+}
+function a0SkipBtn_(){
+  return A0_OPTIONAL ? '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' : '';
+}
+async function a0Mode(){
+  try{
+    var r = await apiCall('mode', {});
+    A0_OPTIONAL = r && r.required === false;
+  }catch(e){
+    /* Старый приёмник не знает «mode» и отвечает ошибкой — значит, он и вход
+       не требует. А вот сеть не ответила совсем — тогда молчим. */
+    A0_OPTIONAL = !!(e && e.message && !/fetch|network|сеть|Failed/i.test(e.message));
+  }
+  return A0_OPTIONAL;
+}
 
 /* Реальные данные филиала выводятся на экран только после того, как решение
    принято — вошли или нажали «Продолжить без входа». До этого renderApp()
@@ -8949,26 +9141,25 @@ function a0Paint(){
   box.hidden = true;
   if (!gate) return;
   if (a0Skipped_()){ gate.style.display = 'none'; a0RenderIfNeeded_(); return; }
-
   if (v){
     /* Auth0 впустил, а приёмник не узнал — почта не на листе «Доступ» и т.п. */
     gate.className = 'loginGate warn';
     gate.innerHTML = '<div class="gCard">' +
       '<div class="gLogo">!</div>' +
-      '<h2>Вход не подтверждён</h2>' +
-      '<p>Приёмник вас не узнал. Попробуйте выйти и войти заново.</p>' +
-      '<button class="gBtn" id="btnOutGate">Выйти и попробовать снова</button>' +
-      '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' +
-      '</div>';
+      '<h2>Нет доступа</h2>' +
+      '<p>' + esc(v.err || 'Вашей почты нет в списке доступа.') + '</p>' +
+      '<p style="font-size:13px">Кіру рұқсаты жоқ. Әкімшіге хабарласыңыз.<br>' +
+      'Если вы сотрудник — попросите ответственного добавить вашу почту в список доступа.</p>' +
+      '<button class="gBtn" id="btnOutGate">Выйти и войти другой почтой</button>' +
+      a0SkipBtn_() + '</div>';
   } else {
     gate.className = 'loginGate';
     gate.innerHTML = '<div class="gCard">' +
       '<div class="gLogo">ТТ</div>' +
       '<h2>Тәп-Тәтті</h2>' +
-      '<p>Сверка 20% и списания — войдите, чтобы продолжить</p>' +
-      '<button class="gBtn" id="btnInGate">Войти</button>' +
-      '<button class="gSkip" id="btnSkipGate">Продолжить без входа</button>' +
-      '</div>';
+      '<p>Сверка 20% и списания — только для сотрудников.<br>Кіру тек қызметкерлерге.</p>' +
+      '<button class="gBtn" id="btnInGate">Войти · Кіру</button>' +
+      a0SkipBtn_() + '</div>';
   }
   gate.style.display = 'flex';
 }
@@ -8978,7 +9169,7 @@ document.addEventListener('click', function(e){
   if (t.id === 'btnIn' || t.id === 'btnInGate')
     a0Login().catch(function(err){ alert('Не вышло войти: ' + err.message); });
   if (t.id === 'btnOut' || t.id === 'btnOutGate') a0Logout();
-  if (t.id === 'btnSkipGate'){
+  if (t.id === 'btnSkipGate' && A0_OPTIONAL){
     try{ sessionStorage.setItem('a0_skip', '1'); }catch(e){}
     var g = $('loginGate'); if (g) g.style.display = 'none';
     a0RenderIfNeeded_();
@@ -8997,7 +9188,7 @@ async function a0Boot(){
   try{ me = await a0Who(); }
   catch(e){
     /* Вошли, но приёмник не признал — показываем это, а не молчим. */
-    var v = a0Load(); if (v){ v.me = null; a0Save(v); }
+    var v = a0Load(); if (v){ v.me = null; v.err = e.message || ''; a0Save(v); }
     try{ msg('m2e', 'Auth0 вас впустил, а приёмник — нет: ' + e.message, 'err'); }catch(_){}
   }
   if (me) a0Apply(me);
@@ -9042,7 +9233,7 @@ $('a0Go').onclick = function(){
     zay: ['20-50% жеңілдік өнімдері','что завтра уходит по скидке'],
     rep: ['Сверка',''],
     chr: ['Аналитика','как продаётся и где теряется'],
-    heat:['Тепловая карта','когда уходит продукция со скидкой'],
+    heat:['Продажи по часам','что и когда покупают, когда уценивают'],
     off: ['Списание завтра','что филиал снимает с продажи'],
     in:  ['Приёмка списаний','цех сверяет привезённое со списком'],
     sos: ['Спасатель филиала','у кого залежалось и кто это продаёт'],
@@ -9170,13 +9361,16 @@ $('a0Go').onclick = function(){
   }
   /* нажатие на пункт меню сразу открывает нужную вкладку внутри страницы */
   function openTab(p, tab){
-    var sel = p === 'chr' ? '#tabsC button' : '.tabs button[data-v]';
+    var sel = p === 'chr' ? '#tabsC button' : p === 'heat' ? '#tabsH button' : '.tabs button[data-v]';
     var bs = document.querySelectorAll(sel), hit = null;
     for (var i=0;i<bs.length;i++){
-      var v = bs[i].getAttribute('data-c') || bs[i].getAttribute('data-v');
+      var v = bs[i].getAttribute('data-c') || bs[i].getAttribute('data-v') || bs[i].getAttribute('data-h');
       if (v === tab) hit = bs[i];
     }
     if (hit) hit.click();
+    /* Тепловая карта строится по кнопке; из меню сразу показываем готовое */
+    if (p === 'heat' && typeof HEAT !== 'undefined' && !HEAT && el('hFrom').value &&
+        ((DB.s20 || []).length || (DB.full || []).length)) el('btnHeat').click();
   }
   function badges(){
     try{
@@ -9243,9 +9437,13 @@ $('a0Go').onclick = function(){
      ждём: либо a0Paint() откроет экран входа и разблокирует показ после
      решения, либо (если Auth0 вообще выключен) он снимет блокировку сам. */
   var mustGate = false;
-  try{ mustGate = (typeof a0On === 'function') && a0On() && !a0Skipped_() && !a0Me(); }catch(e){}
+  try{ mustGate = (typeof a0On === 'function') && a0On() && !a0Me(); }catch(e){}
   if (!mustGate) renderApp();
-  else { try{ a0Paint(); }catch(e){} }
+  else {
+    try{ a0Paint(); }catch(e){}
+    /* спросить приёмник, обязателен ли вход, и перерисовать экран входа */
+    try{ a0Mode().then(function(){ if (!a0Me()) a0Paint(); }); }catch(e){}
+  }
 
   /* Разговор с Auth0 идёт по сети — доводим его до конца в фоне и красим
      экран входа под итог. Узнали роль — перешли на её страницу. */
