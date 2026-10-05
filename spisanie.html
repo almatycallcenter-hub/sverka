@@ -186,15 +186,28 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
                    dest: DEST_MEM[nrm(p.dish)] || 'sklad', kg: isKg(p.dish) };
         });
       }
+      /* У «По срокам» и у отдельного акта (ДР, кофе, съёмка…) — свои позиции, свои фото
+         и свой черновик: переключение причины ничего не смешивает. */
       S.bag = { daily: S.items, other: [] };
-      if (!isDaily()){ S.items = S.bag.other; }
+      S.pbag = { daily: { photos: [], note: '' }, other: { photos: [], note: '' } };
+      S.reasonOf = { daily: S.daily, other: '' };
       S.restored = false;
-      var dr = readDraft();
-      if (dr && (dr.photos && dr.photos.length || dr.items && dr.items.length) && !(sent.length && dr.at < Date.now() - 6 * 3600e3)){
-        S.reason = dr.reason || S.reason;
-        S.items = dr.items || S.items; S.bag[modeOf(S.reason)] = S.items;
-        S.photos = dr.photos || []; S.note = dr.note || ''; S.sub = dr.sub || S.sub; S.restored = true;
-      }
+      var last = null;
+      ['daily', 'other'].forEach(function(k){
+        var dr = readDraft(k);
+        if (!dr || !(dr.photos && dr.photos.length || dr.items && dr.items.length)) return;
+        if (k === 'daily' && sent.length && dr.at < Date.now() - 6 * 3600e3) return;
+        var m = modeOf(dr.reason || S.daily);
+        if (dr.items) S.bag[m] = dr.items;
+        S.pbag[m] = { photos: dr.photos || [], note: dr.note || '' };
+        if (m === 'other'){ S.reasonOf.other = dr.reason; S.sub = dr.sub || S.sub; }
+        if (!last || dr.at > last.at) last = dr;
+        S.restored = true;
+      });
+      var cur = modeOf(S.reason);
+      if (last && modeOf(last.reason || S.daily) === 'other') cur = 'other';
+      if (cur === 'other' && S.reasonOf.other) S.reason = S.reasonOf.other;
+      S.items = S.bag[cur]; S.photos = S.pbag[cur].photos; S.note = S.pbag[cur].note;
       if (!isDaily() && !S.sub) S.sub = newSub();
       el('sub').textContent = S.branch + (r.user ? ' · ' + r.user : '');
       render();
@@ -277,8 +290,9 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 
   /* Черновик на телефоне: если приложение закрылось (свайп, звонок, камера
      выгрузила Телеграм из памяти), набранное и фото не пропадают. */
-  function draftKey(){ return 'tt_ph_draft_' + CODE + '_' + S.day; }   // один черновик: последнее, что набирали
-  function readDraft(){ try{ return JSON.parse(localStorage.getItem(draftKey()) || 'null'); }catch(e){ return null; } }
+  /* Два черновика на день: «По срокам» и отдельный акт — каждый сам по себе. */
+  function draftKey(m){ return 'tt_ph_draft_' + CODE + '_' + S.day + ((m || modeOf(S.reason)) === 'other' ? '_x' : ''); }
+  function readDraft(m){ try{ return JSON.parse(localStorage.getItem(draftKey(m)) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
     if (!S.branch) return;
     var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, at: Date.now() };
@@ -320,8 +334,11 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     if ((a = t.getAttribute('data-r'))){
       if (a === S.reason) return;
       var was = modeOf(S.reason), now = modeOf(a);
-      S.bag[was] = S.items; S.reason = a;
-      if (was !== now){ S.items = S.bag[now] || []; S.bag[now] = S.items; }
+      S.bag[was] = S.items; S.pbag[was] = { photos: S.photos, note: S.note }; S.reason = a;
+      if (was !== now){
+        S.items = S.bag[now] || []; S.bag[now] = S.items;
+        var pb = S.pbag[now] || { photos: [], note: '' }; S.photos = pb.photos; S.note = pb.note;
+      }
       if (now === 'other'){ if (!S.sub) S.sub = newSub(); S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
       return render();
     }
@@ -394,7 +411,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
           '<p><button class="add" id="next">＋ Новое списание</button></p></div>';
         /* «Исправить» — та же отправка (заменит себя), «Новое» — чистый лист. */
         el('fix').onclick = function(){ if (r.sub && !isDaily()) S.sub = r.sub; render(); };
-        el('next').onclick = function(){ S.photos = []; S.note = ''; S.sub = ''; S.reason = S.daily; load(); };
+        /* «Новое» после акта (ДР, кофе…) — сразу чистый акт той же причины. */
+        el('next').onclick = function(){ S.photos = []; S.note = ''; S.sub = ''; if (isDaily()) S.reason = S.daily; load(); };
       })
       .catch(function(){ S.busy = false; bar(); alertMsg('Нет связи. Фото остались здесь — нажмите «Отправить» ещё раз.'); });
   });
