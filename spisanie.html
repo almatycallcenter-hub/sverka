@@ -133,8 +133,19 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function rememberDest(d, v){ DEST_MEM[nrm(d)] = v; try{ localStorage.setItem(DKEY, JSON.stringify(DEST_MEM)); }catch(e){} }
 
   var today = new Date(), yest = new Date(); yest.setDate(today.getDate() - 1);
-  var S = { day: iso(today), branch: '', items: [], photos: [], reason: 'По срокам',
-            note: '', catalog: [], reasons: ['По срокам'], sentAt: '', adding: false, q: '', busy: false };
+  var S = { day: iso(today), branch: '', items: [], photos: [], reason: 'По срокам', daily: 'По срокам',
+            note: '', catalog: [], reasons: ['По срокам'], sentAt: '', adding: false, q: '', busy: false,
+            bag: {}, other: [], sub: '' };
+  /* Утреннее «по срокам» — по вечернему списку, одно на день. Остальные
+     причины (7-й кофе, печенье к кофе, ДР…) — отдельные акты в течение дня:
+     свой пустой список и своя «отправка», вторая не стирает первую. */
+  function isDaily(){ return S.reason === S.daily; }
+  function modeOf(r){ return r === S.daily ? 'daily' : 'other'; }
+  function newSub(){ return 'x' + Date.now() + Math.floor(Math.random() * 1000); }
+  function needDest(){ return isDaily() || S.reason === 'По качеству'; }
+  var NOTE_HINT = { 'ДР сотрудника': 'Чей день рождения?', 'Съёмка': 'Для чего съёмка, кто снимал',
+    'Обучение (напитки)': 'Кого обучали', '7-й кофе бесплатно': 'Номер карты или чека (если есть)',
+    'Печенье к кофе': 'К какому заказу / чеку', 'Другое': 'Обязательно: что случилось' };
 
   function api(body){
     body.init = INIT; body.code = CODE;
@@ -154,6 +165,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     api({ action: 'ph_init', day: S.day }).then(function(r){
       if (!r || r.error) return fail((r && r.error) || 'Нет ответа от таблицы.');
       S.branch = r.branch; S.catalog = r.catalog || []; S.reasons = r.reasons || S.reasons;
+      S.daily = r.daily || S.daily; S.other = r.other || [];
       S.sentAt = r.sentAt || '';
       var plan = r.plan || [], sent = r.sent || [];
       var byPlan = {};
@@ -174,12 +186,16 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
                    dest: DEST_MEM[nrm(p.dish)] || 'sklad', kg: isKg(p.dish) };
         });
       }
+      S.bag = { daily: S.items, other: [] };
+      if (!isDaily()){ S.items = S.bag.other; }
       S.restored = false;
       var dr = readDraft();
       if (dr && (dr.photos && dr.photos.length || dr.items && dr.items.length) && !(sent.length && dr.at < Date.now() - 6 * 3600e3)){
-        S.items = dr.items || S.items; S.photos = dr.photos || []; S.reason = dr.reason || S.reason;
-        S.note = dr.note || ''; S.restored = true;
+        S.reason = dr.reason || S.reason;
+        S.items = dr.items || S.items; S.bag[modeOf(S.reason)] = S.items;
+        S.photos = dr.photos || []; S.note = dr.note || ''; S.sub = dr.sub || S.sub; S.restored = true;
       }
+      if (!isDaily() && !S.sub) S.sub = newSub();
       el('sub').textContent = S.branch + (r.user ? ' · ' + r.user : '');
       render();
     }).catch(function(){ fail('Нет связи с таблицей. Проверьте интернет и откройте ещё раз.'); });
@@ -191,13 +207,22 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       [[iso(today), 'Сегодня, ' + ddmm(iso(today))], [iso(yest), 'Вчера, ' + ddmm(iso(yest))]]
         .map(function(d){ return '<button data-day="' + d[0] + '"' + (S.day === d[0] ? ' class="on"' : '') + '>' + d[1] + '</button>'; }).join('') +
       '</div>';
+    h += '<h2>Причина / Себебі</h2><div class="chips">' + S.reasons.map(function(r){
+      return '<button data-r="' + esc(r) + '"' + (S.reason === r ? ' class="on"' : '') + '>' + esc(r) + '</button>'; }).join('') + '</div>';
     if (S.restored)
       h += '<div class="note warn">Восстановили незаконченное — проверьте и нажмите «Отправить».</div>';
-    if (S.sentAt)
-      h += '<div class="note ok">✅ Уже отправлено в ' + esc(S.sentAt) + '. Можно поправить и отправить заново — прежняя запись заменится.</div>';
-    var planned = S.items.filter(function(i){ return i.plan !== null; }).length;
-    if (!planned)
-      h += '<div class="note warn">Вечернего списка списания на ' + ddmm(S.day) + ' нет. Добавьте позиции вручную.</div>';
+    if (isDaily()){
+      if (S.sentAt)
+        h += '<div class="note ok">✅ Уже отправлено в ' + esc(S.sentAt) + '. Можно поправить и отправить заново — прежняя запись заменится.</div>';
+      var planned = S.items.filter(function(i){ return i.plan !== null; }).length;
+      if (!planned)
+        h += '<div class="note warn">Вечернего списка списания на ' + ddmm(S.day) + ' нет. Добавьте позиции вручную.</div>';
+    } else {
+      h += '<div class="note ok">Отдельный акт: добавьте позиции из этого акта. Прошлые отправки за день не заменятся.</div>';
+    }
+    if (S.other.length)
+      h += '<div class="hint">Сегодня уже отправлены: ' + S.other.map(function(o){
+        return esc(o.reason) + (o.time ? ' ' + esc(o.time) : '') + ' (' + o.n + ' поз.)'; }).join(', ') + '</div>';
 
     h += '<h2>Что списали / Есептен шығару</h2><div class="list">';
     if (!S.items.length) h += '<div class="it"><div class="pl">Пока пусто — добавьте позицию ниже.</div></div>';
@@ -206,31 +231,30 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       h += '<div class="it"><div class="l1"><div class="nm">' + esc(it.dish) +
            (it.plan === null ? '' : '<div class="pl">вечером заявляли ' + r3(it.plan) + ' ' + (it.kg ? 'кг' : 'шт') +
              (diff ? ' · <b>не совпадает</b>' : '') + '</div>') +
-           (it.plan === null ? '<div class="pl"><b>не было в вечернем списке</b></div>' : '') +
+           (it.plan === null && isDaily() ? '<div class="pl"><b>не было в вечернем списке</b></div>' : '') +
            '</div>' + (it.plan === null ? '<button class="x" data-del="' + i + '" aria-label="Убрать">✕</button>' : '') + '</div>' +
            '<div class="l2"><div class="st"><button data-m="' + i + '">−</button>' +
            '<input inputmode="decimal" data-q="' + i + '" value="' + r3(it.qty) + '">' +
            '<button data-p="' + i + '">+</button><span class="u">' + (it.kg ? 'кг' : 'шт') + '</span></div>' +
-           '<div class="seg"><button data-d="' + i + ':sklad"' + (it.dest !== 'akt' ? ' class="on"' : '') + '>Склад</button>' +
-           '<button data-d="' + i + ':akt"' + (it.dest === 'akt' ? ' class="on"' : '') + '>Акт</button></div></div></div>';
+           (needDest() ? '<div class="seg"><button data-d="' + i + ':sklad"' + (it.dest !== 'akt' ? ' class="on"' : '') + '>Склад</button>' +
+           '<button data-d="' + i + ':akt"' + (it.dest === 'akt' ? ' class="on"' : '') + '>Акт</button></div>' : '') + '</div></div>';
     });
     h += '</div>';
     if (S.adding){
       h += '<input class="find" id="find" placeholder="Начните писать название…" value="' + esc(S.q) + '" autocomplete="off">' +
            '<div class="list found" id="found" style="margin-top:8px"></div>';
     } else h += '<button class="add" id="add">＋ Добавить позицию</button>';
-    h += '<div class="hint">«Склад» — расходная на склад по срокам, «Акт» — акт списания на месте.</div>';
-
-    h += '<h2>Причина / Себебі</h2><div class="chips">' + S.reasons.map(function(r){
-      return '<button data-r="' + esc(r) + '"' + (S.reason === r ? ' class="on"' : '') + '>' + esc(r) + '</button>'; }).join('') + '</div>';
+    if (needDest()) h += '<div class="hint">«Склад» — расходная на склад по срокам, «Акт» — акт списания на месте.</div>';
 
     h += '<h2>Фото / Сурет</h2><div class="shots">' + S.photos.map(function(p, i){
       return '<div class="shot"><img src="' + p + '" alt=""><button data-dp="' + i + '" aria-label="Удалить фото">✕</button></div>'; }).join('') + '</div>';
     if (S.photos.length < MAX_PHOTOS)
       h += '<button class="cam" id="cam">📷 ' + (S.photos.length ? 'Ещё фото' : 'Сфотографировать') + '</button>';
-    h += '<div class="hint">В кадре — вся продукция и накладная или акт. До утилизации. / Кадрда — барлық өнім және құжат.</div>';
+    h += '<div class="hint">' + (S.reason === '7-й кофе бесплатно'
+      ? 'В кадре — акт списания и карта с отметками. / Кадрда — акт және карта.'
+      : 'В кадре — продукция и накладная или акт. / Кадрда — өнім және құжат.') + '</div>';
 
-    h += '<h2>Комментарий</h2><textarea id="note" placeholder="Необязательно">' + esc(S.note) + '</textarea>';
+    h += '<h2>Комментарий</h2><textarea id="note" placeholder="' + esc(NOTE_HINT[S.reason] || 'Необязательно') + '">' + esc(S.note) + '</textarea>';
     el('app').innerHTML = h;
     if (S.adding) { showFound(); var f = el('find'); f.focus(); f.oninput = function(){ S.q = f.value; showFound(); }; }
     bar();
@@ -245,15 +269,19 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       return '<button data-pick="' + esc(c[0]) + '" data-cat="' + esc(c[1]) + '">' + esc(c[0]) +
              (c[1] ? '<div class="c">' + esc(c[1]) + '</div>' : '') + '</button>'; }).join('')
       : '<button disabled class="c">' + (q.length < 2 ? 'Напишите хотя бы 2 буквы' : 'Не нашла в справочнике') + '</button>';
+    /* Напитки и мелочь вроде «Латте 0,350 л» в справочнике витрины нет —
+       такие позиции вписывают как есть, ровно как в акте. */
+    if (q.length >= 2)
+      el('found').innerHTML += '<button data-pick="' + esc(S.q.trim()) + '" data-cat="">＋ Добавить «' + esc(S.q.trim()) + '» как написано</button>';
   }
 
   /* Черновик на телефоне: если приложение закрылось (свайп, звонок, камера
      выгрузила Телеграм из памяти), набранное и фото не пропадают. */
-  function draftKey(){ return 'tt_ph_draft_' + CODE + '_' + S.day; }
+  function draftKey(){ return 'tt_ph_draft_' + CODE + '_' + S.day; }   // один черновик: последнее, что набирали
   function readDraft(){ try{ return JSON.parse(localStorage.getItem(draftKey()) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
     if (!S.branch) return;
-    var d = { items: S.items, reason: S.reason, note: S.note, at: Date.now() };
+    var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, at: Date.now() };
     try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos }, d))); }
     catch(e){ try{ localStorage.setItem(draftKey(), JSON.stringify(d)); }catch(e2){} }   // фото не влезли — хотя бы числа
     try{ if (TG){ S.photos.length ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
@@ -266,9 +294,11 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var n = S.items.filter(function(i){ return Number(i.qty) > 0; }).length;
     var b = el('go');
     el('bar').classList.remove('hidden');
-    b.disabled = S.busy || !n || !S.photos.length;
+    var noteNeed = S.reason === 'Другое' && !String(S.note || '').trim();
+    b.disabled = S.busy || !n || !S.photos.length || noteNeed;
     b.textContent = S.busy ? 'Отправляю…' :
       !S.photos.length ? 'Добавьте фото' :
+      noteNeed ? 'Напишите комментарий' :
       'Отправить · ' + n + ' поз. · ' + S.photos.length + ' фото';
   }
 
@@ -287,11 +317,18 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     if ((a = t.getAttribute('data-d'))){ var p = a.split(':'); S.items[+p[0]].dest = p[1];
       rememberDest(S.items[+p[0]].dish, p[1]); return render(); }
     if ((a = t.getAttribute('data-del')) !== null){ S.items.splice(+a, 1); return render(); }
-    if ((a = t.getAttribute('data-r'))){ S.reason = a; return render(); }
+    if ((a = t.getAttribute('data-r'))){
+      if (a === S.reason) return;
+      var was = modeOf(S.reason), now = modeOf(a);
+      S.bag[was] = S.items; S.reason = a;
+      if (was !== now){ S.items = S.bag[now] || []; S.bag[now] = S.items; }
+      if (now === 'other'){ if (!S.sub) S.sub = newSub(); S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
+      return render();
+    }
     if ((a = t.getAttribute('data-dp')) !== null){ S.photos.splice(+a, 1); return render(); }
     if ((a = t.getAttribute('data-pick'))){
       S.items.push({ dish: a, cat: t.getAttribute('data-cat') || '', plan: null, qty: isKg(a) ? 0.5 : 1,
-                     dest: DEST_MEM[nrm(a)] || 'sklad', kg: isKg(a) });
+                     dest: needDest() ? (DEST_MEM[nrm(a)] || 'sklad') : 'akt', kg: isKg(a) });
       S.adding = false; S.q = ''; return render();
     }
     if (t.id === 'add'){ S.adding = true; return render(); }
@@ -304,7 +341,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       S.items[+a].qty = isFinite(v) && v >= 0 ? r3(v) : 0; render();
     }
   });
-  document.addEventListener('input', function(e){ if (e.target.id === 'note') S.note = e.target.value; });
+  document.addEventListener('input', function(e){ if (e.target.id === 'note'){ S.note = e.target.value; bar(); } });
 
   /* Фото сжимаем на телефоне: оригинал с камеры весит 3–5 МБ, а по слабому
      интернету филиала шесть таких не уйдут. 1600 точек хватает, чтобы читать
@@ -338,21 +375,26 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 
   el('go').addEventListener('click', function(){
     if (S.busy) return;
-    var items = S.items.filter(function(i){ return Number(i.qty) > 0 || i.plan !== null; })
-      .map(function(i){ return { dish: i.dish, cat: i.cat, qty: r3(i.qty), plan: i.plan, dest: i.dest, kg: i.kg ? 1 : 0 }; });
+    var items = S.items.filter(function(i){ return Number(i.qty) > 0 || (isDaily() && i.plan !== null); })
+      .map(function(i){ return { dish: i.dish, cat: i.cat, qty: r3(i.qty), plan: isDaily() ? i.plan : null,
+                                 dest: needDest() ? i.dest : 'akt', kg: i.kg ? 1 : 0 }; });
     S.busy = true; bar();
-    api({ action: 'ph_send', day: S.day, items: items, photos: S.photos, reason: S.reason, note: S.note })
+    api({ action: 'ph_send', day: S.day, items: items, photos: S.photos, reason: S.reason, note: S.note,
+          sub: isDaily() ? '' : S.sub })
       .then(function(r){
         S.busy = false;
         if (!r || r.error){ bar(); return alertMsg((r && r.error) || 'Не отправилось. Попробуйте ещё раз.'); }
         try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('success'); }catch(e){}
-        dropDraft(); S.photos = [];
+        dropDraft();
         el('bar').classList.add('hidden');
         el('app').innerHTML = '<div class="center"><div class="big">✅</div><h1>Отправлено / Жіберілді</h1>' +
-          '<p>' + esc(S.branch) + ' · ' + ddmm(S.day) + ' · ' + r.saved + ' поз.</p>' +
+          '<p>' + esc(S.branch) + ' · ' + ddmm(S.day) + ' · ' + esc(S.reason) + ' · ' + r.saved + ' поз.</p>' +
           (r.warn ? '<p>' + esc(r.warn) + '</p>' : '<p>Карточка с фото ушла в группу списаний в Телеграме.</p>') +
-          '<p style="margin-top:18px"><button class="add" id="again">Исправить и отправить заново</button></p></div>';
-        el('again').onclick = function(){ load(); };
+          '<p style="margin-top:18px"><button class="add" id="fix">Исправить эту отправку</button></p>' +
+          '<p><button class="add" id="next">＋ Новое списание</button></p></div>';
+        /* «Исправить» — та же отправка (заменит себя), «Новое» — чистый лист. */
+        el('fix').onclick = function(){ if (r.sub && !isDaily()) S.sub = r.sub; render(); };
+        el('next').onclick = function(){ S.photos = []; S.note = ''; S.sub = ''; S.reason = S.daily; load(); };
       })
       .catch(function(){ S.busy = false; bar(); alertMsg('Нет связи. Фото остались здесь — нажмите «Отправить» ещё раз.'); });
   });
