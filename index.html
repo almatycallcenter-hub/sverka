@@ -4201,7 +4201,8 @@ function chrono(dFrom, dTo){
   }
   var FL = DB.flow || {}, ZC = {}, OFG = {}, BK = {}, FACT = {};
   (FL.zc || []).forEach(function(r){ addFlow(ZC, r[1], r[2], r[0], function(o, f){
-    o.v = (o.v || 0) + N(r[3]) * f; o.z = (o.z || 0) + N(r[4]) * f; }); });
+    o.v = (o.v || 0) + N(r[3]) * f; o.z = (o.z || 0) + N(r[4]) * f;
+    o.k = (o.k || 0) + N(r[5]) * f; }); });        // r[5] — заказ колл-центра (лист «КЦ»)
   (FL.off || []).forEach(function(r){ addFlow(OFG, r[1], r[2], r[0], function(o, f){
     o.q = (o.q || 0) + N(r[3]) * f;
     if (r[4] !== '' && r[4] != null){ o.got = (o.got || 0) + N(r[4]) * f; o.has = 1; } }); });
@@ -4446,6 +4447,7 @@ function chrono(dFrom, dTo){
                list: r3(LST[a.wh + '|' + a.k + '|' + x.d] || 0),
                zcV: r3((ZC[a.wh + '|' + a.k + '|' + x.d] || {}).v || 0),
                zcZ: r3((ZC[a.wh + '|' + a.k + '|' + x.d] || {}).z || 0),
+               zcK: r3((ZC[a.wh + '|' + a.k + '|' + x.d] || {}).k || 0),
                offQ: r3((OFG[a.wh + '|' + a.k + '|' + x.d] || {}).q || 0),
                offGot: (OFG[a.wh + '|' + a.k + '|' + x.d] || {}).has
                          ? r3(OFG[a.wh + '|' + a.k + '|' + x.d].got) : null,
@@ -5142,14 +5144,18 @@ function dayTable(key){
     C.push(col('Заявлено на скидку', function(x){ return num(x.list); }));
 
   // ── заявка в цех (снимок «ЗАЯВКИ») ─────────────────
-  var hasZc = has(function(x){ return N(x.zcV) + N(x.zcZ); });
+  var zcSum = function(x){ return N(x.zcV) + N(x.zcZ) + N(x.zcK); };
+  var hasZc = has(zcSum);
   if (hasZc){
     C.push(col('Заявка в цех', function(x){
-      var z = N(x.zcV) + N(x.zcZ); if (z < 1e-9) return '';
-      return num(z, 'витрина ' + r3(N(x.zcV)) + (N(x.zcZ) ? ', заказ ' + r3(N(x.zcZ)) : ''));
+      var z = zcSum(x); if (z < 1e-9) return '';
+      return num(z, 'витрина ' + r3(N(x.zcV)) + (N(x.zcZ) ? ', заказ филиала ' + r3(N(x.zcZ)) : '') +
+                    (N(x.zcK) ? ', заказ колл-центра ' + r3(N(x.zcK)) : ''));
     }, 'in'));
+    if (has(function(x){ return x.zcK; }))
+      C.push(col('из них КЦ', function(x){ return N(x.zcK) ? num(x.zcK, 'заказы колл-центра (лист «КЦ»)') : ''; }));
     C.push(col('Привезли − заявка', function(x){
-      var z = N(x.zcV) + N(x.zcZ); if (z < 1e-9) return '';
+      var z = zcSum(x); if (z < 1e-9) return '';
       var d = r3(N(x.p) - z); if (Math.abs(d) < 1e-9) return '<span class="chip ok">0</span>';
       return '<span class="chip ' + (d < 0 ? 'bad' : 'na') + '" title="' +
              (d < 0 ? 'недовоз' : 'перевоз') + '">' + (d > 0 ? '+' : '') + d + '</span>';
@@ -5265,7 +5271,7 @@ function dayTable(key){
     '«По срокам» — возврат по сроку, «Акт списания» — списание на месте. ' +
     'У перемещений между филиалами наведите на число — будет видно откуда и куда. ' +
     '«Не распознано» — накладная, назначение которой не определилось: догрузите ' +
-    'товарный отчёт за этот день. «Заявка в цех» — снимок таблицы «ЗАЯВКИ» на дату поставки; ' +
+    'товарный отчёт за этот день. «Заявка в цех» — снимок таблицы «ЗАЯВКИ» на дату поставки: витрина, заказы филиала и колл-центра; ' +
     '«Приёмка в цеху» — сколько цех реально принял из заявленного к списанию. ' +
     'Если загружены инвентаризации, остаток по учёту выравнивается по фактическому.</div>' +
     (hasTm
