@@ -229,6 +229,16 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   try{ TG = (window.Telegram && window.Telegram.WebApp &&
              window.Telegram.WebApp.initData !== undefined)
             ? window.Telegram.WebApp : null; }catch(e){}
+  /* Одно мини-приложение бота — две двери. Ссылка с startapp=ph… ведёт не на
+     витрину, а на фото списания: отдельное приложение в BotFather заводить не
+     нужно. Хвост адреса (#tgWebAppData…) переносим как есть — в нём подпись. */
+  try{
+    var sp0 = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
+    if (sp0 && /^ph[0-9a-f]{10}$/.test(sp0)){
+      location.replace('spisanie.html' + location.search + location.hash);
+      return;
+    }
+  }catch(e){}
   if (TG){
     try{
       TG.ready(); TG.expand();
