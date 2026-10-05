@@ -83,6 +83,19 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 .center h1{font-size:22px;margin:14px 0 6px}
 .center p{color:var(--mut);margin:0 0 6px}
 .hidden{display:none!important}
+.chips button.has::after{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--ok);margin-left:8px;vertical-align:middle}
+.fld{display:block;width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;
+  background:var(--card);margin-top:8px;font-size:16px}
+.fld.miss{border-color:#E0B25A}
+.lbl{font-size:13px;color:var(--mut);margin:10px 2px -2px}
+.queue{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:18px 0 0}
+.queue .q{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:15px}
+.queue .q:first-of-type{border-top:0}
+.queue .q b{font-weight:600}
+.queue .q .s{color:var(--mut);white-space:nowrap}
+.queue .q .s.bad{color:var(--warn)}
+.queue button{border:0;background:transparent;padding:0;text-align:left;font:inherit;color:inherit}
 </style>
 </head>
 <body>
@@ -142,7 +155,9 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function isDaily(){ return S.reason === S.daily; }
   function keyOf(r){ return r === S.daily ? 'daily' : r; }   // у каждой причины свой «карман»
   function newSub(){ return 'x' + Date.now() + Math.floor(Math.random() * 1000); }
-  function needDest(){ return isDaily() || S.reason === 'По качеству'; }
+  function needDest(r){ r = r || S.reason; return r === S.daily || r === 'По качеству'; }
+  var DR = 'ДР сотрудника';
+  var POSITIONS = ['Оператор доставки', 'Оператор', 'Продавец', 'Бариста', 'Кассир', 'Курьер', 'Повар', 'Администратор'];
   var NOTE_HINT = { 'ДР сотрудника': 'Чей день рождения?', 'Съёмка': 'Для чего съёмка, кто снимал',
     'Обучение (напитки)': 'Кого обучали', '7-й кофе бесплатно': 'Номер карты или чека (если есть)',
     'Печенье к кофе': 'К какому заказу / чеку', 'Другое': 'Обязательно: что случилось' };
@@ -198,7 +213,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
           try{ localStorage.setItem(draftKey(k), JSON.stringify(dr)); }catch(e){} }
         if (S.pbag[k] && S.pbag[k].at >= dr.at) return;
         if (dr.items) S.bag[k] = dr.items;
-        S.pbag[k] = { photos: dr.photos || [], note: dr.note || '', sub: dr.sub || '', at: dr.at || 0 };
+        S.pbag[k] = { photos: dr.photos || [], note: dr.note || '', sub: dr.sub || '', x: dr.x || null, at: dr.at || 0 };
         if (!last || dr.at > last.at) last = dr;
         S.restored = true;
       }
@@ -221,8 +236,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       [[iso(today), 'Сегодня, ' + ddmm(iso(today))], [iso(yest), 'Вчера, ' + ddmm(iso(yest))]]
         .map(function(d){ return '<button data-day="' + d[0] + '"' + (S.day === d[0] ? ' class="on"' : '') + '>' + d[1] + '</button>'; }).join('') +
       '</div>';
+    var filled = {}; acts().forEach(function(a){ filled[a.r] = 1; });   // точка — в этой причине уже что-то набрано
     h += '<h2>Причина / Себебі</h2><div class="chips">' + S.reasons.map(function(r){
-      return '<button data-r="' + esc(r) + '"' + (S.reason === r ? ' class="on"' : '') + '>' + esc(r) + '</button>'; }).join('') + '</div>';
+      var c = (S.reason === r ? 'on' : '') + (filled[r] ? ' has' : '');
+      return '<button data-r="' + esc(r) + '"' + (c ? ' class="' + c.trim() + '"' : '') + '>' + esc(r) + '</button>'; }).join('') + '</div>';
     if (S.restored)
       h += '<div class="note warn">Восстановили незаконченное — проверьте и нажмите «Отправить».</div>';
     if (isDaily()){
@@ -268,7 +285,24 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       ? 'В кадре — акт списания и карта с отметками. / Кадрда — акт және карта.'
       : 'В кадре — продукция и накладная или акт. / Кадрда — өнім және құжат.') + '</div>';
 
-    h += '<h2>Комментарий</h2><textarea id="note" placeholder="' + esc(NOTE_HINT[S.reason] || 'Необязательно') + '">' + esc(S.note) + '</textarea>';
+    if (S.reason === DR && S.x){
+      /* Чей день рождения — отдельными полями, чтобы в таблице было одинаково у всех филиалов. */
+      h += '<h2>Сотрудник / Қызметкер</h2>' +
+        '<div class="lbl">Должность / Лауазымы</div>' +
+        '<input class="fld" data-x="pos" list="poslist" placeholder="Например: Оператор доставки" value="' + esc(S.x.pos) + '" autocomplete="off">' +
+        '<datalist id="poslist">' + POSITIONS.map(function(p){ return '<option value="' + esc(p) + '">'; }).join('') + '</datalist>' +
+        '<div class="lbl">Имя и фамилия / Аты-жөні</div>' +
+        '<input class="fld' + (S.x.fio.trim() ? '' : ' miss') + '" data-x="fio" placeholder="Например: Жания Байкенова" value="' + esc(S.x.fio) + '" autocomplete="off">' +
+        '<div class="lbl">Дата дня рождения / Туған күні</div>' +
+        '<input class="fld" data-x="date" type="date" value="' + esc(S.x.date || '') + '">';
+    }
+    h += '<h2>Комментарий</h2><textarea id="note" placeholder="' + esc(S.reason === DR ? 'Необязательно' : (NOTE_HINT[S.reason] || 'Необязательно')) + '">' + esc(S.note) + '</textarea>';
+    var q = acts();
+    if (q.length > 1 || (q.length === 1 && q[0].k !== keyOf(S.reason))){
+      h += '<div class="queue"><h2 style="margin:4px 0 6px">Уйдёт одной кнопкой / Бір батырмамен</h2>' + q.map(function(a){
+        return '<button class="q" data-r="' + esc(a.r) + '" style="display:flex;width:100%"><b>' + esc(a.r) + '</b><span class="s' + (a.problem ? ' bad' : '') + '">' +
+          (a.problem || (a.n + ' поз. · ' + a.photos.length + ' фото')) + '</span></button>'; }).join('') + '</div>';
+    }
     el('app').innerHTML = h;
     if (S.adding) { showFound(); var f = el('find'); f.focus(); f.oninput = function(){ S.q = f.value; showFound(); }; }
     bar();
@@ -297,35 +331,40 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   /* Достать из кармана позиции, фото, комментарий и номер отправки выбранной причины. */
   function useReason(r){
     var k = keyOf(r), pb = S.pbag[k] || (S.pbag[k] = { photos: [], note: '', sub: '' });
+    S.x = pb.x || (r === DR ? { fio: '', pos: '', date: S.day } : null);
     S.reason = r; S.items = S.bag[k] || (S.bag[k] = []);
     S.photos = pb.photos; S.note = pb.note; S.sub = pb.sub || '';
     if (k !== 'daily'){ if (!S.sub) S.sub = pb.sub = newSub();
       S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
   }
   function stash(){ var k = keyOf(S.reason);
-    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, at: Date.now() }; }
+    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, at: Date.now() }; }
   function readDraft(m){ try{ return JSON.parse(localStorage.getItem(draftKey(m)) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
-    if (!S.branch) return;
-    var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, at: Date.now() };
+    if (!S.branch || S.busy) return;   // во время отправки не пишем — иначе отправленное вернётся черновиком
+    var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, x: S.x, at: Date.now() };
     try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos }, d))); }
     catch(e){ try{ localStorage.setItem(draftKey(), JSON.stringify(d)); }catch(e2){} }   // фото не влезли — хотя бы числа
     try{ if (TG){ S.photos.length ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
   }
-  function dropDraft(){ try{ localStorage.removeItem(draftKey()); }catch(e){}
+  function dropDraft(k){ try{ localStorage.removeItem(draftKey(k)); }catch(e){}
     try{ TG && TG.disableClosingConfirmation(); }catch(e){} }
 
   function bar(){
     saveDraft();
-    var n = S.items.filter(function(i){ return Number(i.qty) > 0; }).length;
     var b = el('go');
     el('bar').classList.remove('hidden');
-    var noteNeed = S.reason === 'Другое' && !String(S.note || '').trim();
-    b.disabled = S.busy || !n || !S.photos.length || noteNeed;
-    b.textContent = S.busy ? 'Отправляю…' :
-      !S.photos.length ? 'Добавьте фото' :
-      noteNeed ? 'Напишите комментарий' :
-      'Отправить · ' + n + ' поз. · ' + S.photos.length + ' фото';
+    var q = acts(), bad = q.filter(function(a){ return a.problem; });
+    var cur = q.filter(function(a){ return a.k === keyOf(S.reason); })[0];
+    b.disabled = S.busy || !q.length || bad.length > 0;
+    b.textContent = S.busy ? 'Отправляю…' + (S.prog ? ' ' + S.prog : '') :
+      !q.length ? 'Добавьте фото' :
+      bad.length ? (bad[0].k === keyOf(S.reason) ? ({ 'нет фото': 'Добавьте фото', 'нет позиций': 'Добавьте позицию', 'нет комментария': 'Напишите комментарий',
+                                                   'не указан сотрудник': 'Впишите сотрудника' })[bad[0].problem]
+                                                 : bad[0].r + ': ' + bad[0].problem) :
+      q.length === 1 && cur ? 'Отправить · ' + cur.n + ' поз. · ' + cur.photos.length + ' фото' :
+      q.length === 1 ? 'Отправить «' + q[0].r + '» · ' + q[0].n + ' поз.' :
+      'Отправить всё · ' + q.length + ' ' + (q.length < 5 ? 'акта' : 'актов');
   }
 
   function step(i, sign){
@@ -364,7 +403,12 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       S.items[+a].qty = isFinite(v) && v >= 0 ? r3(v) : 0; render();
     }
   });
-  document.addEventListener('input', function(e){ if (e.target.id === 'note'){ S.note = e.target.value; bar(); } });
+  document.addEventListener('input', function(e){
+    if (e.target.id === 'note'){ S.note = e.target.value; bar(); }
+    var x = e.target.getAttribute && e.target.getAttribute('data-x');
+    if (x && S.x){ S.x[x] = e.target.value;
+      if (x === 'fio') e.target.classList.toggle('miss', !e.target.value.trim()); bar(); }
+  });
 
   /* Фото сжимаем на телефоне: оригинал с камеры весит 3–5 МБ, а по слабому
      интернету филиала шесть таких не уйдут. 1600 точек хватает, чтобы читать
@@ -396,31 +440,79 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 
   function alertMsg(m){ try{ if (TG) return TG.showAlert(m); }catch(e){} alert(m); }
 
+  /* Всё, что набрано по разным причинам, — список актов к отправке.
+     «По срокам» попадает в список, только когда к нему добавили фото. */
+  function acts(){
+    stash();
+    var out = [];
+    S.reasons.forEach(function(r){
+      var k = keyOf(r), pb = S.pbag[k], items = S.bag[k] || [];
+      if (!pb) return;
+      var n = items.filter(function(i){ return Number(i.qty) > 0; }).length;
+      var photos = pb.photos || [];
+      if (!photos.length && (k === 'daily' || !n)) return;
+      var x = pb.x, note = String(pb.note || '').trim();
+      var problem = !photos.length ? 'нет фото' : !n ? 'нет позиций' :
+        (r === 'Другое' && !note) ? 'нет комментария' :
+        (r === DR && !(x && String(x.fio || '').trim())) ? 'не указан сотрудник' : '';
+      out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', problem: problem });
+    });
+    return out;
+  }
+  function fullNote(a){
+    if (a.r !== DR || !a.x) return a.note;
+    var d = a.x.date ? a.x.date.split('-').reverse().join('.') : '';
+    var who = [String(a.x.pos || '').trim(), String(a.x.fio || '').trim()].filter(Boolean).join(' — ');
+    return who + (d ? ', ДР ' + d : '') + (a.note ? '\n' + a.note : '');
+  }
+  function payload(a){
+    var daily = a.k === 'daily';
+    var items = a.items.filter(function(i){ return Number(i.qty) > 0 || (daily && i.plan !== null); })
+      .map(function(i){ return { dish: i.dish, cat: i.cat, qty: r3(i.qty), plan: daily ? i.plan : null,
+                                 dest: needDest(a.r) ? i.dest : 'akt', kg: i.kg ? 1 : 0 }; });
+    return { action: 'ph_send', day: S.day, items: items, photos: a.photos, reason: a.r, note: fullNote(a),
+             sub: daily ? '' : (a.sub || newSub()) };
+  }
+
   el('go').addEventListener('click', function(){
     if (S.busy) return;
-    var items = S.items.filter(function(i){ return Number(i.qty) > 0 || (isDaily() && i.plan !== null); })
-      .map(function(i){ return { dish: i.dish, cat: i.cat, qty: r3(i.qty), plan: isDaily() ? i.plan : null,
-                                 dest: needDest() ? i.dest : 'akt', kg: i.kg ? 1 : 0 }; });
-    S.busy = true; bar();
-    api({ action: 'ph_send', day: S.day, items: items, photos: S.photos, reason: S.reason, note: S.note,
-          sub: isDaily() ? '' : S.sub })
-      .then(function(r){
-        S.busy = false;
-        if (!r || r.error){ bar(); return alertMsg((r && r.error) || 'Не отправилось. Попробуйте ещё раз.'); }
-        try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('success'); }catch(e){}
-        dropDraft();
-        el('bar').classList.add('hidden');
-        el('app').innerHTML = '<div class="center"><div class="big">✅</div><h1>Отправлено / Жіберілді</h1>' +
-          '<p>' + esc(S.branch) + ' · ' + ddmm(S.day) + ' · ' + esc(S.reason) + ' · ' + r.saved + ' поз.</p>' +
-          (r.warn ? '<p>' + esc(r.warn) + '</p>' : '<p>Карточка с фото ушла в группу списаний в Телеграме.</p>') +
-          '<p style="margin-top:18px"><button class="add" id="fix">Исправить эту отправку</button></p>' +
-          '<p><button class="add" id="next">＋ Новое списание</button></p></div>';
-        /* «Исправить» — та же отправка (заменит себя), «Новое» — чистый лист. */
-        el('fix').onclick = function(){ if (r.sub && !isDaily()) S.sub = r.sub; render(); };
-        /* «Новое» после акта (ДР, кофе…) — сразу чистый акт той же причины. */
-        el('next').onclick = function(){ S.photos = []; S.note = ''; S.sub = ''; S.keep = S.reason; load(); };
-      })
-      .catch(function(){ S.busy = false; bar(); alertMsg('Нет связи. Фото остались здесь — нажмите «Отправить» ещё раз.'); });
+    var q = acts();
+    if (!q.length || q.some(function(a){ return a.problem; })) return bar();
+    var done = [], i = 0;
+    S.busy = true; S.prog = ''; bar();
+    /* По одному акту за раз: у каждого своя карточка в группе и свои строки в таблице. */
+    (function next(){
+      if (i >= q.length) return finish();
+      if (q.length > 1){ S.prog = (i + 1) + ' из ' + q.length; bar(); }
+      var a = q[i];
+      api(payload(a)).then(function(r){
+        if (!r || r.error) throw new Error((r && r.error) || 'Не отправилось.');
+        done.push({ a: a, r: r }); dropDraft(a.k); i++; next();
+      }).catch(function(err){
+        S.busy = false; S.prog = '';
+        var msg = (err && err.message && err.message !== 'Failed to fetch') ? err.message : 'Нет связи.';
+        if (!done.length){ bar(); return alertMsg(msg + ' Всё осталось здесь — нажмите «Отправить» ещё раз.'); }
+        alertMsg('Ушло: ' + done.map(function(d){ return d.a.r; }).join(', ') + '. Не ушло: ' +
+          q.slice(i).map(function(a){ return a.r; }).join(', ') + ' — ' + msg + ' Нажмите «Отправить» ещё раз.');
+        S.keep = q[i].r; load();
+      });
+    })();
+    function finish(){
+      S.busy = false; S.prog = '';
+      try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('success'); }catch(e){}
+      try{ TG && TG.disableClosingConfirmation(); }catch(e){}
+      el('bar').classList.add('hidden');
+      var one = done.length === 1 ? done[0] : null;
+      el('app').innerHTML = '<div class="center"><div class="big">✅</div><h1>Отправлено / Жіберілді</h1>' +
+        '<p>' + esc(S.branch) + ' · ' + ddmm(S.day) + '</p>' +
+        done.map(function(d){ return '<p>' + esc(d.a.r) + ' · ' + d.r.saved + ' поз.' + (d.r.warn ? ' · ' + esc(d.r.warn) : '') + '</p>'; }).join('') +
+        '<p>' + (done.length > 1 ? 'Карточки ушли' : 'Карточка ушла') + ' в группу списаний в Телеграме.</p>' +
+        (one ? '<p style="margin-top:18px"><button class="add" id="fix">Исправить эту отправку</button></p>' : '<p style="margin-top:18px"></p>') +
+        '<p><button class="add" id="next">＋ Новое списание</button></p></div>';
+      /* «Исправить» — та же отправка (заменит себя), «Новое» — чистый лист той же причины. */
+      if (one) el('fix').onclick = function(){ useReason(one.a.r); if (one.r.sub && one.a.k !== 'daily') S.sub = one.r.sub; render(); };
+      el('next').onclick = function(){ S.keep = one ? one.a.r : S.reason; load(); };
+    }
   });
 
   load();
