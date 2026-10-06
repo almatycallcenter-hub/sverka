@@ -699,8 +699,8 @@ html.tgm #whoBox, html.tgm #btnOut{display:none!important}
 html.tgm .nav .navsec, html.tgm .nav a:not([data-page="zay"]):not([data-page="off"]){display:none!important}
 .tgTabs{display:none}
 html.tgm .tgTabs{display:flex;gap:8px;padding:10px 12px 0;position:sticky;top:0;z-index:5;background:var(--bg,#f6f6f4)}
-html.tgm .tgTabs button{flex:1;padding:11px 8px;border-radius:12px;border:1px solid #d9d6cf;background:#fff;
-  font:inherit;font-size:14.5px;font-weight:600;color:inherit}
+html.tgm .tgTabs button{flex:1;padding:11px 8px;border-radius:12px;border:1px solid var(--bd,#d9d6cf);
+  background:var(--card,#fff);font:inherit;font-size:14.5px;font-weight:600;color:var(--txt,#111)}
 html.tgm .tgTabs button.on{background:#1f2d4d;border-color:#1f2d4d;color:#fff}
 </style>
 <script>
@@ -1454,6 +1454,10 @@ document.addEventListener('DOMContentLoaded', function(){
 <script>
 /* ═════════ встроенные справочник и синонимы ═════════ */
 window.onerror = function(m, src, ln, col){
+  /* «Script error.» без строки — ошибка чужого скрипта (например, телеграмовского
+     telegram-web-app.js): браузер прячет подробности. К странице она отношения
+     не имеет, а красная плашка пугает филиал — молчим. */
+  if (/^Script error\.?$/i.test(String(m)) && !ln) return true;
   try{
     // скрипты явно работают — значит «файл открыт в предпросмотре» здесь неправда
     var w = document.getElementById('jsWarn');
@@ -9689,20 +9693,56 @@ html.tgm .tgL #zBook{padding:0 12px}
     el('tgB-' + w).addEventListener('change', function(e){
       var i = e.target.closest('input[data-q]'); if (i) row(w, i.getAttribute('data-q'));
     });
-    el('tgS-' + w).addEventListener('click', function(){
-      var s = el(W[w].send); if (!s || s.disabled) return;
-      this.disabled = true; this.textContent = 'Отправляю…';
+    el('tgS-' + w).addEventListener('click', sendAll);
+  }
+
+  /* Одна кнопка на оба списка: скидку и списание отправляем подряд, каждый тем же
+     путём, что и раньше (своя проверка, свой ответ). Уже отправленное и не
+     изменённое второй раз не шлём. */
+  var BUSY = '';
+  function isSent(w){ return picked(w).length && V[w].sent === sig(w) + '@' + el(W[w].day).value; }
+  function pending(){ return ['zay', 'off'].filter(function(w){ return picked(w).length && !isSent(w); }); }
+  function sendAll(){
+    if (BUSY) return;
+    var q = pending(); if (!q.length) return;
+    var okAll = true;
+    (function next(i){
+      if (i >= q.length){
+        BUSY = ''; barAll();
+        try{ document.querySelector('.bodyArea').scrollTop = 0; }catch(_){}
+        try{ TGM.W.HapticFeedback.notificationOccurred(okAll ? 'success' : 'error'); }catch(_){}
+        return;
+      }
+      var w = q[i], s = el(W[w].send);
+      if (!s || s.disabled){ okAll = false; return next(i + 1); }
+      BUSY = w; barAll();
       s.click();
-      var me = this, t0 = Date.now();
+      var t0 = Date.now();
       (function wait(){
         if (s.disabled && Date.now() - t0 < 60000) return setTimeout(wait, 300);
         var m = el(W[w].msg);
         if (m && /\bok\b/.test(m.className)) V[w].sent = sig(w) + '@' + el(W[w].day).value;
-        bar(w);
-        try{ document.querySelector('.bodyArea').scrollTop = 0; }catch(_){}
-        try{ if (m && /\bok\b/.test(m.className)) TGM.W.HapticFeedback.notificationOccurred('success');
-             else if (m && /\berr\b/.test(m.className)) TGM.W.HapticFeedback.notificationOccurred('error'); }catch(_){}
+        else {
+          /* Не ушло — показываем этот список с его сообщением и дальше не идём. */
+          okAll = false; BUSY = ''; tab(w); barAll();
+          try{ document.querySelector('.bodyArea').scrollTop = 0; }catch(_){}
+          try{ TGM.W.HapticFeedback.notificationOccurred('error'); }catch(_){}
+          return;
+        }
+        next(i + 1);
       })();
+    })(0);
+  }
+  function tab(w){
+    var b = document.querySelector('.tgTabs button[data-tgp="' + w + '"]'); if (b) b.click();
+  }
+  function barAll(){ bar(); }
+  /* На вкладках — сколько набрано в каждом списке и отправлен ли он. */
+  function tabs(){
+    ['zay', 'off'].forEach(function(w){
+      var b = document.querySelector('.tgTabs button[data-tgp="' + w + '"]'); if (!b) return;
+      var n = picked(w).length;
+      b.textContent = (w === 'zay' ? '🏷️ Скидка' : '🗑 Списание') + (n ? ' · ' + n + (isSent(w) ? ' ✓' : '') : '');
     });
   }
 
@@ -9788,15 +9828,23 @@ html.tgm .tgL #zBook{padding:0 12px}
     el('tgB-' + w).innerHTML = h;
     bar(w);
   }
-  function bar(w){
+  /* Кнопка одна на оба списка — перерисовываем обе нижние панели и вкладки разом. */
+  function bar(){ paint('zay'); paint('off'); tabs(); }
+  function paint(w){
     var b = el('tgS-' + w); if (!b) return;
-    var p = picked(w), bx = W[w].box(), s = el(W[w].send);
-    if (s && s.disabled){ b.disabled = true; b.textContent = 'Отправляю…'; return; }
-    b.disabled = !p.length;
-    var done = p.length && V[w].sent && V[w].sent === sig(w) + '@' + el(W[w].day).value;
-    b.classList.toggle('done', !!done);
-    b.textContent = !p.length ? 'Добавьте позиции'
-      : done ? '✅ Отправлено · ' + cntText(p, bx) : 'Отправить · ' + cntText(p, bx);
+    if (BUSY){ b.disabled = true; b.classList.remove('done');
+               b.textContent = 'Отправляю ' + (BUSY === 'zay' ? 'скидку…' : 'списание…'); return; }
+    var nz = picked('zay').length, no = picked('off').length, q = pending();
+    b.disabled = !q.length;
+    b.classList.toggle('done', !!(nz + no) && !q.length);
+    if (!(nz + no)){ b.textContent = 'Добавьте позиции'; return; }
+    if (!q.length){
+      b.textContent = '✅ Отправлено' + (nz ? ' · скидка ' + nz : '') + (no ? ' · списание ' + no : '');
+      return;
+    }
+    if (q.length === 2){ b.textContent = 'Отправить всё · скидка ' + nz + ' · списание ' + no; return; }
+    var w1 = q[0], n1 = picked(w1).length;
+    b.textContent = (w1 === 'zay' ? 'Отправить скидку · ' : 'Отправить списание · ') + n1 + ' ' + pozic(n1);
   }
   function render(w){
     if (!el('tgL-' + w)) build(w);
