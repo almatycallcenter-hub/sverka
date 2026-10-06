@@ -5495,6 +5495,40 @@ function dayTable(key){
   return h;
 }
 
+/* Плитки над вкладками — с тем же фильтром, что и вкладка: выбрали ТТ4 и
+   торты — плитки тоже про ТТ4 и торты. На вкладках кухни свои плитки,
+   общие (про витрину) там только мешают — прячем. */
+function kpiCRender(view){
+  var box = $('kpiC'); if (!box || !CHRONO) return;
+  if (view === 'kx' || view === 'kxc' || view === 'route'){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  var F = fltState(), on = fltAny(F);
+  var pos = (CHRONO.pos || []).filter(function(r){ return fltPass(r[P_WH], r[P_CAT], r[P_DISH], F); });
+  var pair = (CHRONO.pair || []).filter(function(r){
+    if (F.r && r[0] !== F.r && routeOf(r[2]) !== F.r && routeOf(r[6]) !== F.r) return false;
+    if (F.w && r[2] !== F.w && r[6] !== F.w) return false;
+    if (F.c && dishCat(r[1]) !== F.c) return false;
+    return !F.q || nrm(r[1]).indexOf(F.q) >= 0 || nrm(r[2]).indexOf(F.q) >= 0 || nrm(r[6]).indexOf(F.q) >= 0;
+  });
+  var L = 0, M = 0, whL = {};
+  pos.forEach(function(r){ L += N(r[P_LOSS]); M += N(r[P_MONEY]); whL[r[P_WH]] = (whL[r[P_WH]] || 0) + N(r[P_LOSS]); });
+  var worst = '', wv = -1;
+  Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
+  var eco = 0; pair.forEach(function(r){ eco += N(r[11]); });
+  var noPrice = pos.length > 0 && M < 1e-9;
+  var tag = on ? '<span style="color:var(--acc,#2563eb)">по фильтру</span>' : '';
+  box.innerHTML =
+    '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b>' + tag + '</div>' +
+    '<div><span>Потери всего</span><b style="color:var(--badT)">' + Math.round(L) + ' шт</b>' + tag + '</div>' +
+    '<div><span>Потери в деньгах</span>' + (noPrice
+      ? '<b style="font-size:15px;color:var(--mut)">нет цен</b><span>загрузите «Продажи со скидкой 20%» заново</span>'
+      : '<b style="color:var(--badT)">' + fmtT(M) + '</b>' + tag) + '</div>' +
+    '<div><span>Больше всех теряет</span><b style="font-size:15px">' + (worst ? esc(worst) +
+      '<span style="font-size:12px;color:var(--mut)"> · ' + Math.round(wv) + ' шт</span>' : '—') + '</b></div>' +
+    '<div><span>Пар для перемещения</span><b style="color:var(--okT)">' + pair.length +
+      '</b><span>' + (noPrice ? 'экономия — нет цен' : 'экономия ' + fmtT(eco)) + '</span></div>';
+}
+
 function renderChrono(view){
   if (view) CHR_VIEW = view; view = CHR_VIEW;
   var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
@@ -5510,6 +5544,7 @@ function renderChrono(view){
   $('labMove').style.display =
     (view === 'pos' || view === 'trio' || view === 'dyn') ? '' : 'none';
   if (view !== 'route') fillFilters(view);
+  kpiCRender(view);
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
   if (view === 'loss'){ renderLoss(); return; }
@@ -6998,24 +7033,8 @@ $('btnChrono').onclick = async function(){
                min: minP, from: f, to: t,
                days: CHRONO_DAYS, byWh: CHRONO_WH };
     $('cardChr').style.display = '';
-    var L = 0, M = 0, whL = {};
-    pos.forEach(function(r){ L += N(r[P_LOSS]); M += N(r[P_MONEY]); whL[r[P_WH]] = (whL[r[P_WH]]||0) + N(r[P_LOSS]); });
-    var worst = '', wv = -1;
-    Object.keys(whL).forEach(function(w){ if (whL[w] > wv){ wv = whL[w]; worst = w; } });
-    var eco = 0; CHRONO.pair.forEach(function(r){ eco += N(r[11]); });
-    // цены берутся из отчёта по продажам 20%; в старых сохранённых выгрузках суммы нет
-    var noPrice = pos.length > 0 && M < 1e-9;
-    $('kpiC').innerHTML =
-      '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b></div>' +
-      '<div><span>Потери всего</span><b style="color:var(--badT)">' + Math.round(L) + ' шт</b></div>' +
-      '<div><span>Потери в деньгах</span>' + (noPrice
-        ? '<b style="font-size:15px;color:var(--mut)">нет цен</b>' +
-          '<span>загрузите «Продажи со скидкой 20%» заново</span>'
-        : '<b style="color:var(--badT)">' + fmtT(M) + '</b>') + '</div>' +
-      '<div><span>Больше всех теряет</span><b style="font-size:15px">' + worst +
-        '<span style="font-size:12px;color:var(--mut)"> · ' + Math.round(wv) + ' шт</span></b></div>' +
-      '<div><span>Пар для перемещения</span><b style="color:var(--okT)">' + CHRONO.pair.length +
-        '</b><span>' + (noPrice ? 'экономия — нет цен' : 'экономия ' + fmtT(eco)) + '</span></div>';
+    var L = 0, M = 0;
+    pos.forEach(function(r){ L += N(r[P_LOSS]); M += N(r[P_MONEY]); });
     var keep = CHR_VIEW || 'pos';
     document.querySelectorAll('#tabsC button').forEach(function(x){
       x.classList.toggle('on', x.dataset.c === keep); });
