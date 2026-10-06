@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F7F5F0">
+<title>Кухня: заготовки — Тәп-Тәтті</title>
+<style>
+/* Пекарь у стола, руки в муке. Крупно, одно действие — одна кнопка,
+   главное — внизу под большим пальцем. Те же цвета, что у фото списания. */
+:root{
+  --bg:#F7F5F0;--card:#FFFFFF;--ink:#14110C;--mut:#6B6559;--line:#E6E3DD;
+  --ok:#2C6B3F;--okBg:#EDF5EF;--warn:#8A5A00;--warnBg:#FFF6E0;--bad:#9B2C2C;--badBg:#FBEDED;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.45;padding:0 0 110px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+.top{background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;position:sticky;top:0;z-index:5}
+.top h1{margin:0;font-size:18px;font-weight:700;line-height:1.25}
+.top .sub{font-size:14px;color:var(--mut)}
+main{max-width:760px;margin:0 auto;padding:12px 16px 0}
+h2{font-size:15px;font-weight:700;margin:18px 2px 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em}
+.tabs{display:flex;gap:8px;margin:4px 0 6px}
+.tabs button{flex:1;padding:11px 10px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:16px;font-weight:600}
+.tabs button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:0 0 auto;padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px}
+.chips button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.note{border-radius:12px;padding:12px 14px;font-size:15px;margin:10px 0}
+.note.ok{background:var(--okBg);color:#1d4d31;border:1px solid #BFE0CB}
+.note.warn{background:var(--warnBg);color:var(--warn);border:1px solid #F0D9A6}
+.note.bad{background:var(--badBg);color:var(--bad);border:1px solid #E7C4C4}
+.note button{display:block;width:100%;margin-top:10px;padding:12px;border-radius:10px;border:0;background:var(--ok);color:#fff;font-weight:700}
+.list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.it{padding:12px 14px;border-top:1px solid var(--line)}
+.it:first-child{border-top:0}
+.l1{display:flex;align-items:flex-start;gap:10px}
+.nm{flex:1;min-width:0;line-height:1.3;overflow-wrap:break-word}
+.nm small{display:block;font-size:13px;color:var(--mut);margin-top:3px}
+.left{flex:0 0 auto;font-size:13px;font-weight:700;padding:4px 9px;border-radius:999px;white-space:nowrap}
+.left.ok{background:var(--okBg);color:var(--ok)}
+.left.warn{background:var(--warnBg);color:var(--warn)}
+.left.bad{background:var(--badBg);color:var(--bad)}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts button{flex:1;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:15px}
+.acts .w{border-color:#E7C4C4;color:var(--bad);font-weight:600}
+.pick{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:var(--card);padding:12px 14px;border-top:1px solid var(--line)}
+.pick:first-child{border-top:0}
+.box{flex:0 0 26px;height:26px;border-radius:8px;border:2px solid #CFCAC0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff}
+.pick.on .box{background:var(--ok);border-color:var(--ok)}
+.pick .h{flex:0 0 auto;font-size:13px;color:var(--mut)}
+.qty{display:flex;gap:8px;align-items:center;padding:0 14px 12px 52px;background:var(--card)}
+.qty input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-size:15px}
+.find,.fld{display:block;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.row label{font-size:14px;color:var(--mut)}
+.row input[type=time]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px}
+.row .now{padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px}
+.hint{font-size:14px;color:var(--mut);margin:8px 2px 0}
+.add{display:block;width:100%;margin-top:10px;padding:13px;border-radius:12px;border:1px dashed #CFCAC0;background:transparent;font-size:16px}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+.bar button{display:block;width:100%;max-width:728px;margin:0 auto;padding:16px;border:0;border-radius:14px;background:var(--ok);color:#fff;font-size:17px;font-weight:700}
+.bar button[disabled]{background:#B9B4AA}
+.center{text-align:center;padding:48px 20px}
+.center .big{font-size:52px;line-height:1}
+.center h1{font-size:22px;margin:14px 0 6px}
+.center p{color:var(--mut);margin:0 0 6px}
+.hidden{display:none!important}
+.empty{padding:22px 14px;text-align:center;color:var(--mut);font-size:15px}
+.toast{position:fixed;left:16px;right:16px;bottom:96px;max-width:728px;margin:0 auto;background:var(--ink);color:#fff;padding:12px 14px;border-radius:12px;font-size:15px;z-index:9}
+</style>
+</head>
+<body>
+<div class="top"><h1>🥚 Кухня — заготовки</h1><div class="sub" id="sub">Загрузка… / Жүктелуде…</div></div>
+<main id="app"><div class="center"><p>Загрузка… / Жүктелуде…</p></div></main>
+<div class="bar hidden" id="bar"><button id="go" disabled>Отметить</button></div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+(function(){
+  'use strict';
+  var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
+  var TG = null;
+  try{ TG = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null; }catch(e){}
+  if (TG){ try{ TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes(); }catch(e){} }
+  var INIT = TG ? TG.initData : '';
+  var CODE = TG && TG.initDataUnsafe ? (TG.initDataUnsafe.start_param || '') : '';
+
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function nrm(s){ return String(s == null ? '' : s).replace(/[ёЁ]/g,'е').replace(/\s+/g,' ').trim().toLowerCase(); }
+  function p2(n){ return (n < 10 ? '0' : '') + n; }
+  function dm(t){ var d = new Date(t); return p2(d.getDate()) + '.' + p2(d.getMonth() + 1) + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+  function hm(t){ var d = new Date(t); return p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+  function srok(h){ return h < 48 ? h + ' ч' : (h % 24 ? h + ' ч' : (h / 24) + ' дн'); }
+  /* Часы телефона могут отставать — считаем «сейчас» по часам таблицы. */
+  var SKEW = 0;
+  function now(){ return Date.now() + SKEW; }
+
+  /* Что пекарь отмечает чаще — наверх, «Обычно у вас». Только на этом телефоне. */
+  var FKEY = 'tt_kx_freq', FREQ = {};
+  try{ FREQ = JSON.parse(localStorage.getItem(FKEY) || '{}'); }catch(e){}
+  function bump(n){ FREQ[n] = (FREQ[n] || 0) + 1; try{ localStorage.setItem(FKEY, JSON.stringify(FREQ)); }catch(e){} }
+
+  var S = { branch: '', user: '', terms: [], open: [], order: null, tab: 'now', grp: '', q: '',
+            sel: {}, made: '', busy: false, custom: null };
+
+  function api(body){
+    body.init = INIT; body.code = CODE;
+    return fetch(API, { method: 'POST', body: JSON.stringify(body) }).then(function(r){ return r.json(); });
+  }
+  function fail(msg){
+    el('bar').classList.add('hidden'); el('sub').textContent = '';
+    el('app').innerHTML = '<div class="center"><div class="big">⚠️</div><h1>Не получилось открыть</h1><p>' + esc(msg) + '</p></div>';
+  }
+  function toast(t){
+    var d = document.createElement('div'); d.className = 'toast'; d.textContent = t;
+    document.body.appendChild(d); setTimeout(function(){ d.remove(); }, 2600);
+  }
+  function take(r){
+    if (r.now) SKEW = r.now - Date.now();
+    if (r.open) S.open = r.open;
+  }
+
+  function load(){
+    if (!INIT) return fail('Откройте из Телеграма — кнопкой «🥚 Кухня: заготовки» в группе своего филиала.');
+    api({ action: 'kx_init' }).then(function(r){
+      if (!r || r.error) return fail((r && r.error) || 'Нет ответа от таблицы.');
+      S.branch = r.branch; S.user = r.user || ''; S.terms = r.terms || []; S.order = r.order; take(r);
+      el('sub').textContent = S.branch + (S.user ? ' · ' + S.user : '');
+      if (!S.open.length) S.tab = 'add';
+      render();
+    }).catch(function(){ fail('Нет связи с таблицей. Проверьте интернет и откройте ещё раз.'); });
+  }
+
+  /* ─── что осталось до конца срока ─── */
+  function left(x){
+    var ms = x.until - now(), m = Math.round(Math.abs(ms) / 60000);
+    var txt = m < 60 ? m + ' мин' : m < 48 * 60 ? Math.round(m / 60) + ' ч' : Math.round(m / 1440) + ' дн';
+    if (ms <= 0) return { cls: 'bad', t: 'срок вышел' + (m >= 5 ? ' ' + txt + ' назад' : '') };
+    return { cls: ms <= 3 * 3600e3 ? 'warn' : 'ok', t: 'ещё ' + txt };
+  }
+
+  function render(){
+    var h = '';
+    if (S.order){
+      h += S.order.done
+        ? '<div class="note ok">✅ ' + esc(S.order.kind) + ' заявка на сырьё отмечена: ' + esc(S.order.done.who) +
+          (S.order.done.at ? ', ' + esc(S.order.done.at) : '') + '.</div>'
+        : '<div class="note warn"><b>Сегодня ' + esc(S.order.kind.toLowerCase()) + ' заявка на сырьё.</b> ' +
+          'Дайте её в iiko web — привезут ' + esc(S.order.come) + '.<br>Бүгін iiko web-те шикізатқа тапсырыс.' +
+          '<button id="ord">Заявку в iiko отправила ✓</button></div>';
+    }
+    var late = S.open.filter(function(x){ return x.until <= now(); }).length;
+    h += '<div class="tabs"><button data-t="now" class="' + (S.tab === 'now' ? 'on' : '') + '">Сейчас' +
+         (S.open.length ? ' (' + S.open.length + ')' : '') + (late ? ' ⚠️' : '') + '</button>' +
+         '<button data-t="add" class="' + (S.tab === 'add' ? 'on' : '') + '">＋ Отметить</button></div>';
+    h += S.tab === 'now' ? nowHtml() : addHtml();
+    el('app').innerHTML = h;
+    bind();
+    bar();
+  }
+
+  function nowHtml(){
+    if (!S.open.length)
+      return '<div class="list"><div class="empty">Открытых заготовок нет.<br>Нарезали, вскрыли, разморозили — отметьте во вкладке «＋ Отметить».</div></div>';
+    return '<h2>В холодильнике · Тоңазытқышта</h2><div class="list">' + S.open.map(function(x){
+      var L = left(x);
+      return '<div class="it"><div class="l1"><div class="nm"><b>' + esc(x.n) + '</b>' + (x.qty ? ' · ' + esc(x.qty) : '') +
+        '<small>сделали ' + dm(x.made) + ' · годно до ' + dm(x.until) + (x.who ? ' · ' + esc(x.who) : '') + '</small></div>' +
+        '<span class="left ' + L.cls + '">' + esc(L.t) + '</span></div>' +
+        '<div class="acts"><button class="w" data-c="waste" data-id="' + esc(x.id) + '">🗑 Списала</button>' +
+        '<button data-c="used" data-id="' + esc(x.id) + '">✔︎ Закончилось</button></div></div>';
+    }).join('') + '</div><p class="hint">«Списала» — выбросили по сроку. «Закончилось» — израсходовали до конца срока.</p>';
+  }
+
+  function groups(){
+    var g = [];
+    S.terms.forEach(function(t){ if (g.indexOf(t.g) < 0) g.push(t.g); });
+    return g;
+  }
+  function shown(){
+    var q = nrm(S.q);
+    var list = S.terms.filter(function(t){
+      if (q) return nrm(t.n).indexOf(q) >= 0;
+      if (S.grp === '★') return FREQ[t.n];
+      return !S.grp || t.g === S.grp;
+    });
+    if (S.grp === '★') list.sort(function(a, b){ return (FREQ[b.n] || 0) - (FREQ[a.n] || 0); });
+    return list;
+  }
+  function addHtml(){
+    var hasFreq = S.terms.some(function(t){ return FREQ[t.n]; });
+    if (S.grp === '' && hasFreq && !S.q && !S.touched) S.grp = '★';
+    var h = '<div class="row"><label>Сделали в</label>' +
+      '<input type="time" id="made" value="' + esc(S.made || hm(now())) + '">' +
+      '<button class="now" id="nowBtn">сейчас</button></div>' +
+      '<input class="find" id="q" placeholder="Поиск: помидор, тесто, сыр…" value="' + esc(S.q) + '">' +
+      '<div class="chips" style="margin-top:8px">' +
+      (hasFreq ? '<button data-g="★" class="' + (S.grp === '★' ? 'on' : '') + '">★ Обычно у вас</button>' : '') +
+      '<button data-g="" class="' + (S.grp === '' ? 'on' : '') + '">Все</button>' +
+      groups().map(function(g){ return '<button data-g="' + esc(g) + '" class="' + (S.grp === g ? 'on' : '') + '">' + esc(g) + '</button>'; }).join('') +
+      '</div>';
+    var list = shown(), sel = Object.keys(S.sel);
+    if (sel.length)
+      h += '<p class="hint" style="margin:0 2px 8px">Выбрано: <b>' + sel.map(function(n){
+        return esc(n) + (S.sel[n].qty ? ' (' + esc(S.sel[n].qty) + ')' : ''); }).join(', ') + '</b></p>';
+    h += '<div class="list">' + (list.length ? list.map(function(t){
+      var on = !!S.sel[t.n];
+      return '<button class="pick' + (on ? ' on' : '') + '" data-n="' + esc(t.n) + '"><span class="box">' + (on ? '✓' : '') + '</span>' +
+        '<span class="nm">' + esc(t.n) + (t.w ? '<small>' + esc(t.w) + '</small>' : '') + '</span><span class="h">' + srok(t.h) + '</span></button>' +
+        (on ? '<div class="qty"><input data-q="' + esc(t.n) + '" placeholder="Сколько (необязательно): 2 кг, 1 банка…" value="' + esc(S.sel[t.n].qty || '') + '"></div>' : '');
+    }).join('') : '<div class="empty">Ничего не нашлось.</div>') + '</div>';
+    if (S.custom)
+      h += '<div class="list" style="margin-top:10px;padding:12px 14px">' +
+        '<input class="fld" id="cN" placeholder="Что заготовили" value="' + esc(S.custom.n) + '">' +
+        '<div class="row"><label>Срок</label><select id="cH" class="fld" style="width:auto">' +
+        [8, 12, 24, 36, 48, 72, 120, 168].map(function(x){ return '<option value="' + x + '"' + (x === S.custom.h ? ' selected' : '') + '>' + srok(x) + '</option>'; }).join('') +
+        '</select></div><p class="hint" style="margin-top:0">Нет в списке — скажите администратору, он добавит в лист «Кухня — сроки».</p></div>';
+    else h += '<button class="add" id="cAdd">＋ Другое — нет в списке</button>';
+    return h;
+  }
+
+  function picked(){
+    var out = Object.keys(S.sel).map(function(n){
+      var t = S.terms.filter(function(x){ return x.n === n; })[0];
+      return t ? { n: n, h: t.h, qty: S.sel[n].qty || '' } : null;
+    }).filter(Boolean);
+    if (S.custom && S.custom.n.trim()) out.push({ n: S.custom.n.trim(), h: S.custom.h, qty: '' });
+    return out;
+  }
+  function bar(){
+    var b = el('go'), add = S.tab === 'add', n = add ? picked().length : 0;
+    el('bar').classList.toggle('hidden', !add);
+    b.disabled = !n || S.busy;
+    b.textContent = S.busy ? 'Отправляю…' : n ? 'Отметить: ' + n : 'Выберите, что заготовили';
+  }
+  function madeMs(){
+    var v = (el('made') && el('made').value) || S.made;
+    if (!v) return now();
+    var p = v.split(':'), d = new Date(now()); d.setHours(+p[0], +p[1], 0, 0);
+    if (d.getTime() > now() + 5 * 60000) d.setDate(d.getDate() - 1);   // «23:30» после полуночи — это вчера
+    return d.getTime();
+  }
+
+  function bind(){
+    document.querySelectorAll('.tabs button').forEach(function(b){
+      b.onclick = function(){ S.tab = this.dataset.t; render(); }; });
+    var o = el('ord');
+    if (o) o.onclick = function(){
+      o.disabled = true; o.textContent = 'Отмечаю…';
+      api({ action: 'kx_order' }).then(function(r){
+        if (!r || r.error){ o.disabled = false; o.textContent = 'Заявку в iiko отправила ✓'; return toast((r && r.error) || 'Не получилось'); }
+        S.order.done = r.done; render(); toast('Отмечено — больше не напомню');
+      }).catch(function(){ o.disabled = false; o.textContent = 'Заявку в iiko отправила ✓'; toast('Нет связи'); });
+    };
+    document.querySelectorAll('.acts button').forEach(function(b){
+      b.onclick = function(){
+        var id = this.dataset.id, st = this.dataset.c, row = this.closest('.it');
+        row.style.opacity = .5; row.querySelectorAll('button').forEach(function(x){ x.disabled = true; });
+        api({ action: 'kx_close', ids: [id], st: st }).then(function(r){
+          if (!r || r.error){ row.style.opacity = 1; row.querySelectorAll('button').forEach(function(x){ x.disabled = false; });
+                              return toast((r && r.error) || 'Не получилось'); }
+          take(r); render(); toast(st === 'waste' ? 'Списано' : 'Отмечено: закончилось');
+        }).catch(function(){ row.style.opacity = 1; toast('Нет связи'); });
+      };
+    });
+    document.querySelectorAll('.chips button').forEach(function(b){
+      b.onclick = function(){ S.grp = this.dataset.g; S.touched = true; S.q = ''; render(); }; });
+    document.querySelectorAll('.pick').forEach(function(b){
+      b.onclick = function(){ var n = this.dataset.n;
+        if (S.sel[n]) delete S.sel[n]; else S.sel[n] = { qty: '' };
+        render(); }; });
+    document.querySelectorAll('.qty input').forEach(function(i){
+      i.oninput = function(){ S.sel[this.dataset.q].qty = this.value; }; });
+    var q = el('q');
+    if (q) q.oninput = function(){
+      S.q = this.value; S.touched = true;
+      var pos = this.selectionStart; render();
+      var nq = el('q'); nq.focus(); try{ nq.setSelectionRange(pos, pos); }catch(e){}
+    };
+    var m = el('made');
+    if (m) m.onchange = function(){ S.made = this.value; };
+    var nb = el('nowBtn');
+    if (nb) nb.onclick = function(){ S.made = ''; render(); };
+    var ca = el('cAdd');
+    if (ca) ca.onclick = function(){ S.custom = { n: '', h: 24 }; render(); el('cN').focus(); };
+    var cn = el('cN');
+    if (cn){ cn.oninput = function(){ S.custom.n = this.value; bar(); };
+             el('cH').onchange = function(){ S.custom.h = +this.value; }; }
+  }
+
+  el('go').onclick = function(){
+    var items = picked(); if (!items.length || S.busy) return;
+    var made = madeMs();
+    items.forEach(function(x){ x.made = made; });
+    S.busy = true; bar();
+    api({ action: 'kx_add', items: items }).then(function(r){
+      S.busy = false;
+      if (!r || r.error){ bar(); return toast((r && r.error) || 'Не получилось'); }
+      items.forEach(function(x){ bump(x.n); });
+      take(r); S.sel = {}; S.custom = null; S.made = ''; S.q = ''; S.tab = 'now';
+      render(); toast('Отмечено: ' + r.added + '. Бот напомнит за час до конца срока.');
+      try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('success'); }catch(e){}
+    }).catch(function(){ S.busy = false; bar(); toast('Нет связи — попробуйте ещё раз'); });
+  };
+
+  /* Время «ещё 2 ч» тикает — раз в минуту перерисовываем вкладку «Сейчас». */
+  setInterval(function(){ if (S.tab === 'now' && S.open.length && !S.busy) render(); }, 60000);
+  load();
+})();
+</script>
+</body>
+</html>

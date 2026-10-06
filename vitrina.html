@@ -242,6 +242,10 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       location.replace('index.html' + location.search + location.hash);
       return;
     }
+    if (sp0 && /^kx[0-9a-f]{10}$/.test(sp0)){   // кухня: сроки заготовок
+      location.replace('kuhnya.html' + location.search + location.hash);
+      return;
+    }
   }catch(e){}
   if (TG){
     try{

@@ -125,6 +125,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   /* Кнопка «Отправить списки» ведёт в то же мини-приложение с кодом ls… —
      это вечерние списки на странице филиала, а не фото. */
   if (/^ls[0-9a-f]{10}$/.test(CODE)){ location.replace('index.html' + location.search + location.hash); return; }
+  /* Кнопка «🥚 Кухня: заготовки» — код kx…, страница пекарей. */
+  if (/^kx[0-9a-f]{10}$/.test(CODE)){ location.replace('kuhnya.html' + location.search + location.hash); return; }
 
   /* Весовые позиции — те же, что на странице филиала и в витрине. */
   var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
