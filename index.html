@@ -1204,6 +1204,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <button data-c="prog">Прогноз излишка</button>
             <button data-c="norm">Нормы потерь</button>
             <button data-c="kx">Завтраки и пицца</button>
+            <button data-c="kxc">Хронология кухни</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
@@ -5184,9 +5185,10 @@ function fillFilters(view){
     var whK = whResolver();
     all = (DB.kxs || []).map(function(r){ return { wh: whK(r[1]), kind: kxKind(r[3], r[2]) }; });
   }
+  if (view === 'kxc') all = kxcData(CHRONO.from, CHRONO.to).map(function(x){ return { wh: x.wh, kind: x.kind }; });
   if (view === 'pos' && $('onlyMove').checked)
     all = all.filter(function(r){ return movableCat(r[P_CAT]); });
-  var get = view === 'kx'
+  var get = (view === 'kx' || view === 'kxc')
     ? { rt: function(r){ return routeOf(r.wh); }, wh: function(r){ return r.wh; }, cat: function(r){ return r.kind; } }
     : view === 'trio'
     ? { rt: function(r){ return r[0]; }, wh: function(r){ return r[4]; }, cat: function(r){ return r[2]; } }
@@ -5514,6 +5516,7 @@ function renderChrono(view){
   if (view === 'prog'){ renderProg(); return; }
   if (view === 'norm'){ renderNorms(); return; }
   if (view === 'kx'){ renderKx(); return; }
+  if (view === 'kxc'){ renderKxChrono(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -5771,6 +5774,169 @@ function renderKx(){
   h += '<div class="hint">Дальше сюда добавится сверка «приготовили — продали — списали» по акту ' +
     'приготовления и расход сырья по тех.карте — для этого нужны тех.карты пиццы и акт приготовления из iiko.</div>';
   o.innerHTML = h;
+}
+
+/* ═════════ Хронология кухни ═════════
+   То же, что «Позиции» и карточка по дням, но для завтраков и пиццы. Берём из
+   товарной ведомости: акт приготовления — это приход кухни, реализация —
+   продажи, списание и возврат по сроку — потери, инвентаризация — расхождение.
+   Пиццу iiko ведёт целыми (кусок = 0,125), а продают кусками, поэтому здесь
+   она в кусках: 1 пицца = 8 кусков. Час последней продажи и скидки — из
+   «Продаж завтраков и пиццы». */
+var KX_SLICES = 8;
+function kxPizzaKey(n){
+  var s = nrm(n);
+  if (!/пицц/.test(s)) return '';
+  s = s.replace(/пицца|\(\s*кусок\s*\)|кусок|\d+\s*см|\bс\b/g, ' ').replace(/курицей/, 'курица').replace(/\s+/g, ' ').trim();
+  return s;
+}
+function kxIsItem(n, sold){
+  var s = nrm(n);
+  if (/коробк|упаковк|пакет/.test(s)) return false;
+  return !!(sold[s] || kxPizzaKey(s) || /\(завтрак\)/.test(s));
+}
+function kxcData(from, to){
+  var sold = {}; (DB.kxs || []).forEach(function(r){ sold[nrm(r[3])] = 1; });
+  var acc = {};
+  DB.mov.forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to) return;
+    if (!kxIsItem(r[2], sold) || isClosed(r[1])) return;
+    var pz = !!kxPizzaKey(r[2]), f = pz ? KX_SLICES : 1, q = Math.abs(N(r[4])) * f, kind = r[3];
+    var key = r[1] + '|' + r[2];
+    var a = acc[key] || (acc[key] = { wh: r[1], name: r[2], pz: pz, days: {} });
+    var x = a.days[d] || (a.days[d] = { in: 0, s: 0, l: 0, sp: 0, v: 0, inv: 0, mv: 0 });
+    if (kind === 'prigotovlenie' || kind === 'prihod_gp' || kind === 'prihod_tort' || kind === 'prihod_other') x.in += q;
+    else if (kind === 'realiz') x.s += q;
+    else if (kind === 'spisanie'){ x.l += q; x.sp += q; }
+    else if (kind === 'vozvrat_srok' || kind === 'perem_50'){ x.l += q; x.v += q; }
+    else if (kind === 'inv_in') x.inv += q;
+    else if (kind === 'inv_out') x.inv -= q;
+    else if (kind === 'perem_in' || (kind === 'other' && r[6] === 'in')) x.mv += q;
+    else if (kind === 'perem_out' || kind === 'perem_dost' || kind === 'ap_rashod' || kind === 'vozvrat_kach' ||
+             (kind === 'other' && r[6] === 'out')) x.mv -= q;
+  });
+  /* продажи по чекам: час последней продажи, сколько со скидкой, цена */
+  var whOf = whResolver(), SL = {}, PRICE = {};
+  (DB.kxs || []).forEach(function(r){
+    var d = r[0]; if (d < from || d > to) return;
+    var wh = whOf(r[1]), pk = kxPizzaKey(r[3]), slice = /кусок/i.test(r[3]);
+    var f = pk && !slice ? KX_SLICES : 1;            // целая пицца = 8 кусков
+    var id = pk ? 'pz:' + pk : nrm(r[3]);
+    var k = wh + '|' + id + '|' + d, o = SL[k] || (SL[k] = { q: 0, disc: 0, hr: -1 });
+    o.q += N(r[6]) * f; if (r[5]) o.disc += N(r[6]) * f;
+    if (N(r[4]) > o.hr) o.hr = N(r[4]);
+    var p = PRICE[id] || (PRICE[id] = { q: 0, s0: 0 }); p.q += N(r[6]) * f; p.s0 += N(r[7]);
+  });
+  var days = [], dd = from; while (dd <= to){ days.push(dd); dd = shift(dd, 1); }
+  var rows = Object.keys(acc).map(function(key){
+    var a = acc[key], id = a.pz ? 'pz:' + kxPizzaKey(a.name) : nrm(a.name);
+    var pr = PRICE[id] && PRICE[id].q ? PRICE[id].s0 / PRICE[id].q : 0;
+    var T = { in: 0, s: 0, l: 0, sp: 0, v: 0, inv: 0, mv: 0, disc: 0 }, cum = 0, minCum = 0, ser = [], hrs = [];
+    days.forEach(function(d){
+      var x = a.days[d] || { in: 0, s: 0, l: 0, sp: 0, v: 0, inv: 0, mv: 0 };
+      var sl = SL[a.wh + '|' + id + '|' + d];
+      ['in','s','l','sp','v','inv','mv'].forEach(function(f){ T[f] += x[f]; });
+      if (sl) T.disc += sl.disc;
+      cum += x.in - x.s - x.l + x.inv + x.mv;
+      if (cum < minCum) minCum = cum;
+      if (sl && sl.hr >= 0 && x.s > 0) hrs.push(sl.hr);
+      ser.push({ d: d, x: x, cum: cum, hr: sl ? sl.hr : -1, disc: sl ? sl.disc : 0 });
+    });
+    var open = Math.max(0, -minCum);
+    ser.forEach(function(z){ z.bal = r3(open + z.cum); });
+    hrs.sort(function(p, q){ return p - q; });
+    var share = T.in > 1e-9 ? T.l / T.in : 0, invShare = T.in > 1e-9 ? -T.inv / T.in : 0;
+    var todo = '';
+    if (share >= 0.1) todo = 'много списаний — готовить меньше';
+    else if (invShare >= 0.05) todo = 'недостача по инвентаризации — проверить';
+    else if (T.in > 1e-9 && hrs.length >= 3 && hrs[Math.floor(hrs.length / 2)] <= 17 && share < 0.03)
+      todo = 'заканчивается рано — можно готовить больше';
+    return { wh: a.wh, name: a.name, pz: a.pz, kind: kxKind(a.name, ''), T: T, ser: ser, pr: pr,
+             money: T.l * pr, share: share, end: ser.length ? ser[ser.length - 1].bal : 0,
+             hr: hrs.length ? hrs[Math.floor(hrs.length / 2)] : null, todo: todo, nd: days.length };
+  }).filter(function(x){ return x.T.in > 1e-9 || x.T.s > 1e-9; });
+  return rows;
+}
+
+var KXC = null;
+function renderKxChrono(){
+  var o = $('outC'), F = fltState();
+  $('cntC').textContent = '';
+  var all = kxcData(CHRONO.from, CHRONO.to);
+  var rows = all.filter(function(x){ return fltPass(x.wh, x.kind, x.name, F); });
+  rows.sort(function(a, b){ return b.money - a.money || b.T.l - a.T.l || b.T.s - a.T.s; });
+  KXC = rows;
+  if (!all.length){
+    o.innerHTML = '<div class="lossSec"><h3>Хронология кухни</h3><div class="hint">За период в товарной ведомости ' +
+      'нет движений завтраков и пиццы. Загрузите ведомость за эти дни на странице «Выгрузки iiko».</div></div>';
+    return;
+  }
+  var T = { in: 0, s: 0, l: 0, inv: 0, m: 0 };
+  rows.forEach(function(x){ T.in += x.T.in; T.s += x.T.s; T.l += x.T.l; T.inv += x.T.inv; T.m += x.money; });
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+  var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0">Период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) +
+    '. По товарной ведомости: <b>приготовлено</b> — акты приготовления (и приход с цеха), <b>списано</b> — списание, ' +
+    'возврат по сроку и склад 50%. <b>Пицца — в кусках</b> (1 пицца = 8 кусков). Нажмите на строку — откроется по дням.' +
+    (fltAny(F) ? ' <b>Включён фильтр:</b> ' + fltText(F) + '.' : '') + '</div>';
+  h += '<div class="kpi" style="margin-bottom:12px">' +
+    '<div><span>Приготовлено и пришло</span><b>' + fmtQ(Math.round(T.in)) + '</b><span>шт и кусков</span></div>' +
+    '<div><span>Продано</span><b>' + fmtQ(Math.round(T.s)) + '</b><span>' + pc(T.s, T.in) + ' от приготовленного</span></div>' +
+    '<div><span>Списано</span><b style="color:var(--badT)">' + fmtQ(Math.round(T.l)) + '</b><span>' + pc(T.l, T.in) + ' от приготовленного</span></div>' +
+    '<div><span>Инвентаризация</span><b style="color:var(' + (T.inv < -0.5 ? '--badT' : '--txt') + ')">' +
+      (T.inv > 0 ? '+' : '') + fmtQ(Math.round(T.inv)) + '</b><span>минус — недостача</span></div>' +
+    '<div><span>Списано в деньгах</span><b style="color:var(--badT)">' + fmtT(T.m) + '</b><span>по средней цене продажи</span></div></div>';
+  var head = ['Филиал','Блюдо','Приготовлено','Продано','Со скидкой','Списано','Доля списания','Инвент. ±',
+              'Остаток на конец','Последняя продажа','Списано, ₸','Что делать'];
+  h += '<div class="wrapT"><table><thead><tr>' + head.map(function(t){ return '<th>' + t + '</th>'; }).join('') +
+    '</tr></thead><tbody>';
+  rows.forEach(function(x, i){
+    h += '<tr class="clk" data-i="' + i + '">' +
+      '<td class="name" data-l="Филиал">' + esc(x.wh) + '</td>' +
+      '<td class="name" data-l="Блюдо"><span class="exp">▸</span>' + esc(x.name) + (x.pz ? ' <small style="color:var(--mut)">(куски)</small>' : '') + '</td>' +
+      '<td data-l="Приготовлено">' + fmtQ(x.T.in) + '</td>' +
+      '<td data-l="Продано">' + fmtQ(x.T.s) + '</td>' +
+      '<td data-l="Со скидкой">' + (x.T.disc ? fmtQ(x.T.disc) : '') + '</td>' +
+      '<td data-l="Списано" class="' + (x.T.l > 0 ? 'bad' : '') + '">' + (x.T.l ? fmtQ(x.T.l) : '') + '</td>' +
+      '<td data-l="Доля списания" class="' + (x.share >= 0.1 ? 'bad' : '') + '">' + (x.T.in ? pc(x.T.l, x.T.in) : '') + '</td>' +
+      '<td data-l="Инвент. ±" class="' + (x.T.inv < -0.5 ? 'bad' : '') + '">' + (Math.abs(x.T.inv) > 1e-9 ? (x.T.inv > 0 ? '+' : '') + fmtQ(x.T.inv) : '') + '</td>' +
+      '<td data-l="Остаток на конец">' + fmtQ(x.end) + '</td>' +
+      '<td data-l="Последняя продажа">' + (x.hr === null ? '' : 'около ' + x.hr + ':00') + '</td>' +
+      '<td data-l="Списано, ₸" class="' + (x.money >= 1 ? 'bad' : '') + '">' + (x.money >= 1 ? fmtQ(Math.round(x.money)) : '') + '</td>' +
+      '<td class="name" data-l="Что делать">' + (x.todo ? '<span class="' + (/больше/.test(x.todo) ? 'good' : 'bad') + '">' + esc(x.todo) + '</span>' : '') + '</td></tr>';
+  });
+  h += '</tbody></table></div>' +
+    '<div class="hint">«Последняя продажа» — обычный час последней продажи за день (из «Продаж завтраков и пиццы»). ' +
+    '«Остаток на конец» — по движениям: приготовили минус продали, списали и инвентаризация; начальный ' +
+    'остаток берём наименьший, при котором он нигде не уходит в минус.</div>';
+  o.innerHTML = h;
+  $('cntC').textContent = 'строк: ' + rows.length;
+  o.querySelectorAll('tr.clk').forEach(function(tr){ tr.onclick = function(){ kxcDays(+this.dataset.i); }; });
+}
+
+function kxcDays(i){
+  var x = KXC && KXC[i]; if (!x) return;
+  var h = '<h3 style="margin:0 0 2px">' + esc(x.name) + (x.pz ? ' — в кусках' : '') + '</h3>' +
+    '<div class="hint" style="margin:0 0 12px">' + esc(x.wh) + ' · ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) +
+    (x.pr ? ' · цена ' + fmtQ(Math.round(x.pr)) + ' ₸' + (x.pz ? ' за кусок' : '') : '') + '</div>' +
+    '<div class="wrapT"><table><thead><tr><th>День</th><th>Приготовлено</th><th>Продано</th><th>Со скидкой</th>' +
+    '<th>Списано</th><th>Инвент. ±</th><th>Перемещения ±</th><th>Остаток</th><th>Последняя продажа</th></tr></thead><tbody>';
+  x.ser.forEach(function(z){
+    var w = z.x, any = w.in || w.s || w.l || w.inv || w.mv;
+    h += '<tr' + (any ? '' : ' style="color:var(--mut)"') + '><td data-l="День">' + ru(z.d).slice(0, 5) + ' ' + DOW[dowMon(z.d)] + '</td>' +
+      '<td data-l="Приготовлено">' + (w.in ? fmtQ(w.in) : '') + '</td>' +
+      '<td data-l="Продано">' + (w.s ? fmtQ(w.s) : '') + '</td>' +
+      '<td data-l="Со скидкой">' + (z.disc ? fmtQ(z.disc) : '') + '</td>' +
+      '<td data-l="Списано" class="' + (w.l ? 'bad' : '') + '">' + (w.l ? fmtQ(w.l) + (w.v ? ' <small>(по сроку ' + fmtQ(w.v) + ')</small>' : '') : '') + '</td>' +
+      '<td data-l="Инвент. ±" class="' + (w.inv < -1e-9 ? 'bad' : '') + '">' + (w.inv ? (w.inv > 0 ? '+' : '') + fmtQ(w.inv) : '') + '</td>' +
+      '<td data-l="Перемещения ±">' + (w.mv ? (w.mv > 0 ? '+' : '') + fmtQ(w.mv) : '') + '</td>' +
+      '<td data-l="Остаток"><b>' + fmtQ(z.bal) + '</b></td>' +
+      '<td data-l="Последняя продажа">' + (z.hr >= 0 ? z.hr + ':00' : '') + '</td></tr>';
+  });
+  h += '</tbody></table></div><div class="hint">Строки серым — в этот день движений не было. ' +
+    'Если в день есть продажи, а «Приготовлено» пусто — продавали вчерашнее.</div>';
+  var m = $('dayModal');
+  m.querySelector('.mBody').innerHTML = h;
+  m.style.display = 'flex';
 }
 
 /* ═════════ скидки и потери, которых нет в основной сверке ═════════
