@@ -5845,13 +5845,18 @@ function kxcData(from, to){
     var open = Math.max(0, -minCum);
     ser.forEach(function(z){ z.bal = r3(open + z.cum); });
     hrs.sort(function(p, q){ return p - q; });
-    var share = T.in > 1e-9 ? T.l / T.in : 0, invShare = T.in > 1e-9 ? -T.inv / T.in : 0;
+    /* Было в наличии — не только приготовленное: пиццу в ТТ10 привозят без
+       документа, и в iiko она появляется излишком по инвентаризации. */
+    var avail = T.in + Math.max(0, T.inv) + Math.max(0, T.mv);
+    var share = avail > 1e-9 ? T.l / avail : 0, invShare = avail > 1e-9 ? -T.inv / avail : 0;
     var todo = '';
-    if (share >= 0.1) todo = 'много списаний — готовить меньше';
+    if (T.inv > 1e-9 && T.inv / Math.max(avail, 1e-9) >= 0.2)
+      todo = 'приходит без документа (излишек по инвентаризации) — оформлять перемещение';
+    else if (share >= 0.1) todo = 'много списаний — готовить меньше';
     else if (invShare >= 0.05) todo = 'недостача по инвентаризации — проверить';
     else if (T.in > 1e-9 && hrs.length >= 3 && hrs[Math.floor(hrs.length / 2)] <= 17 && share < 0.03)
       todo = 'заканчивается рано — можно готовить больше';
-    return { wh: a.wh, name: a.name, pz: a.pz, kind: kxKind(a.name, ''), T: T, ser: ser, pr: pr,
+    return { wh: a.wh, name: a.name, pz: a.pz, kind: kxKind(a.name, ''), T: T, ser: ser, pr: pr, avail: avail,
              money: T.l * pr, share: share, end: ser.length ? ser[ser.length - 1].bal : 0,
              hr: hrs.length ? hrs[Math.floor(hrs.length / 2)] : null, todo: todo, nd: days.length };
   }).filter(function(x){ return x.T.in > 1e-9 || x.T.s > 1e-9; });
@@ -5897,15 +5902,16 @@ function renderKxChrono(){
       '<td data-l="Продано">' + fmtQ(x.T.s) + '</td>' +
       '<td data-l="Со скидкой">' + (x.T.disc ? fmtQ(x.T.disc) : '') + '</td>' +
       '<td data-l="Списано" class="' + (x.T.l > 0 ? 'bad' : '') + '">' + (x.T.l ? fmtQ(x.T.l) : '') + '</td>' +
-      '<td data-l="Доля списания" class="' + (x.share >= 0.1 ? 'bad' : '') + '">' + (x.T.in ? pc(x.T.l, x.T.in) : '') + '</td>' +
+      '<td data-l="Доля списания" class="' + (x.share >= 0.1 ? 'bad' : '') + '">' + (x.avail ? pc(x.T.l, x.avail) : '') + '</td>' +
       '<td data-l="Инвент. ±" class="' + (x.T.inv < -0.5 ? 'bad' : '') + '">' + (Math.abs(x.T.inv) > 1e-9 ? (x.T.inv > 0 ? '+' : '') + fmtQ(x.T.inv) : '') + '</td>' +
       '<td data-l="Остаток на конец">' + fmtQ(x.end) + '</td>' +
       '<td data-l="Последняя продажа">' + (x.hr === null ? '' : 'около ' + x.hr + ':00') + '</td>' +
       '<td data-l="Списано, ₸" class="' + (x.money >= 1 ? 'bad' : '') + '">' + (x.money >= 1 ? fmtQ(Math.round(x.money)) : '') + '</td>' +
-      '<td class="name" data-l="Что делать">' + (x.todo ? '<span class="' + (/больше/.test(x.todo) ? 'good' : 'bad') + '">' + esc(x.todo) + '</span>' : '') + '</td></tr>';
+      '<td class="name" data-l="Что делать">' + (x.todo ? '<span class="' + (/больше/.test(x.todo) ? 'good' : /документ/.test(x.todo) ? 'warn' : 'bad') + '">' + esc(x.todo) + '</span>' : '') + '</td></tr>';
   });
   h += '</tbody></table></div>' +
-    '<div class="hint">«Последняя продажа» — обычный час последней продажи за день (из «Продаж завтраков и пиццы»). ' +
+    '<div class="hint">«Доля списания» — от всего, что было: приготовлено, привезено и найдено излишком. ' +
+    '«Последняя продажа» — обычный час последней продажи за день (из «Продаж завтраков и пиццы»). ' +
     '«Остаток на конец» — по движениям: приготовили минус продали, списали и инвентаризация; начальный ' +
     'остаток берём наименьший, при котором он нигде не уходит в минус.</div>';
   o.innerHTML = h;
