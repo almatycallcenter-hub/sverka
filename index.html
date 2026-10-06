@@ -820,6 +820,11 @@ document.addEventListener('DOMContentLoaded', function(){
               <div class="h">Отчёт по инвентаризациям филиалов с колонкой «Фактический остаток».
                 По нему «По дням» сверяет остаток по учёту с тем, что реально стоит на витрине.</div>
               <input type="file" id="fInv" accept=".xlsx"></div>
+            <div class="f"><label>Продажи завтраков и пиццы</label>
+              <div class="h">«Отчёт по продажам завтрак/пицца» с колонкой «Время закрытия» — для вкладки
+                «Завтраки и пицца» в Аналитике. Если загружаете полные «Продажи по чекам», этот файл не нужен:
+                завтраки и пицца достанутся оттуда сами.</div>
+              <input type="file" id="fKx" accept=".xlsx"></div>
           </div>
           <div class="row"><button id="btnLoad">Загрузить</button></div>
           <div class="msg" id="m1"></div>
@@ -1198,6 +1203,7 @@ document.addEventListener('DOMContentLoaded', function(){
             <button data-c="loss">Скидки и потери</button>
             <button data-c="prog">Прогноз излишка</button>
             <button data-c="norm">Нормы потерь</button>
+            <button data-c="kx">Завтраки и пицца</button>
             <button data-c="route">Маршруты</button>
           </div>
           <div class="fbar" id="fbarC">
@@ -1655,7 +1661,7 @@ function msg(id, t, c){ var e = document.getElementById(id); e.className = 'msg 
 function $(id){ return document.getElementById(id); }
 
 /* ═════════ хранилище ═════════ */
-var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], dsc: [], fact: [], list: [], syn: {},
+var DB = { mov: [], s20: [], s50: [], cheki: [], full: [], disc: [], dsc: [], fact: [], list: [], kxs: [], syn: {},
            flow: { zc: [], off: [], book: [] } };
 /* В движениях одни и те же названия складов, блюд и видов повторяются
    десятками тысяч раз. Храним их словарём, а в строках — номера.
@@ -1787,7 +1793,7 @@ function loadDB(){
   Object.keys(EMBED.syn).forEach(function(k){
     if (DB.syn[k] === undefined) DB.syn[k] = EMBED.syn[k];
   });
-  ['mov','s20','s50','cheki','full','disc','dsc','fact','list'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
+  ['mov','s20','s50','cheki','full','disc','dsc','fact','list','kxs'].forEach(function(k){ if (!DB[k]) DB[k] = []; });
   if (!DB.flow) DB.flow = { zc: [], off: [], book: [] };
   if (!DB.routes) DB.routes = {};
   if (!DB.closed) DB.closed = {};
@@ -2110,6 +2116,56 @@ function parseCheki(v){
    над группой («Инвентаризация № 12 от 24.09.2026, ТТ1 Атакент склад»).
    Поэтому шапку ищем по одной обязательной колонке, а дату и склад тянем
    вниз по строкам, как только они где-то встретились. */
+/* ═════════ Завтраки и пицца: продажи из отчёта по чекам ═════════
+   Файл тот же, что «Продажи по чекам»: время, филиал, блюдо, тип скидки, суммы.
+   У второго блюда в чеке категория пустая — берём её по тому же блюду из
+   других строк файла. Строки сворачиваем до «день × филиал × блюдо × час ×
+   тип скидки»: за месяц это сотни строк, а не десятки тысяч.
+   all = true — файл уже только про кухню (берём всё);
+   false — полный отчёт по чекам, вынимаем категории «Завтраки» и «Пицца». */
+var KX_CAT_RE = /завтрак|пицц/i;
+function kxKind(dish, cat){
+  var d = S(dish);
+  if (/пицц/i.test(d) || /пицц/i.test(S(cat))) return /кусок/i.test(d) ? 'Пицца — куски' : 'Пицца — целая';
+  return 'Завтраки';
+}
+function parseKx(v, all){
+  var fh = findHdr(v, ['Время закрытия','Блюдо','Количество блюд'], 'Отчёт по продажам завтрак/пицца');
+  var h = fh.h;
+  var iT = col(h,'Время закрытия'), iC = col(h,'Концепция'), iCat = col(h,'Категория блюда'),
+      iDish = col(h,'Блюдо'), iQ = col(h,'Количество блюд'), iTip = col(h,'Тип скидки'),
+      iS0 = col(h,'Сумма без скидки, тенге'), iS1 = col(h,'Сумма со скидкой, тенге');
+  var catOf = {}, r, row;
+  for (r = fh.row + 1; r < v.length; r++){
+    row = v[r]; if (!row) continue;
+    var c = S(row[iCat]), dd = S(row[iDish]);
+    if (c && dd && !/всего$/.test(c)) catOf[dd] = c;
+  }
+  var acc = {}, day = '', tm = '', conc = '';
+  for (r = fh.row + 1; r < v.length; r++){
+    row = v[r]; if (!row) continue;
+    var c0 = S(row[iT]);
+    if (c0){ if (c0 === 'Итого') break; day = D(row[iT]); tm = T(row[iT]); conc = ''; }
+    var c1 = S(row[iC]); if (c1){ if (/всего$/.test(c1)) continue; conc = c1; }
+    var c2 = S(row[iCat]); if (c2 && /всего$/.test(c2)) continue;
+    var dish = S(row[iDish]);
+    if (!dish || /всего$/.test(dish) || !day || !conc) continue;
+    var cat = c2 || catOf[dish] || '';
+    if (!all && !KX_CAT_RE.test(cat) && !/пицц/i.test(dish)) continue;
+    var q = N(row[iQ]); if (!q) continue;
+    var k = [day, conc, cat || (/пицц/i.test(dish) ? 'Пицца' : 'Завтраки'), dish,
+             tm ? +tm.slice(0, 2) : -1, iTip === undefined ? '' : S(row[iTip])].join('\u0001');
+    var a = acc[k] || (acc[k] = { q: 0, s0: 0, s1: 0 });
+    a.q += q;
+    a.s0 += iS0 === undefined ? 0 : N(row[iS0]);
+    a.s1 += iS1 === undefined ? 0 : N(row[iS1]);
+  }
+  return Object.keys(acc).map(function(k){
+    var p = k.split('\u0001'), a = acc[k];
+    return [p[0], p[1], p[2], p[3], +p[4], p[5], r3(a.q), Math.round(a.s0), Math.round(a.s1)];
+  });
+}
+
 function parseInvFact(v){
   var hi = -1, H = null;
   for (var i = 0; i < Math.min(v.length, 60); i++){
@@ -2196,7 +2252,12 @@ $('btnLoad').onclick = async function(){
     f = $('fCheki').files[0];
     if (f){ msg('m1','Читаю «'+f.name+'» — файл большой, это займёт время…','wait');
       try{
-        var rch = parseCheki(await readXlsx(f));
+        var vch = await readXlsx(f);
+        var rch = parseCheki(vch);
+        try{
+          var kxc = parseKx(vch, false);
+          if (kxc.length){ mergeRows('kxs', kxc); done.push('завтраки и пицца: ' + kxc.length + ' строк (из этого же файла)'); }
+        }catch(e){}
         if (!rch.times.length) problems.push('В «' + f.name + '» не нашлось продаж со временем.');
         else { mergeRows('cheki', rch.times);
                done.push('продажи по чекам: ' + rch.times.length + ' позиций со временем'); }
@@ -2211,6 +2272,18 @@ $('btnLoad').onclick = async function(){
         else problems.push('В «' + f.name + '» нет продаж со скидкой 20%. ' +
           'При выгрузке не отфильтровывайте тип скидки — нужны все.');
       }catch(e){ problems.push('Продажи по чекам: ' + (e.message || e)); }
+    }
+
+    f = $('fKx').files[0];
+    if (f){ msg('m1','Читаю «'+f.name+'»…','wait');
+      try{
+        var kxr = parseKx(await readXlsx(f), true);
+        if (!kxr.length) problems.push('В «' + f.name + '» не нашлось продаж завтраков и пиццы.');
+        else { mergeRows('kxs', kxr);
+               var kd = {}; kxr.forEach(function(r){ kd[r[0]] = 1; });
+               var kds = Object.keys(kd).sort();
+               done.push('завтраки и пицца: ' + kxr.length + ' строк, ' + ru(kds[0]) + ' — ' + ru(kds[kds.length - 1])); }
+      }catch(e){ problems.push('Завтраки и пицца: ' + (e.message || e)); }
     }
 
     f = $('fInv').files[0];
@@ -5107,9 +5180,15 @@ function dishCat(name){
    и только по тому, что не отсечено двумя другими фильтрами */
 function fillFilters(view){
   var all = view === 'trio' ? (CHRONO.trio || []) : (CHRONO.pos || []);
+  if (view === 'kx'){
+    var whK = whResolver();
+    all = (DB.kxs || []).map(function(r){ return { wh: whK(r[1]), kind: kxKind(r[3], r[2]) }; });
+  }
   if (view === 'pos' && $('onlyMove').checked)
     all = all.filter(function(r){ return movableCat(r[P_CAT]); });
-  var get = view === 'trio'
+  var get = view === 'kx'
+    ? { rt: function(r){ return routeOf(r.wh); }, wh: function(r){ return r.wh; }, cat: function(r){ return r.kind; } }
+    : view === 'trio'
     ? { rt: function(r){ return r[0]; }, wh: function(r){ return r[4]; }, cat: function(r){ return r[2]; } }
     : { rt: function(r){ return routeOf(r[P_WH]); }, wh: function(r){ return r[P_WH]; },
         cat: function(r){ return r[P_CAT]; } };
@@ -5434,6 +5513,7 @@ function renderChrono(view){
   if (view === 'loss'){ renderLoss(); return; }
   if (view === 'prog'){ renderProg(); return; }
   if (view === 'norm'){ renderNorms(); return; }
+  if (view === 'kx'){ renderKx(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -5519,6 +5599,178 @@ function renderChrono(view){
       renderChrono();
     };
   });
+}
+
+/* ═════════ Завтраки и пицца ═════════
+   Готовят пекари на трёх кухнях — ТТ1, ТТ6, ТТ11. ТТ10 пиццу продаёт, но не
+   печёт: её привозят. Остальные филиалы продают только то, что пришло готовым
+   (йогурт с гранолой и т. п.). Пицца уходит кусками и целой — считаем отдельно.
+   «Последний кусок» — во сколько обычно продают последний кусок пиццы за день:
+   если рано, пиццы к вечеру не хватает; если поздно и много скидки — пекут лишнее. */
+var KX_KITCHEN_NUMS = [1, 6, 11];
+var KX_BROUGHT_NUMS = { 10: 'пиццу привозят' };
+function kxWhNum(wh){ var m = S(wh).match(/\d+/); return m ? +m[0] : null; }
+function kxRole(wh){
+  var n = kxWhNum(wh);
+  if (KX_KITCHEN_NUMS.indexOf(n) >= 0) return 'кухня';
+  return KX_BROUGHT_NUMS[n] || 'продажа';
+}
+
+function renderKx(){
+  var o = $('outC'), F = fltState(), all = DB.kxs || [];
+  $('cntC').textContent = '';
+  if (!all.length){
+    o.innerHTML = '<div class="lossSec"><h3>Завтраки и пицца</h3><div class="hint">Продаж пока нет. ' +
+      'На странице «Выгрузки iiko» загрузите «Отчёт по продажам завтрак/пицца» — или полные ' +
+      '«Продажи по чекам»: завтраки и пицца достанутся оттуда сами.</div></div>';
+    return;
+  }
+  var whOf = whResolver();
+  var dAll = {}; all.forEach(function(r){ dAll[r[0]] = 1; });
+  var have = Object.keys(dAll).sort();
+  var from = CHRONO && CHRONO.from ? CHRONO.from : have[0], to = CHRONO && CHRONO.to ? CHRONO.to : have[have.length - 1];
+  var rows = [];
+  all.forEach(function(r){
+    if (r[0] < from || r[0] > to) return;
+    var wh = whOf(r[1]), kind = kxKind(r[3], r[2]);
+    if (!fltPass(wh, kind, r[3], F)) return;
+    rows.push({ d: r[0], wh: wh, kind: kind, dish: r[3], hr: r[4], tip: r[5], q: N(r[6]), s0: N(r[7]), s1: N(r[8]) });
+  });
+  var cover = 'Продажи завтраков и пиццы загружены за ' + ru(have[0]) + ' — ' + ru(have[have.length - 1]) + '.';
+  if (!rows.length){
+    o.innerHTML = '<div class="lossSec"><h3>Завтраки и пицца</h3><div class="hint">' + cover +
+      ' За выбранный период' + (fltAny(F) ? ' и фильтр' : '') + ' продаж нет.</div></div>';
+    return;
+  }
+  var days = {}, byWh = {}, byDish = {}, byDay = {}, byTip = {}, heat = {}, last = {}, odd20 = { q: 0, n: 0 };
+  /* Неполный день: выгрузку сделали днём, и вечерних продаж в ней нет. Для
+     «последнего куска» такой день врёт — пицца будто кончилась в обед. */
+  var dayMax = {}; all.forEach(function(r){ if (r[0] >= from && r[0] <= to && r[4] > (dayMax[r[0]] === undefined ? -1 : dayMax[r[0]])) dayMax[r[0]] = r[4]; });   // по всему файлу, а не по фильтру
+  var partial = Object.keys(dayMax).filter(function(d){ return dayMax[d] < 20; }).sort();
+  var T0 = { rev: 0, s0: 0, sl: 0, wh: 0, br: 0 };
+  rows.forEach(function(x){
+    days[x.d] = 1;
+    var w = byWh[x.wh] || (byWh[x.wh] = { sl: 0, whole: 0, br: 0, rev: 0, s0: 0, disc: 0, d: {} });
+    w.d[x.d] = 1; w.rev += x.s1; w.s0 += x.s0;
+    if (x.tip) w.disc += x.q;
+    if (x.kind === 'Пицца — куски') w.sl += x.q; else if (x.kind === 'Пицца — целая') w.whole += x.q; else w.br += x.q;
+    var b = byDish[x.dish] || (byDish[x.dish] = { kind: x.kind, q: 0, rev: 0, s0: 0, disc: 0, wh: {} });
+    b.q += x.q; b.rev += x.s1; b.s0 += x.s0; if (x.tip) b.disc += x.q;
+    b.wh[x.wh] = (b.wh[x.wh] || 0) + x.q;
+    byDay[x.d] = (byDay[x.d] || 0) + x.s1;
+    if (x.tip){ var t = byTip[x.tip] || (byTip[x.tip] = { q: 0, lost: 0 }); t.q += x.q; t.lost += Math.max(0, x.s0 - x.s1); }
+    if (/скидка 20%/i.test(x.tip) && x.s1 >= x.s0 && x.s0 > 0){ odd20.q += x.q; odd20.n++; }
+    if (x.kind === 'Пицца — куски' && x.hr >= 0){
+      var hm = heat[x.wh] || (heat[x.wh] = {}); hm[x.hr] = (hm[x.hr] || 0) + x.q;
+      var lk = x.wh + '|' + x.d;
+      if (partial.indexOf(x.d) < 0 && (!(lk in last) || x.hr > last[lk])) last[lk] = x.hr;
+    }
+    T0.rev += x.s1; T0.s0 += x.s0;
+    if (x.kind === 'Пицца — куски') T0.sl += x.q; else if (x.kind === 'Пицца — целая') T0.wh += x.q; else T0.br += x.q;
+  });
+  var nd = Object.keys(days).length;
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+  function perDay(v, n){ return fmtQ(Math.round(v / Math.max(1, n) * 10) / 10); }
+  var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0">' + cover +
+    ' В расчёте: ' + ru(from) + ' — ' + ru(to) + ', дней с продажами: ' + nd + '.' +
+    (fltAny(F) ? ' <b>Включён фильтр:</b> ' + fltText(F) + '.' : '') +
+    (partial.length ? ' <b>' + partial.map(function(d){ return ru(d).slice(0, 5); }).join(', ') +
+      ' — неполный день</b> (последняя продажа в выгрузке до ' + (dayMax[partial[0]] + 1) + ':00): ' +
+      'в «Последнем куске» он не учитывается, а «в день» по нему занижено.' : '') + '</div>';
+  h += '<div class="kpi" style="margin-bottom:12px">' +
+    '<div><span>Выручка</span><b>' + fmtT(T0.rev) + '</b><span>' + fmtT(T0.rev / nd) + ' в день</span></div>' +
+    '<div><span>Пицца кусками</span><b>' + fmtQ(T0.sl) + ' шт</b><span>' + perDay(T0.sl, nd) + ' в день</span></div>' +
+    '<div><span>Пицца целиком</span><b>' + fmtQ(T0.wh) + ' шт</b><span>' + perDay(T0.wh, nd) + ' в день</span></div>' +
+    '<div><span>Завтраки</span><b>' + fmtQ(T0.br) + ' шт</b><span>' + perDay(T0.br, nd) + ' в день</span></div>' +
+    '<div><span>Скидки</span><b style="color:var(--badT)">' + fmtT(T0.s0 - T0.rev) + '</b><span>' +
+      pc(T0.s0 - T0.rev, T0.s0) + ' от суммы без скидки</span></div></div>';
+
+  h += chartDays(Object.keys(byDay).sort().map(function(d){ return { d: d, v: Math.round(byDay[d]) }; }),
+                 'Выручка завтраков и пиццы по дням, ₸', '₸');
+
+  // ── по филиалам
+  var whs = Object.keys(byWh).sort(function(a, b){ return byWh[b].rev - byWh[a].rev; });
+  h += '<div class="lossSec"><h3>По филиалам</h3>' +
+    '<p class="lead">Кухня — где пекут сами (ТТ1, ТТ6, ТТ11). «Последний кусок» — во сколько обычно ' +
+    'продают последний кусок пиццы за день: если рано — к вечеру пиццы не хватает, если поздно и с ' +
+    'большой скидкой — пекут лишнее.</p><div class="wrapT"><table><thead><tr>' +
+    '<th class="name">Филиал</th><th>Кто</th><th>Пицца кусками, шт</th><th>в день</th><th>Пицца целая, шт</th>' +
+    '<th>Завтраки, шт</th><th>Выручка, ₸</th><th>Скидки, ₸</th><th>Доля скидок</th><th>Последний кусок</th></tr></thead><tbody>';
+  whs.forEach(function(wn){
+    var w = byWh[wn], n = Object.keys(w.d).length, lh = [];
+    Object.keys(last).forEach(function(k){ if (k.indexOf(wn + '|') === 0) lh.push(last[k]); });
+    lh.sort(function(a, b){ return a - b; });
+    var med = lh.length ? lh[Math.floor(lh.length / 2)] : null;
+    var role = kxRole(wn);
+    h += '<tr><td class="name" data-l="Филиал">' + esc(wn) + '</td>' +
+      '<td data-l="Кто"><span class="chip ' + (role === 'кухня' ? 'ok' : role === 'продажа' ? '' : 'na') + '">' + esc(role) + '</span></td>' +
+      '<td data-l="Пицца кусками, шт">' + (w.sl ? fmtQ(w.sl) : '') + '</td>' +
+      '<td data-l="в день">' + (w.sl ? perDay(w.sl, n) : '') + '</td>' +
+      '<td data-l="Пицца целая, шт">' + (w.whole ? fmtQ(w.whole) : '') + '</td>' +
+      '<td data-l="Завтраки, шт">' + (w.br ? fmtQ(w.br) : '') + '</td>' +
+      '<td data-l="Выручка, ₸"><b>' + fmtQ(Math.round(w.rev)) + '</b></td>' +
+      '<td data-l="Скидки, ₸" class="' + (w.s0 - w.rev > 0 ? 'bad' : '') + '">' + (w.s0 - w.rev >= 1 ? fmtQ(Math.round(w.s0 - w.rev)) : '') + '</td>' +
+      '<td data-l="Доля скидок">' + pc(w.s0 - w.rev, w.s0) + '</td>' +
+      '<td data-l="Последний кусок">' + (med === null ? '' : 'около ' + med + ':00' +
+        (lh.length > 1 && lh[0] < med ? '<br><small style="color:var(--mut)">раньше всего ' + lh[0] + ':00</small>' : '')) + '</td></tr>';
+  });
+  h += '</tbody></table></div></div>';
+
+  // ── пицца кусками по часам
+  var hw = Object.keys(heat).sort(function(a, b){ return (byWh[b] ? byWh[b].sl : 0) - (byWh[a] ? byWh[a].sl : 0); });
+  if (hw.length){
+    var H0 = 24, H1 = 0;
+    hw.forEach(function(w){ Object.keys(heat[w]).forEach(function(k){ k = +k; if (k < H0) H0 = k; if (k > H1) H1 = k; }); });
+    var mx = 0; hw.forEach(function(w){ Object.keys(heat[w]).forEach(function(k){ if (heat[w][k] > mx) mx = heat[w][k]; }); });
+    h += '<div class="lossSec"><h3>Пицца кусками по часам</h3>' +
+      '<p class="lead">Сколько кусков продали в каждый час за весь период. Темнее — больше. ' +
+      'Пустые часы в конце дня у кухни — повод проверить, не заканчивается ли пицца раньше времени.</p>' +
+      '<div class="wrapT"><table><thead><tr><th class="name">Филиал</th>';
+    for (var hh = H0; hh <= H1; hh++) h += '<th>' + hh + '</th>';
+    h += '</tr></thead><tbody>';
+    hw.forEach(function(w){
+      h += '<tr><td class="name">' + esc(w) + '</td>';
+      for (var hh2 = H0; hh2 <= H1; hh2++){
+        var v = heat[w][hh2] || 0, a = mx ? v / mx : 0;
+        h += '<td style="text-align:center;background:' + (v ? 'rgba(193,94,30,' + (0.12 + a * 0.75).toFixed(2) + ')' : 'transparent') +
+             ';color:' + (a > 0.55 ? '#fff' : 'inherit') + '">' + (v ? fmtQ(v) : '') + '</td>';
+      }
+      h += '</tr>';
+    });
+    h += '</tbody></table></div></div>';
+  }
+
+  // ── по блюдам
+  var dishes = Object.keys(byDish).sort(function(a, b){ return byDish[b].rev - byDish[a].rev; });
+  h += '<div class="lossSec"><h3>По блюдам</h3><div class="wrapT"><table><thead><tr>' +
+    '<th class="name">Блюдо</th><th>Что это</th><th>Продано, шт</th><th>в день</th><th>Выручка, ₸</th>' +
+    '<th>Средняя цена, ₸</th><th>Со скидкой, % шт</th><th class="name">Где больше всего</th></tr></thead><tbody>';
+  dishes.forEach(function(dn){
+    var b = byDish[dn];
+    h += '<tr><td class="name" data-l="Блюдо">' + esc(dn) + '</td><td data-l="Что это">' + esc(b.kind) + '</td>' +
+      '<td data-l="Продано, шт">' + fmtQ(b.q) + '</td><td data-l="в день">' + perDay(b.q, nd) + '</td>' +
+      '<td data-l="Выручка, ₸">' + fmtQ(Math.round(b.rev)) + '</td>' +
+      '<td data-l="Средняя цена, ₸">' + (b.q ? fmtQ(Math.round(b.rev / b.q)) : '') + '</td>' +
+      '<td data-l="Со скидкой, % шт" class="' + (b.q && b.disc / b.q >= 0.3 ? 'bad' : '') + '">' + pc(b.disc, b.q) + '</td>' +
+      '<td class="name" data-l="Где больше всего">' + topNames(b.wh, 2) + '</td></tr>';
+  });
+  h += '</tbody></table></div></div>';
+
+  // ── скидки
+  var tips = Object.keys(byTip).sort(function(a, b){ return byTip[b].lost - byTip[a].lost || byTip[b].q - byTip[a].q; });
+  if (tips.length){
+    h += '<div class="lossSec"><h3>Скидки на завтраки и пиццу</h3><div class="wrapT"><table><thead><tr>' +
+      '<th class="name">Тип скидки</th><th>Штук</th><th>Недополучено, ₸</th></tr></thead><tbody>' +
+      tips.map(function(t){ return '<tr><td class="name">' + esc(t) + '</td><td>' + fmtQ(byTip[t].q) +
+        '</td><td class="bad">' + (byTip[t].lost >= 1 ? fmtQ(Math.round(byTip[t].lost)) : '0') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      (odd20.n ? '<div class="msg wait" style="display:block;margin:10px 0 0"><b>Проверить:</b> ' + odd20.n +
+        ' раз (' + fmtQ(odd20.q) + ' шт) продажи пробиты со «Скидкой 20%», но сумма в чеке не уменьшилась. ' +
+        'Либо скидку отметили, но не применили, либо кассир выбрал не тот тип.</div>' : '') + '</div>';
+  }
+  h += '<div class="hint">Дальше сюда добавится сверка «приготовили — продали — списали» по акту ' +
+    'приготовления и расход сырья по тех.карте — для этого нужны тех.карты пиццы и акт приготовления из iiko.</div>';
+  o.innerHTML = h;
 }
 
 /* ═════════ скидки и потери, которых нет в основной сверке ═════════
