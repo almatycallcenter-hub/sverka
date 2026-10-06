@@ -4836,31 +4836,59 @@ function chartBars(rows, title, unit){
 function renderDyn(){
   var o = $('outC');
   if (!CHRONO || !CHRONO.days){ o.innerHTML = ''; return; }
-  var unitMoney = CHRONO.days.some(function(d){ return d.money > 0; });
+  var F = fltState(), on = fltAny(F), DAYS = CHRONO.days, BYWH = CHRONO.byWh;
+  /* С фильтром пересчитываем графики по тем же позициям, что видны в «Позициях»:
+     итоги филиала — из карточки позиции, дни — из её истории по дням. */
+  if (on){
+    var bd = {}, sumOM = function(o){ var s = 0; Object.keys(o || {}).forEach(function(t){ s += N(o[t]); }); return s; };
+    DAYS = CHRONO.days.map(function(d){ return (bd[d.d] = { d: d.d, loss: 0, money: 0 }); });
+    BYWH = {};
+    Object.keys(SERIES).forEach(function(k){
+      var ser = SERIES[k], inf = ser.info;
+      if (!inf || isDelivery(inf.wh) || !fltPass(inf.wh, inf.cat, inf.name, F)) return;
+      var pr = inf.price || 0, w = BYWH[inf.wh] || (BYWH[inf.wh] = { loss: 0, prih: 0, money: 0 });
+      w.loss += N(inf.L); w.prih += N(inf.P); w.money += N(inf.money);
+      ser.forEach(function(x){
+        var b = bd[x.d]; if (!b) return;
+        b.loss += N(x.l); b.money += N(x.l) * pr + N(x.q20) * pr * 0.2 + sumOM(x.dscM);
+      });
+    });
+    DAYS.forEach(function(d){ d.loss = r3(d.loss); d.money = Math.round(d.money); });
+    Object.keys(BYWH).forEach(function(w){ var x = BYWH[w]; x.loss = r3(x.loss); x.money = Math.round(x.money);
+      if (x.prih < 1e-9 && x.loss < 1e-9 && x.money < 1) delete BYWH[w]; });
+  }
+  var unitMoney = DAYS.some(function(d){ return d.money > 0; });
   var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0"><b>Нажмите на любой столбик</b> — ' +
-    'откроется, из каких позиций он сложился и как посчитан.</div>';
-  h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.loss }; }),
+    'откроется, из каких позиций он сложился и как посчитан.' +
+    (on ? ' <b>Включён фильтр</b> — графики только по выбранному: ' + fltText(F) + '.' : '') + '</div>';
+  if (on && !Object.keys(BYWH).length){
+    o.innerHTML = h + '<div class="hint">Под этот фильтр за период ничего не попало.</div>';
+    $('cntC').textContent = ''; return;
+  }
+  h += chartDays(DAYS.map(function(d){ return { d: d.d, v: d.loss }; }),
                     'Потери по дням, шт', 'шт', 'dayQ');
   if (unitMoney)
-    h += chartDays(CHRONO.days.map(function(d){ return { d: d.d, v: d.money }; }),
+    h += chartDays(DAYS.map(function(d){ return { d: d.d, v: d.money }; }),
                    'Потери по дням, ₸', '₸', 'dayM');
-  var bs = Object.keys(CHRONO.byWh).map(function(w){
-    var x = CHRONO.byWh[w];
+  var bs = Object.keys(BYWH).map(function(w){
+    var x = BYWH[w];
     return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0, drill: 'whQ|' + w,
              label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 1000) / 10) : 0) + '%  ·  ' +
                     fmtNum(x.loss) + ' шт' };
   }).sort(function(a, b){ return b.v - a.v; });
   h += chartBars(bs, 'Доля потерь по филиалам — сколько из пришедшего не продали', '');
-  var money = Object.keys(CHRONO.byWh).map(function(w){
-    return { k: w, v: CHRONO.byWh[w].money, label: fmtNum(CHRONO.byWh[w].money) + ' ₸', drill: 'whM|' + w };
+  var money = Object.keys(BYWH).map(function(w){
+    return { k: w, v: BYWH[w].money, label: fmtNum(BYWH[w].money) + ' ₸', drill: 'whM|' + w };
   }).sort(function(a, b){ return b.v - a.v; }).filter(function(x){ return x.v > 0; });
   if (money.length) h += chartBars(money, 'Потери в деньгах по филиалам — непроданное и все скидки', '₸');
 
   // Топ-10 позиций — то же, что в питоновском дашборде, но прямо на телефоне.
-  // Уважает галочку «только торты, пироги, пирожные».
-  var dv = $('onlyMove').checked, poBlyudu = {};
+  // Уважает галочку «только торты, пироги, пирожные»; если категория выбрана
+  // в фильтре, галочка не мешает — показываем выбранную категорию.
+  var dv = $('onlyMove').checked && !F.c, poBlyudu = {};
   (CHRONO.pos || []).forEach(function(r){
     if (dv && !movableCat(r[P_CAT])) return;
+    if (!fltPass(r[P_WH], r[P_CAT], r[P_DISH], F)) return;
     var m = N(r[P_MONEY]), sht = N(r[P_LOSS]) + N(r[P_D20]);
     if (m < 1e-9 && sht < 1e-9) return;
     var t = poBlyudu[r[P_DISH]] || (poBlyudu[r[P_DISH]] = { m: 0, sht: 0 });
@@ -4875,7 +4903,7 @@ function renderDyn(){
   }).sort(function(a, b){ return b.v - a.v; }).slice(0, 10);
   if (top.length)
     h += chartBars(top, 'Топ-10 позиций по потерям' +
-                        (dv ? ' — торты, пироги, пирожные' : ' — все категории'),
+                        (F.c ? ' — ' + F.c : dv ? ' — торты, пироги, пирожные' : ' — все категории'),
                    poDengam ? '₸' : 'шт');
   h += '<div class="hint" style="padding:0 4px 6px">Те же числа таблицей — на вкладке ' +
        '«Позиции».</div>';
@@ -4917,18 +4945,23 @@ function dynDrill(code){
   if (!CHRONO) return;
   var i = code.indexOf('|'), kind = code.slice(0, i), key = code.slice(i + 1);
   var parts, title, sub, byQty = kind === 'whQ' || kind === 'dayQ', showWh = true, showName = true;
+  // столбик посчитан с фильтром — и разбор его тоже с фильтром, иначе суммы не сойдутся
+  var F = fltState(), fOk = function(inf){ return fltPass(inf.wh, inf.cat, inf.name, F); };
+  var fTxt = fltAny(F) ? ' · фильтр: ' + $('fRoute').value + ' ' + $('fWh').value + ' ' + $('fCat').value +
+             ($('qC').value.trim() ? ' «' + $('qC').value.trim() + '»' : '') : '';
+  fTxt = fTxt.replace(/\s+/g, ' ');
   if (kind === 'whQ' || kind === 'whM'){
-    parts = dynParts(function(inf){ return inf.wh === key; });
+    parts = dynParts(function(inf){ return inf.wh === key && fOk(inf); });
     title = key; showWh = false;
-    sub = 'Период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to);
+    sub = 'Период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) + fTxt;
   } else if (kind === 'dish'){
     var dv = $('onlyMove').checked;
-    parts = dynParts(function(inf){ return inf.name === key && !isDelivery(inf.wh); });
+    parts = dynParts(function(inf){ return inf.name === key && !isDelivery(inf.wh) && fltWh(inf.wh, F); });
     title = key; showName = false;
-    sub = 'По филиалам · ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to);
+    sub = 'По филиалам · ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) + fTxt;
   } else {
-    parts = dynParts(function(inf){ return !isDelivery(inf.wh); }, key);
-    title = 'Потери за ' + ru(key); sub = 'Все филиалы';
+    parts = dynParts(function(inf){ return !isDelivery(inf.wh) && fOk(inf); }, key);
+    title = 'Потери за ' + ru(key); sub = (fltAny(F) ? 'С фильтром' : 'Все филиалы') + fTxt;
   }
   parts.sort(function(a, b){ return byQty ? (b.L - a.L) || (b.m - a.m) : (b.m - a.m) || (b.L - a.L); });
   var T = { L: 0, D: 0, mL: 0, mD: 0, m: 0, P: 0, qO: 0, mO: 0, noPrice: 0, byT: {} };
@@ -4940,6 +4973,11 @@ function dynDrill(code){
   var tipy = Object.keys(T.byT).sort(function(a, b){ return T.byT[b].m - T.byT[a].m || T.byT[b].q - T.byT[a].q; });
   function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
   var wh = kind === 'whQ' || kind === 'whM' ? CHRONO.byWh[key] : null;
+  if (wh && fltAny(F)){
+    wh = { loss: 0, prih: 0 };
+    Object.keys(SERIES).forEach(function(k){ var inf = SERIES[k].info;
+      if (inf && inf.wh === key && fOk(inf)){ wh.loss += N(inf.L); wh.prih += N(inf.P); } });
+  }
   var h = '<h3 style="margin:0 0 2px">' + esc(title) + '</h3>' +
     '<div class="hint" style="margin:0 0 12px">' + esc(sub) + '</div>';
   h += '<div class="drillSum">' +
@@ -5032,6 +5070,38 @@ function dynDrill(code){
 }
 
 function routeOf(wh){ return (DB.routes && DB.routes[wh]) || '— вне маршрутов —'; }
+
+/* Общая строка фильтров Аналитики: поиск, маршрут, филиал, категория.
+   Одна и та же на всех вкладках — выбрали ТТ4 и «Торты» на «Позициях»,
+   перешли на «Динамику» или «Нормы» — там уже ТТ4 и торты. */
+function fltState(){
+  return { q: nrm($('qC').value), r: $('fRoute').value, w: $('fWh').value, c: $('fCat').value };
+}
+function fltAny(F){ return !!(F.q || F.r || F.w || F.c); }
+function fltText(F){
+  return [F.r, F.w, F.c, F.q ? '«' + $('qC').value.trim() + '»' : ''].filter(Boolean).map(esc).join(', ');
+}
+function fltWh(wh, F){
+  if (F.r && routeOf(wh) !== F.r) return false;
+  return !F.w || wh === F.w;
+}
+/* name — блюдо (или несколько строк через «|», например тип скидки) */
+function fltPass(wh, cat, name, F){
+  if (!fltWh(wh, F)) return false;
+  if (F.c && cat !== F.c) return false;
+  if (!F.q) return true;
+  return nrm(name).indexOf(F.q) >= 0 || nrm(wh).indexOf(F.q) >= 0;
+}
+/* категория блюда — такая же, как в таблице «Позиции», чтобы фильтр совпадал */
+var DISH_CAT = null, DISH_CAT_SRC = null;
+function dishCat(name){
+  if (!CHRONO) return catOf(name);
+  if (DISH_CAT_SRC !== CHRONO.pos){
+    DISH_CAT = {}; DISH_CAT_SRC = CHRONO.pos;
+    (CHRONO.pos || []).forEach(function(r){ DISH_CAT[r[P_DISH]] = r[P_CAT]; });
+  }
+  return DISH_CAT.hasOwnProperty(name) ? DISH_CAT[name] : catOf(name);
+}
 
 /* списки в фильтрах строим по тем строкам, что реально есть в отчёте,
    и только по тому, что не отсечено двумя другими фильтрами */
@@ -5349,22 +5419,21 @@ function renderChrono(view){
   var o = $('outC'); if (!CHRONO){ o.innerHTML = ''; return; }
   $('cardRoutes').style.display = view === 'route' ? '' : 'none';
   $('fbarC').style.display = view === 'route' ? 'none' : '';
-  // на «Динамике» из фильтров нужна только галочка — поиск и списки прячем
-  ['qC', 'fRoute', 'fWh', 'fCat', 'fTodo', 'fClear'].forEach(function(id){
-    $(id).style.display = view === 'dyn' ? 'none' : ''; });
+  // поиск, маршрут, филиал, категория — на всех вкладках; пометки «Что делать» есть только в двух таблицах
+  ['qC', 'fRoute', 'fWh', 'fCat', 'fClear'].forEach(function(id){ $(id).style.display = ''; });
+  $('fTodo').style.display = (view === 'pos' || view === 'trio') ? '' : 'none';
+  $('qC').placeholder = view === 'loss' ? 'Поиск: блюдо, филиал или тип скидки'
+                      : view === 'norm' ? 'Поиск: блюдо или филиал' : 'Поиск по блюду или филиалу';
   $('labOnlyRoute').style.display = view === 'pair' ? '' : 'none';
   $('labOnlyAlarm').style.display = view === 'pos' ? '' : 'none';
   $('labMove').style.display =
     (view === 'pos' || view === 'trio' || view === 'dyn') ? '' : 'none';
-  var hasFlt = view === 'trio' || view === 'pos';
-  if (hasFlt) fillFilters(view);
-  else if (view !== 'dyn')
-    ['fRoute','fWh','fCat','fTodo','fClear'].forEach(function(id){ $(id).style.display = 'none'; });
+  if (view !== 'route') fillFilters(view);
   if (view === 'route'){ o.innerHTML = ''; routeHint(); return; }
   if (view === 'dyn'){ renderDyn(); return; }
-  if (view === 'loss'){ $('fbarC').style.display = 'none'; renderLoss(); return; }
-  if (view === 'prog'){ $('fbarC').style.display = 'none'; renderProg(); return; }
-  if (view === 'norm'){ $('fbarC').style.display = 'none'; renderNorms(); return; }
+  if (view === 'loss'){ renderLoss(); return; }
+  if (view === 'prog'){ renderProg(); return; }
+  if (view === 'norm'){ renderNorms(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
   var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
@@ -5393,6 +5462,10 @@ function renderChrono(view){
     head = PAIR_HEAD; st = SORT.pair;
     rows = CHRONO.pair.filter(function(r){
       if ($('onlyRoute').checked && (!r[0] || r[0] === '— вне маршрутов —')) return false;
+      // пара проходит, если под фильтр подходит любая из двух точек
+      if (fR && r[0] !== fR && routeOf(r[2]) !== fR && routeOf(r[6]) !== fR) return false;
+      if (fW && r[2] !== fW && r[6] !== fW) return false;
+      if (fC && dishCat(r[1]) !== fC) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
   }
   rows = applySort(rows, st, byIdx);
@@ -5456,8 +5529,9 @@ function discPct(tip){                       // «Скидка 10%» → 0.1
   var m = /(\d{1,2})\s*%/.exec(S(tip));
   return m ? +m[1] / 100 : null;
 }
-function lossData(from, to){
+function lossData(from, to, F){
   var whOf = whResolver(), PR = priceMap();
+  F = F || { q: '', r: '', w: '', c: '' };
 
   // 1. Прочие скидки из чеков
   var BR = {}; branches().forEach(function(w){ BR[w] = 1; });
@@ -5470,6 +5544,9 @@ function lossData(from, to){
     var tip = S(r[2]) || 'без названия';
     // 50% — это выкуп сотрудниками, он разбирается на своей вкладке
     if (tip.toLowerCase().indexOf('50%') >= 0) return;
+    // блюда в этой выгрузке нет — фильтруем по филиалу, маршруту и поиску (тип скидки или филиал)
+    if (!fltWh(wh, F)) return;
+    if (F.q && nrm(tip).indexOf(F.q) < 0 && nrm(wh).indexOf(F.q) < 0) return;
     var a = byTip[tip] || (byTip[tip] = { tip: tip, q: 0, s0: 0, s1: 0, wh: {} });
     a.q += N(r[3]); a.s0 += N(r[4]); a.s1 += N(r[5]);
     a.wh[wh] = (a.wh[wh] || 0) + N(r[3]);
@@ -5488,6 +5565,7 @@ function lossData(from, to){
     var wh = r[1]; if (isDelivery(wh) || isClosed(wh)) return;
     var k = nrm(r[2]), sp = SPR[k]; if (!sp) return;
     if (grpOf(catOf(sp.name)) === 'не еда') return;
+    if (!fltPass(wh, dishCat(sp.name), sp.name, F)) return;
     var b = baseOf(k), q = N(r[4]) * b.f, price = PR[b.k] || 0;
     if (r[3] === 'vozvrat_kach'){
       var a = kach[wh] || (kach[wh] = { wh: wh, q: 0, money: 0, top: {} });
@@ -5512,14 +5590,16 @@ function topNames(o, n){
 }
 
 function renderLoss(){
-  var L = lossData(CHRONO.from, CHRONO.to);
+  var F = fltState();
+  var L = lossData(CHRONO.from, CHRONO.to, F);
   LOSSDATA = L;
   function tbl(head, rows, hint){
     return '<table><thead><tr>' + head.map(function(t){ return '<th>' + t + '</th>'; }).join('') +
       '</tr></thead><tbody>' + rows + '</tbody></table>' +
       (hint ? '<div class="hint" style="padding:8px 4px 2px">' + hint + '</div>' : '');
   }
-  var h = '';
+  var h = fltAny(F) ? '<div class="hint" style="padding:0 4px 8px;margin-top:0"><b>Включён фильтр:</b> ' +
+    fltText(F) + '.</div>' : '';
 
   // ── прочие скидки
   h += '<div class="lossSec"><h3>Скидки, кроме 20%</h3>' +
@@ -5527,7 +5607,12 @@ function renderLoss(){
     'Всё остальное здесь: бонусы, акции, десятки. Потеря считается по факту — ' +
     'сумма без скидки минус сумма со скидкой из чека, а не по названию типа. ' +
     'Скидка 50% сюда не входит: это выкуп сотрудниками, ему отведена своя вкладка.</p>';
-  if (!L.disc.length)
+  if (F.c)
+    h += '<div class="hint" style="margin:0 0 8px">В выгрузке скидок нет блюд — только филиал и тип скидки, ' +
+         'поэтому категория к этой таблице не применяется. Филиал, маршрут и поиск — применяются.</div>';
+  if (!L.disc.length && fltAny(F))
+    h += '<div class="hint">Под этот фильтр других скидок нет.</div>';
+  else if (!L.disc.length)
     h += '<div class="hint">Других скидок за период не было. Если их не видно совсем — ' +
          'загрузите отчёт по продажам филиала заново: типы скидок начали сохраняться ' +
          'только в этой версии.</div>';
@@ -5798,12 +5883,6 @@ function renderProg(){
             return '<option value="' + v + '"' + (Math.abs(v - PROG_CR) < 1e-9 ? ' selected' : '') + '>' +
               Math.round(v * 100) + '% дней' + (v === 0.7 ? ' (обычно)' : '') + '</option>'; }).join('') +
           '</select></div>' +
-        '<div style="flex:1 1 180px"><label class="lbl">Поиск</label>' +
-          '<input type="text" id="pgQ" placeholder="Блюдо или филиал"></div>' +
-        '<div style="flex:0 0 190px"><label class="lbl">Филиал</label>' +
-          '<select id="pgWh" class="flt"><option value="">все филиалы</option></select></div>' +
-        '<div style="flex:0 0 190px"><label class="lbl">Категория</label>' +
-          '<select id="pgCat" class="flt"><option value="">все категории</option></select></div>' +
       '</div>' +
       '<div class="row" style="gap:14px;flex-wrap:wrap;margin-top:6px">' +
         '<label><input type="checkbox" id="pgCut"> только где излишек снизится хотя бы на 1 шт в неделю</label>' +
@@ -5811,20 +5890,11 @@ function renderProg(){
       '</div></div>' +
       '<div id="progKpi"></div><div id="progNote"></div><div id="progBody"></div>';
     $('pgCr').onchange = function(){ PROG_CR = +this.value; PROG = null; renderProg(); };
-    ['pgWh','pgCat','pgCut','pgAll'].forEach(function(id){ $(id).onchange = progBody; });
-    $('pgQ').oninput = progBody;
+    ['pgCut','pgAll'].forEach(function(id){ $(id).onchange = progBody; });
   }
   if (!PROG || PROG.src !== CHRONO || PROG.cr !== PROG_CR) PROG = progData(PROG_CR);
   var P = PROG;
-  // списки фильтров
-  var whs = {}, cats = {};
-  P.rows.forEach(function(r){ whs[r.wh] = 1; if (r.cat) cats[r.cat] = 1; });
-  function fill(id, m, all){
-    var s = $(id), v = s.value;
-    s.innerHTML = '<option value="">' + all + '</option>' + Object.keys(m).sort().map(function(x){
-      return '<option' + (x === v ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('');
-  }
-  fill('pgWh', whs, 'все филиалы'); fill('pgCat', cats, 'все категории');
+  // поиск, маршрут, филиал и категория — общие, в строке фильтров над вкладками
 
   var note = [];
   if (P.nDays < 28)
@@ -5840,14 +5910,12 @@ function renderProg(){
 
 function progBody(){
   var P = PROG; if (!P) return;
-  var q = nrm($('pgQ').value), fw = $('pgWh').value, fc = $('pgCat').value;
+  var F = fltState();
   var cut = $('pgCut').checked, all = $('pgAll').checked;
   var rows = P.rows.filter(function(r){
     if (!all && !r.enough) return false;
-    if (fw && r.wh !== fw) return false;
-    if (fc && r.cat !== fc) return false;
     if (cut && !(r.enough && r.Of - r.after >= 1)) return false;
-    return !q || nrm(r.name).indexOf(q) >= 0 || nrm(r.wh).indexOf(q) >= 0;
+    return fltPass(r.wh, dishCat(r.name) || r.cat, r.name, F);
   });
 
   // ── итоги по отфильтрованному
@@ -6181,6 +6249,20 @@ function renderNorms(){
     return normSortKey(a) < normSortKey(b) ? -1 : 1; });
   var nDays = daysBetween(CHRONO.from, CHRONO.to) + 1, weeks = nDays / 7;
   var appr = DB.norms && DB.norms.v ? DB.norms : null;
+  /* Фильтр сверху. ids остаётся полным — «Утвердить нормы» сохраняет все группы,
+     а показываем только группы выбранной категории (shown). */
+  var F = fltState();
+  function segQ(id, w){                      // поиск: блюдо внутри группы или филиал
+    if (!F.q) return true;
+    if (w && nrm(w).indexOf(F.q) >= 0) return true;
+    var S1 = NORM_SEGS[id], pool = w && S1.wh[w] ? S1.wh[w].pos.map(function(x){ return x.name; }) : S1.names;
+    return pool.some(function(n){ return nrm(n).indexOf(F.q) >= 0; });
+  }
+  var qIsWh = F.q && Object.keys(CHRONO.byWh || {}).some(function(w){ return nrm(w).indexOf(F.q) >= 0; });
+  var shown = ids.filter(function(id){
+    if (F.c && NORM_SEGS[id].cats.indexOf(F.c) < 0) return false;
+    return qIsWh || segQ(id);
+  });
 
   var h = '<div class="lossSec"><h3>Нормы потерь — стандарт компании для филиалов</h3>' +
     '<p class="lead">Норма задаётся для <b>группы продукции</b>: срок годности × как хранится. ' +
@@ -6201,7 +6283,9 @@ function renderNorms(){
     '<th>Приход за период</th><th>Сеть сейчас: списание / уценка / пустая витрина</th>' +
     '<th>Черновик</th><th>Норма: списание, %</th><th>Норма: уценка, %</th>' +
     '<th>Норма: пустая витрина, % дней</th></tr></thead><tbody>';
-  ids.forEach(function(id){
+  if (!shown.length)
+    h += '<tr><td colspan="9" class="name">Под фильтр не попала ни одна группа.</td></tr>';
+  shown.forEach(function(id){
     var S1 = NORM_SEGS[id], n = normOf(id), d = S1.draft, a = S1.net;
     h += '<tr><td class="name" data-l="Группа"><b>' + esc(normSegTitle(S1.g)) + '</b>' +
         (S1.few ? '<br><small class="warn">мало филиалов для сравнения</small>' : '') + '</td>' +
@@ -6224,13 +6308,16 @@ function renderNorms(){
 
   // ── филиалы против нормы
   var whs = {};
-  ids.forEach(function(id){ Object.keys(NORM_SEGS[id].wh).forEach(function(w){ whs[w] = 1; }); });
+  // плитки филиалов — все филиалы маршрута; выбранный филиал подсвечен, клик по плитке выбирает его
+  shown.forEach(function(id){ Object.keys(NORM_SEGS[id].wh).forEach(function(w){
+    if (!F.r || routeOf(w) === F.r) whs[w] = 1; }); });
   var whList = Object.keys(whs).sort();
   var rows = [], sumWh = {};
-  ids.forEach(function(id){
+  shown.forEach(function(id){
     var S1 = NORM_SEGS[id], n = normOf(id);
     whList.forEach(function(w){
       var a = S1.wh[w]; if (!a || a.P < 1e-9) return;
+      if (!segQ(id, w)) return;
       var lL = normLight(a.sL, n.sp, a.P, weeks), lD = normLight(a.sD, n.ud, a.P, weeks);
       var lS = a.sS * 100 <= n.st + 1e-9 ? 'ok' : a.sS * 100 <= n.st * 1.5 ? 'na' : 'bad';
       var exL = Math.max(0, a.L - n.sp / 100 * a.P), exD = Math.max(0, a.D - n.ud / 100 * a.P);
@@ -6242,19 +6329,17 @@ function renderNorms(){
     });
   });
   h += '<div class="lossSec"><h3>Филиалы против нормы</h3>' +
-    '<div class="kpi" style="margin-bottom:10px">' + whList.map(function(w){
-      var s = sumWh[w] || { bad: 0, na: 0, ok: 0, money: 0 };
-      return '<div class="normWh" data-w="' + esc(w) + '" style="cursor:pointer"><span>' + esc(w) + '</span><b style="color:var(--' +
+    '<div class="kpi" style="margin-bottom:10px">' + whList.filter(function(w){ return sumWh[w]; }).map(function(w){
+      var s = sumWh[w];
+      return '<div class="normWh" data-w="' + esc(w) + '" style="cursor:pointer' +
+        (w === F.w ? ';outline:2px solid var(--acc,#3b82f6)' : '') + '"><span>' + esc(w) + '</span><b style="color:var(--' +
         (s.bad ? 'badT' : s.na ? 'naT' : 'okT') + ')">' + (s.bad ? s.bad + ' выше нормы' : s.na ? s.na + ' на грани' :
         'в норме') + '</b><span>' + (s.money >= 1 ? 'сверх нормы ≈ ' + fmtT(s.money) : 'сверх нормы — 0 ₸') +
         '</span></div>'; }).join('') + '</div>' +
-    '<div class="row" style="gap:8px;margin:0 0 8px"><select id="normWh" class="flt"><option value="">все филиалы</option>' +
-      whList.map(function(w){ return '<option' + (w === NORM_FW ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('') +
-    '</select></div>' +
     '<div class="wrapT"><table><thead><tr><th class="name">Филиал</th><th class="name">Группа</th><th>Приход</th>' +
     '<th>Списание: факт / норма</th><th>Уценка: факт / норма</th><th>Пустая витрина: факт / норма</th>' +
     '<th>Сверх нормы, шт</th><th>Сверх нормы, ₸</th></tr></thead><tbody>';
-  rows.filter(function(r){ return !NORM_FW || r.w === NORM_FW; })
+  rows.filter(function(r){ return !F.w || r.w === F.w; })
       .sort(function(x, y){ return x.w.localeCompare(y.w, 'ru') || (normSortKey(x.id) < normSortKey(y.id) ? -1 : 1); })
       .forEach(function(r){
     var n = normOf(r.id);
@@ -6299,9 +6384,20 @@ function renderNorms(){
     msg('normMsg', 'Вернула черновик по данным периода.', 'ok');
   };
   $('normCard').onclick = normCard;
-  $('normWh').onchange = function(){ NORM_FW = this.value; renderNorms(); };
+  // клик по плитке — выбрать филиал в общем фильтре (повторный клик снимает выбор)
   o.querySelectorAll('.normWh').forEach(function(d){
-    d.onclick = function(){ NORM_FW = this.dataset.w; renderNorms(); }; });
+    d.onclick = function(){
+      var w = this.dataset.w;
+      var s = $('fWh');
+      if (s.value === w) s.value = '';
+      else {
+        if (![].some.call(s.options, function(op){ return op.value === w; })){
+          var op = document.createElement('option'); op.value = w; op.textContent = w; s.appendChild(op);
+        }
+        s.value = w;
+      }
+      renderChrono();
+    }; });
   o.querySelectorAll('tr.clk').forEach(function(tr){
     tr.onclick = function(){ var p = this.dataset.k.split('\u0001'); normOpen(p[0], p[1]); }; });
 }
@@ -6534,7 +6630,7 @@ $('onlyAlarm').onchange = function(){ renderChrono(); };
 
 $('btnChrXlsx').onclick = function(){
   if (!CHRONO) return msg('m4','Сначала посчитайте хронологию.','err');
-  var L = LOSSDATA || lossData(CHRONO.from, CHRONO.to);
+  var L = lossData(CHRONO.from, CHRONO.to);     // в Excel — всегда вся сеть, без фильтра экрана
   var blob = makeXlsx([
     { name: 'Позиции', head: POS_HEAD, rows: CHRONO.pos },
     { name: 'Топ-20 худший-средний-лучший', head: TRIO_HEAD, rows: CHRONO.trio || [] },
