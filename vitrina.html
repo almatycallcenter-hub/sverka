@@ -888,18 +888,21 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     });
   }
 
-  function fail(msg){
+  function fail(msg, noNet){
     el('sub').textContent = 'не получилось';
     el('app').innerHTML = '<div class="note"><b>Список не загрузился.</b><br>' +
-      esc(msg) + '<br><br>Проверьте интернет и нажмите ⟳ наверху.</div>';
+      esc(msg) + (noNet ? '' : '<br><br>Проверьте интернет и нажмите ⟳ наверху.') + '</div>';
     el('bar').hidden = true;
   }
 
   function load(quiet){
     var b = el('upd');
     b.disabled = true;
+    /* Без ключа интернет ни при чём — витрину открыли не по своей ссылке
+       (например, из меню бота). Ключ запоминается на телефоне после первого входа. */
     if (!KEY){
-      fail('Откройте ссылку, которую прислала бухгалтерия, — в ней ключ.');
+      fail('Витрина открыта без ссылки доступа. Попросите ссылку на витрину у администратора ' +
+           'и откройте её один раз — дальше телефон запомнит, и витрина будет открываться сама.', true);
       b.disabled = false; return;
     }
     var now = new Date(), today = iso(now);
