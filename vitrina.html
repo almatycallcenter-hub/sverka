@@ -254,6 +254,16 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
   var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
   var STORE = 'tt_vitrina_key', MEKEY = 'tt_vitrina_me';
+  var JOBKEY = 'tt_vitrina_job', WORKKEY = 'tt_vitrina_work';
+  /* Должности — ровно как в штатке. Кто берёт, кем работает и где — чтобы
+     филиал и бухгалтерия понимали, кто это, даже если имя им незнакомо. */
+  var JOBS = ['Тех.персонал', 'Продавец', 'Посудомойщица', 'Помощник пекаря', 'Помощник кондитера',
+    'Повар', 'Пекарь', 'Охранник', 'Оператор доставки', 'Менеджер по развитию', 'Менеджер по закупу',
+    'Менеджер', 'Курьер', 'Кондитер', 'Кассир', 'Продавец-бармен', 'Заготовщица', 'Диспетчер',
+    'Заведующий производством', 'Директор', 'Главный бухгалтер', 'Водитель', 'Бармен',
+    'Заведующий складом', 'Администратор'].sort(function(a, b){ return a.localeCompare(b, 'ru'); });
+  var JOB = '', WORK = '';
+  try{ JOB = localStorage.getItem(JOBKEY) || ''; WORK = localStorage.getItem(WORKKEY) || ''; }catch(e){}
   var KEY = '';
   try{
     var qp = new URLSearchParams(location.search);
@@ -573,6 +583,12 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
             'style="background:none;border:0;padding:0;color:var(--ok);' +
             'text-decoration:underline;font-size:15px">Выбрать из списка</button></p>'
           : '') +
+        '<p class="mini">Должность</p>' +
+        '<button type="button" class="pickBtn' + (JOB ? '' : ' empty') + '" id="pickJob">' +
+          '<span>' + esc(JOB || 'Выберите должность') + '</span><span class="go">›</span></button>' +
+        '<p class="mini">Где работаете</p>' +
+        '<button type="button" class="pickBtn' + (WORK ? '' : ' empty') + '" id="pickWork">' +
+          '<span>' + esc(WORK || 'Выберите место работы') + '</span><span class="go">›</span></button>' +
       '</div>' +
 
       '<div class="card"><h2>Где заберёте</h2>' +
@@ -612,6 +628,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
     el('me').oninput = function(){ ME = this.value; };
     if (el('pickMe')) el('pickMe').onclick = askWho;
+    el('pickJob').onclick = askJob;
+    el('pickWork').onclick = askWork;
     el('pickDest').onclick = askWhere;
     if (el('pickTrip')) el('pickTrip').onclick = askTrip;
   }
@@ -625,7 +643,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
         (off ? 'Бронь снята' : r.mode === 'edit' ? 'Бронь изменена ✓' : 'Бронь оформлена ✓') +
       '</h2>' +
         (!off && r.num ? '<div class="num">№' + esc(r.num) + '</div>' : '') +
-        '<p>' + esc(r.who) + '</p>' +
+        '<p>' + esc(r.who) + (r.job || r.work ? '<br><span class="mini">' +
+          esc([r.job, r.work].filter(Boolean).join(' · ')) + '</span>' : '') + '</p>' +
         (off
           ? '<p>Филиал: <b>' + esc(r.destTitle) + '</b></p>' +
             '<p>Продукция снова доступна остальным.</p>'
@@ -745,6 +764,17 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     if (!list.length) return;
     sheet('Кто берёт?', list, function(v){ ME = v; drawCart(); });
   }
+  function askJob(){
+    sheet('Ваша должность', JOBS.map(function(j){ return { v: j, t: j }; }),
+      function(v){ JOB = v; try{ localStorage.setItem(JOBKEY, v); }catch(e){} drawCart(); });
+  }
+  /* Где работает — филиалы, цех, склад, офис. Сохраняем на телефоне: в следующий раз выбирать не нужно. */
+  function askWork(){
+    var list = SHOPS.map(function(s){ return { v: s[0] + ' ' + s[1], t: s[0] + ' ' + s[1], s: s[2] }; });
+    list.push({ v: 'Цех', t: 'Цех', s: 'производство' }, { v: 'Склад', t: 'Склад' }, { v: 'Офис', t: 'Офис' });
+    sheet('Где вы работаете?', list,
+      function(v){ WORK = v; try{ localStorage.setItem(WORKKEY, v); }catch(e){} drawCart(); });
+  }
   function askWhere(){
     var list = [{ v: BR, t: 'Заберу здесь', s: shopTitle(BR) }];
     SHOPS.forEach(function(s){
@@ -788,6 +818,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     if (!items.length) return;
     ME = String(ME || '').replace(/\s+/g, ' ').trim();
     if (!ME){ alert('Напишите, кто берёт.'); var m = el('me'); if (m) m.focus(); return; }
+    if (!JOB){ askJob(); return; }
+    if (!WORK){ askWork(); return; }
     if (!DEST) DEST = BR;
     var here = sameSpot(DEST, BR);
     /* Убавить бронь можно и днём: это только освобождает продукцию. А вот
@@ -819,12 +851,12 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
-                             who: ME, dest: DEST, trip: here ? '' : TRIP, items: items })
+                             who: ME, pos: JOB, work: WORK, dest: DEST, trip: here ? '' : TRIP, items: items })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
       var c = cartCount();
-      RES = { mode: mode, num: j.num || EDIT, who: ME, day: DAY, told: j.told,
+      RES = { mode: mode, num: j.num || EDIT, who: ME, job: JOB, work: WORK, day: DAY, told: j.told,
               destTitle: mode === 'off' ? shopTitle(BR)
                        : here ? shopTitle(BR) : shopTitle(DEST),
               trip: here ? '' : TRIP, pos: c.pos, qtyText: cartQty(c) };

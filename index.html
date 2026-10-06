@@ -8400,7 +8400,8 @@ function bookHtml(rows, wh, day){
     list.forEach(function(r){
       /* Рейс идёт рядом с адресом: утром филиал грузит машины по этой строке,
          и «куда» без «чем» ему бесполезно. */
-      var k = r.who + (withDest ? ' → ' + r.dest + (r.trip ? ' · ' + r.trip : '') : '');
+      var k = r.who + ((r.pos || r.work) ? ' (' + [r.pos, r.work].filter(Boolean).join(', ') + ')' : '') +
+              (withDest ? ' → ' + r.dest + (r.trip ? ' · ' + r.trip : '') : '');
       (by[k] = by[k] || []).push(r);
     });
     return '<div class="bkSec"><b>' + esc(title) + '</b>' +
@@ -9565,5 +9566,267 @@ $('a0Go').onclick = function(){
   }catch(e){}
 })();
 </script>
+<style>
+/* ═════════ Телеграм: списки скидки и списания для телефона ═════════
+   Внутри мини-приложения вместо сетки плиток — строки с кнопками −/+,
+   сверху «Обычно у вас», поиск и категории одной строкой, внизу кнопка. */
+html.tgm .topbar, html.tgm .side, html.tgm .scrim{display:none!important}
+html.tgm .panel{margin:0!important;border:0!important;border-radius:0!important}
+html.tgm .bodyArea{padding:0 0 96px!important}
+html.tgm #pg-zay > .card.noprint, html.tgm #pg-off > .card.noprint{margin:10px 12px 0;padding:0;border:0;box-shadow:none;background:transparent}
+html.tgm #pg-zay > .card.noprint > :not(.msg),
+html.tgm #pg-off > .card.noprint > :not(.msg){display:none!important}
+html.tgm #pg-zay > .zGrid, html.tgm #pg-off > .zGrid{display:none!important}
+.tgL{display:none}
+html.tgm .tgL{display:block}
+.tgHead{display:flex;align-items:center;gap:10px;padding:12px 14px 4px;font-size:14.5px;color:var(--mut)}
+.tgHead b{color:var(--txt);font-weight:700}
+.tgHead label{margin-left:auto;position:relative;white-space:nowrap;font-size:13px;color:var(--acc);font-weight:600;
+  border:1px solid var(--bd);border-radius:999px;padding:6px 12px;background:var(--card)}
+.tgHead input[type=date]{position:absolute;inset:0;opacity:0;width:100%;height:100%}
+.tgTop{position:sticky;top:0;z-index:6;background:var(--panel,#f6f6f4);padding:8px 12px 8px;
+  border-bottom:1px solid var(--bd)}
+.tgTop input{display:block;width:100%;box-sizing:border-box;padding:11px 14px;font-size:16px;
+  border:1px solid var(--bd);border-radius:12px;background:var(--card)}
+.tgChips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 0;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tgChips::-webkit-scrollbar{display:none}
+.tgChips button{flex:0 0 auto;white-space:nowrap;padding:7px 13px;border-radius:999px;border:1px solid var(--bd);
+  background:var(--card);font-size:14px;color:var(--txt);box-shadow:none}
+.tgChips button.on{background:#1f2d4d;border-color:#1f2d4d;color:#fff}
+.tgChips button.pk{border-color:var(--acc2)}
+.tgSec{padding:12px 14px 4px;font-size:12.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.tgRows{background:var(--card);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd)}
+.tgR{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--bd2,#eee);min-height:52px}
+.tgR:first-child{border-top:0}
+.tgR.has{background:var(--accbg)}
+.tgR .t{flex:1;min-width:0;font-size:15px;line-height:1.3;color:var(--txt)}
+.tgR .t small{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.tgR .st{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.tgR .st button{width:40px;height:40px;border-radius:12px;border:1px solid var(--bd);background:var(--card);
+  font-size:20px;line-height:1;color:var(--txt);padding:0;box-shadow:none}
+.tgR .st button.add{background:var(--accbg,#e8eefb);border-color:transparent;color:var(--acc,#1f4fd1);font-weight:700}
+.tgR .st .q{min-width:34px;text-align:center;font-size:16px;font-weight:700}
+.tgR .st input{width:58px;height:40px;box-sizing:border-box;text-align:center;font-size:16px;font-weight:700;
+  border:1px solid var(--bd);border-radius:10px;padding:0 4px}
+.tgR .st .u{font-size:12px;color:var(--mut);margin-left:-2px}
+.tgEmpty{padding:22px 14px;text-align:center;color:var(--mut);font-size:14px}
+.tgBar{display:none}
+html.tgm .page.on .tgBar{display:block;position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);
+  border-top:1px solid var(--bd);padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+.tgBar button,.tgBar button:hover,.tgBar button:focus,.tgBar button:active{display:block;width:100%;padding:15px;border:0;
+  border-radius:14px;background:#2d6a45!important;color:#fff!important;font-size:16.5px;font-weight:700;box-shadow:none}
+.tgBar button[disabled]{background:#b9b4aa!important}
+.tgBar button.done{background:#e7f4ec!important;color:#1d4d31!important}
+html.tgm .tgL #zBook{padding:0 12px}
+</style>
+<script>
+/* Всё состояние списков — прежнее (ZAY / OFF, черновики, отправка): здесь только
+   другой вид для телефона в Телеграме. Нажатия идут через те же функции, что и
+   на сайте, поэтому черновик, проверка «на сервере больше позиций» и отправка
+   работают ровно так же. */
+(function(){
+  if (!window.TGM) return;
+  var W = { zay: { box: function(){ return ZAY.items; }, list: zayList, page: 'pg-zay', send: 'zSend', msg: 'm7',
+                   day: 'zDay', wh: 'zWh', draft: function(){ zayDraftSave(); }, mark: function(k){ zayMark(k); zayLeft(); },
+                   add: function(k, d){ zayAdd(k, d); }, pre: 'z', title: 'Скидка 20%', dayWord: 'Уценка на' },
+            off: { box: function(){ return OFF.items; }, list: offList, page: 'pg-off', send: 'oSend', msg: 'm9',
+                   day: 'oDay', wh: 'oWh', draft: function(){ offDraftSave(); }, mark: function(k){ offMark(k); offLeft(); },
+                   add: function(k, d){ offAdd(k, d); }, pre: 'o', title: 'Списание', dayWord: 'Списание на' } };
+  var V = { zay: { mode: '', q: '', freq: null, fday: '' }, off: { mode: '', q: '', freq: null, fday: '' } };
+  var WD = ['вс','пн','вт','ср','чт','пт','сб'];
+
+  function el(id){ return document.getElementById(id); }
+  function dayLabel(w){
+    var v = el(W[w].day).value; if (!v) return '—';
+    var d = new Date(v + 'T00:00:00'), t = new Date(); t.setHours(0,0,0,0);
+    var diff = Math.round((d - t) / 864e5);
+    var rel = diff === 1 ? 'завтра' : diff === 0 ? 'сегодня' : diff === -1 ? 'вчера' : WD[d.getDay()];
+    return v.slice(8, 10) + '.' + v.slice(5, 7) + ' · ' + rel;
+  }
+  function picked(w){ var b = W[w].box(); return Object.keys(b).filter(function(k){ return b[k] > 0 && SPR[k]; }); }
+
+  function build(w){
+    var page = el(W[w].page); if (!page || el('tgL-' + w)) return;
+    var box = document.createElement('div'); box.className = 'tgL'; box.id = 'tgL-' + w;
+    box.innerHTML =
+      '<div class="tgHead"><span id="tgDl-' + w + '"></span>' +
+        '<label>Другой день<input type="date" id="tgD-' + w + '"></label></div>' +
+      '<div id="tgBk-' + w + '"></div>' +
+      '<div class="tgTop"><input type="search" id="tgQ-' + w + '" placeholder="🔎 Поиск по названию" ' +
+        'autocomplete="off" autocorrect="off" spellcheck="false"><div class="tgChips" id="tgC-' + w + '"></div></div>' +
+      '<div id="tgB-' + w + '"></div>' +
+      '<div class="tgBar"><button id="tgS-' + w + '" disabled>Отправить</button></div>';
+    page.appendChild(box);
+    /* Брони сотрудников по списку скидки — филиалу важно их видеть, переносим блок сюда. */
+    if (w === 'zay' && el('zBook')) el('tgBk-' + w).appendChild(el('zBook'));
+    el('tgQ-' + w).addEventListener('input', function(){ V[w].q = this.value; rows(w); chips(w); });
+    el('tgD-' + w).addEventListener('change', function(){
+      var src = el(W[w].day); if (!this.value) return;
+      src.value = this.value; if (src.onchange) src.onchange();
+      V[w].freq = null; render(w); loadFreq(w);
+    });
+    el('tgC-' + w).addEventListener('click', function(e){
+      var b = e.target.closest('button[data-m]'); if (!b) return;
+      V[w].mode = b.getAttribute('data-m'); V[w].q = ''; el('tgQ-' + w).value = '';
+      render(w); try{ el('tgL-' + w).scrollIntoView({ block: 'start' }); }catch(_){}
+    });
+    el('tgB-' + w).addEventListener('click', function(e){
+      var b = e.target.closest('button'), r = e.target.closest('.tgR'); if (!r) return;
+      var k = r.getAttribute('data-k'), bx = W[w].box();
+      if (b && b.hasAttribute('data-minus')) W[w].add(k, -1);
+      else if (b && b.hasAttribute('data-plus')) plus(w, k);
+      else if (!b && !(e.target.closest('input')) && !(bx[k] > 0)) plus(w, k);
+      else return;
+      row(w, k); bar(w); chips(w);
+      try{ TGM.W.HapticFeedback && TGM.W.HapticFeedback.selectionChanged(); }catch(_){}
+    });
+    el('tgB-' + w).addEventListener('input', function(e){
+      var i = e.target.closest('input[data-q]'); if (!i) return;
+      qSet(i.getAttribute('data-q'), i.value, W[w].pre === 'o' ? 'o' : 'z');
+      if (w === 'zay') zayLeft(); else offLeft();
+      bar(w); chips(w);
+    });
+    el('tgB-' + w).addEventListener('change', function(e){
+      var i = e.target.closest('input[data-q]'); if (i) row(w, i.getAttribute('data-q'));
+    });
+    el('tgS-' + w).addEventListener('click', function(){
+      var s = el(W[w].send); if (!s || s.disabled) return;
+      this.disabled = true; this.textContent = 'Отправляю…';
+      s.click();
+      var me = this, t0 = Date.now();
+      (function wait(){
+        if (s.disabled && Date.now() - t0 < 60000) return setTimeout(wait, 300);
+        var m = el(W[w].msg);
+        if (m && /\bok\b/.test(m.className)) V[w].sent = sig(w) + '@' + el(W[w].day).value;
+        bar(w);
+        try{ document.querySelector('.bodyArea').scrollTop = 0; }catch(_){}
+        try{ if (m && /\bok\b/.test(m.className)) TGM.W.HapticFeedback.notificationOccurred('success');
+             else if (m && /\berr\b/.test(m.className)) TGM.W.HapticFeedback.notificationOccurred('error'); }catch(_){}
+      })();
+    });
+  }
+
+  function plus(w, k){
+    var bx = W[w].box();
+    if (!(bx[k] > 0)){ bx[k] = 1; W[w].mark(k); W[w].draft(); }   // первое нажатие — целая единица, как на сайте
+    else W[w].add(k, 1);
+  }
+
+  function rowHtml(w, k, sub){
+    var bx = W[w].box(), n = bx[k] || 0, sp = SPR[k];
+    var info = sub || ('срок ' + sp.srok + ' ч' + (isKg(k) ? ' · в кг' : ''));
+    var st = !n ? '<button class="add" data-plus aria-label="Добавить">+</button>'
+      : '<button data-minus aria-label="Меньше">−</button>' +
+        (canFrac(k) ? '<input type="number" inputmode="decimal" step="' + stepOf(k) + '" min="0" data-q="' + esc(k) + '" value="' + qStr(n) + '">'
+                    : '<span class="q">' + qStr(n) + '</span>') +
+        '<span class="u">' + unitOf(k) + '</span>' +
+        '<button data-plus aria-label="Больше">+</button>';
+    return '<div class="tgR' + (n ? ' has' : '') + '" data-k="' + esc(k) + '"><div class="t">' + esc(sp.name) +
+           '<small>' + info + '</small></div><div class="st">' + st + '</div></div>';
+  }
+  function row(w, k){
+    var sel = '.tgR[data-k="' + (window.CSS && CSS.escape ? CSS.escape(k) : k) + '"]';
+    [].forEach.call(el('tgB-' + w).querySelectorAll(sel), function(r){
+      var sub = r.querySelector('small'); var t = document.createElement('div');
+      t.innerHTML = rowHtml(w, k, sub ? sub.innerHTML : ''); r.replaceWith(t.firstChild);
+    });
+  }
+  function freqKeys(w){
+    var f = V[w].freq || [], ok = {}, seen = {}, out = [];
+    W[w].list().forEach(function(k){ ok[k] = 1; });
+    f.forEach(function(x){ var k = nrm(x.dish); if (ok[k] && !seen[k]){ seen[k] = 1; out.push({ k: k, x: x }); } });
+    return out;
+  }
+  function cats(w){
+    var c = {}; W[w].list().forEach(function(k){ c[SPR[k].kat || 'прочее'] = 1; });
+    return Object.keys(c).sort();
+  }
+  /* Какой вид показан: выбранный руками или по умолчанию «Обычно у вас», если есть что показать. */
+  function mode(w){
+    var m = V[w].mode, fk = freqKeys(w).length;
+    if (m === 'often' && !fk) m = '';
+    if (m === 'picked' && !picked(w).length) m = '';
+    return m || (fk ? 'often' : 'all');
+  }
+  function sig(w){ var b = W[w].box(); return picked(w).sort().map(function(k){ return k + '=' + b[k]; }).join('|'); }
+  function chips(w){
+    var p = picked(w).length, fk = freqKeys(w).length, m = (V[w].q || '').length >= 2 ? '' : mode(w);
+    var list = [];
+    if (p) list.push(['picked', '✓ Набрано · ' + p, 'pk']);
+    if (fk) list.push(['often', '⭐ Обычно у вас']);
+    list.push(['all', 'Вся продукция']);
+    cats(w).forEach(function(c){ list.push(['c:' + c, c]); });
+    el('tgC-' + w).innerHTML = list.map(function(x){
+      return '<button data-m="' + esc(x[0]) + '" class="' + (x[2] || '') + (m === x[0] ? ' on' : '') + '">' + esc(x[1]) + '</button>';
+    }).join('');
+  }
+  function sortName(a, b){ return SPR[a].name < SPR[b].name ? -1 : 1; }
+  function rows(w){
+    var v = V[w], q = nrm(v.q || ''), bx = W[w].box(), h = '', keys;
+    if (q.length >= 2){
+      keys = W[w].list().filter(function(k){ return k.indexOf(q) >= 0; }).sort(sortName);
+      h = '<div class="tgSec">Найдено: ' + keys.length + '</div>';
+      h += keys.length ? '<div class="tgRows">' + keys.map(function(k){ return rowHtml(w, k); }).join('') + '</div>'
+                       : '<div class="tgEmpty">По «' + esc(v.q) + '» ничего не нашлось.</div>';
+    } else if (mode(w) === 'picked'){
+      keys = picked(w).sort(sortName);
+      h = keys.length ? '<div class="tgSec">Набрано</div><div class="tgRows">' + keys.map(function(k){ return rowHtml(w, k); }).join('') + '</div>'
+                      : '<div class="tgEmpty">Пока ничего не набрано.</div>';
+    } else if (mode(w) === 'often'){
+      var fk = freqKeys(w);
+      h = '<div class="tgSec">Обычно у вас · за 3 недели</div><div class="tgRows">' + fk.map(function(o){
+        var unit = unitOf(o.k);
+        return rowHtml(w, o.k, 'было в списке ' + o.x.n + ' ' + (o.x.n % 10 === 1 && o.x.n % 100 !== 11 ? 'день' : (o.x.n % 10 > 1 && o.x.n % 10 < 5 && (o.x.n % 100 < 10 || o.x.n % 100 > 20) ? 'дня' : 'дней')) +
+          ' · обычно ' + qStr(o.x.avg) + ' ' + unit);
+      }).join('') + '</div><div class="tgEmpty">Нет нужного? Поиск сверху или «Вся продукция».</div>';
+    } else {
+      var cat = mode(w).indexOf('c:') === 0 ? mode(w).slice(2) : '';
+      keys = W[w].list().filter(function(k){ return !cat || (SPR[k].kat || 'прочее') === cat; }).sort(sortName);
+      h = '<div class="tgSec">' + esc(cat || 'Вся продукция') + ' · ' + keys.length + '</div>' +
+          '<div class="tgRows">' + keys.map(function(k){ return rowHtml(w, k); }).join('') + '</div>';
+    }
+    el('tgB-' + w).innerHTML = h;
+    bar(w);
+  }
+  function bar(w){
+    var b = el('tgS-' + w); if (!b) return;
+    var p = picked(w), bx = W[w].box(), s = el(W[w].send);
+    if (s && s.disabled){ b.disabled = true; b.textContent = 'Отправляю…'; return; }
+    b.disabled = !p.length;
+    var done = p.length && V[w].sent && V[w].sent === sig(w) + '@' + el(W[w].day).value;
+    b.classList.toggle('done', !!done);
+    b.textContent = !p.length ? 'Добавьте позиции'
+      : done ? '✅ Отправлено · ' + cntText(p, bx) : 'Отправить · ' + cntText(p, bx);
+  }
+  function render(w){
+    if (!el('tgL-' + w)) build(w);
+    if (!el('tgL-' + w)) return;
+    el('tgDl-' + w).innerHTML = W[w].dayWord + ' <b>' + esc(dayLabel(w)) + '</b>';
+    el('tgD-' + w).value = el(W[w].day).value || '';
+    chips(w); rows(w);
+    if (V[w].fday !== el(W[w].day).value) loadFreq(w);
+  }
+  /* «Обычно у вас» — что этот филиал вносил за три недели (приёмник считает сам). */
+  function loadFreq(w){
+    var d = el(W[w].day).value, wh = el(W[w].wh).value;
+    if (!d || !wh) return;
+    V[w].fday = d;
+    apiCall('mine', { key: apiCfg().send || '', day: d, branch: wh, freq: 1 }).then(function(r){
+      if (!r || !r.freq) return;
+      V.zay.freq = r.freq.list || []; V.off.freq = r.freq.off || [];
+      V.zay.fday = V.off.fday = d;
+      render('zay'); render('off');
+    }).catch(function(){});
+  }
+
+  /* Прежние перерисовки (загрузка дня, подтянутый с сервера список, смена даты)
+     обновляют и телеграм-вид. */
+  var zr = window.zayRender, orr = window.offRender;
+  window.zayRender = function(){ var r = zr.apply(this, arguments); try{ render('zay'); }catch(e){} return r; };
+  window.offRender = function(){ var r = orr.apply(this, arguments); try{ render('off'); }catch(e){} return r; };
+  try{ render('zay'); render('off'); }catch(e){}
+})();
+</script>
+
 </body>
 </html>
