@@ -318,8 +318,13 @@
     border-bottom:1px solid var(--bd);background:var(--card)}
   .topbar h1{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
   .topbar .sub{color:var(--mut);font-size:12.5px;margin-left:4px;font-weight:400}
-  .burger{display:none;background:none;border:1px solid var(--bd);color:var(--txt);
-    border-radius:8px;padding:5px 9px;font-size:15px;box-shadow:none}
+  .burger{display:block;background:none;border:1px solid var(--bd);color:var(--txt);
+    border-radius:8px;padding:5px 9px;font-size:15px;box-shadow:none;cursor:pointer}
+  /* ☰ на компьютере прячет левое меню целиком — страница занимает всю ширину. */
+  @media (min-width:901px){
+    html.navHidden .side{display:none}
+    html.navHidden .panel{margin-left:10px}
+  }
   .bodyArea{flex:1;overflow:auto;padding:18px;background:var(--panel)}
   .page{display:none;max-width:1180px}
   .page.on{display:block}
@@ -679,6 +684,8 @@
 /* Открыли из Телеграма кнопкой «Отправить списки» (startapp=ls…): входом служит
    сам Телеграм — приёмник проверяет подпись и что человек в группе филиала. */
 window.TGM = null;
+/* Меню скрыто прошлый раз — прячем сразу, до отрисовки, чтобы не мигало. */
+try{ if (localStorage.getItem('tt_nav_hidden')) document.documentElement.classList.add('navHidden'); }catch(e){}
 try{
   (function(){
     var W = window.Telegram && window.Telegram.WebApp;
@@ -9500,6 +9507,13 @@ $('a0Go').onclick = function(){
     var t = e.target;
     while (t && t !== document){
       if (t.id === 'burger'){
+        /* На широком экране ☰ прячет меню целиком и отдаёт место странице;
+           выбор запоминаем. На телефоне — как раньше, выезжающая панель. */
+        if (window.matchMedia && matchMedia('(min-width:901px)').matches){
+          var hid = document.documentElement.classList.toggle('navHidden');
+          try{ localStorage.setItem('tt_nav_hidden', hid ? '1' : ''); }catch(_){}
+          return;
+        }
         el('side').classList.toggle('open'); el('scrim').classList.toggle('on'); return; }
       if (t.id === 'scrim'){
         el('side').classList.remove('open'); el('scrim').classList.remove('on'); return; }
