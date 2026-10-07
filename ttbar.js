@@ -9,9 +9,16 @@
   try{ W = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null; }catch(e){}
   if (!W) return;
   var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
-  var KEY = 'tt_prof', P = {};
-  try{ P = JSON.parse(sessionStorage.getItem(KEY) || '{}') || {}; }catch(e){ P = {}; }
-  function save(){ try{ sessionStorage.setItem(KEY, JSON.stringify(P)); }catch(e){} }
+  /* Профиль храним в памяти телефона (а не только на время сеанса): при
+     следующем открытии вкладки рисуются сразу, а свежий профиль приходит в фоне. */
+  var KEY = 'tt_prof2', P = {};
+  var UID = String(((W.initDataUnsafe || {}).user || {}).id || '');
+  try{ P = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; }catch(e){ P = {}; }
+  if (P.uid !== UID || !(Date.now() - (P.at || 0) < 12 * 3600e3)) P = { uid: UID };
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(P)); }catch(e){} }
+  /* Общая память для страниц: витрина и «Мои брони» из ответа при открытии. */
+  function stash(k, data){ try{ localStorage.setItem(k, JSON.stringify({ at: Date.now(), uid: UID, data: data })); }catch(e){} }
+  function iso(d){ return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 
   var qp = new URLSearchParams(location.search);
   var sp = (W.initDataUnsafe || {}).start_param || '';
@@ -93,25 +100,46 @@
       if (a.classList.contains('on')) return;
       go(a.getAttribute('data-href'));
     });
-    if (!P.loaded) load();
   }
   /* Профиль: в каких группах человек, какие кухни, ключ витрины */
+  var BOOTING = false;
   function load(){
-    fetch(API, { method: 'POST', body: JSON.stringify({ action: 'tg_me', init: W.initData }) })
+    BOOTING = true;
+    try{ sessionStorage.setItem('tt_boot_at', String(Date.now())); }catch(e){}
+    var d = new Date(), t = new Date(d.getTime() + 864e5);
+    fetch(API, { method: 'POST', body: JSON.stringify({ action: 'tg_boot', init: W.initData, from: iso(d), to: iso(t) }) })
       .then(function(r){ return r.json(); })
-      .then(function(r){
-        if (!r || r.error) return;
-        P.loaded = 1; P.name = r.name; P.branches = r.branches || []; P.kitchens = r.kitchens || [];
+      .then(function(j){
+        BOOTING = false;
+        if (!j || j.error){ try{ window.dispatchEvent(new CustomEvent('ttboard', { detail: null })); }catch(e){} return; }
+        var r = j.me || j;
+        if (j.board && !j.board.error){ stash('tt_board', { from: iso(d), to: iso(t), res: j.board });
+          try{ window.dispatchEvent(new CustomEvent('ttboard', { detail: j.board })); }catch(e){} }
+        else { try{ window.dispatchEvent(new CustomEvent('ttboard', { detail: null })); }catch(e){} }
+        if (j.mine && j.mine.ok){ stash('tt_mine', j.mine);
+          try{ window.dispatchEvent(new CustomEvent('ttmine', { detail: j.mine })); }catch(e){} }
+        P.loaded = 1; P.at = Date.now(); P.uid = UID; P.name = r.name; P.branches = r.branches || []; P.kitchens = r.kitchens || [];
         P.baker = !!r.baker; P.staff = !!r.staff; P.show = r.show || '';
         if (P.code && P.branches.length && !P.branches.some(function(b){ return b.code === P.code; }) &&
             !P.kitchens.some(function(k){ return k.code === P.code; })) P.code = '';
         if (!P.code && P.branches.length) P.code = P.branches[0].code;
-        save(); draw();
+        save(); if (document.body) draw();
         try{ window.dispatchEvent(new CustomEvent('ttprofile', { detail: P })); }catch(e){}
-      }).catch(function(){});
+      }).catch(function(){ BOOTING = false; try{ window.dispatchEvent(new CustomEvent('ttboard', { detail: null })); }catch(e){} });
+  }
+  /* Страницы спрашивают: «есть свежая витрина в памяти?» */
+  function cached(k, maxAge){
+    try{ var c = JSON.parse(localStorage.getItem(k) || 'null');
+         if (c && c.uid === UID && Date.now() - c.at < maxAge) return c; }catch(e){}
+    return null;
   }
   window.TTBAR = { profile: function(){ return P; }, go: go, reload: function(){ P.loaded = 0; save(); load(); },
+                   booting: function(){ return BOOTING; }, cached: cached, stash: stash,
                    setCode: function(c){ P.code = c; save(); draw(); },
                    setKx: function(c){ P.kx = c; save(); draw(); } };
+  /* Раз в сеанс (и не чаще раза в 5 минут) — один общий запрос «tg_boot».
+     Запускаем сразу, не дожидаясь отрисовки страницы: дорога до таблицы долгая. */
+  var last = 0; try{ last = +sessionStorage.getItem('tt_boot_at') || 0; }catch(e){}
+  if (!P.loaded || Date.now() - last > 5 * 60e3) load();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();

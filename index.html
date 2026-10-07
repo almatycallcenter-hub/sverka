@@ -10038,12 +10038,34 @@ async function a0Boot(){
 }
 async function a0Boot_(){
   if (window.TGM){
-    /* Телеграм: кто это и какой филиал — решает приёмник по подписи и группе. */
+    /* Телеграм: кто это и какой филиал — решает приёмник по подписи и группе.
+       Ответ помним на телефоне 6 часов: повторное открытие — без «Проверяем
+       доступ…». Каждый запрос к таблице всё равно идёт с подписью Телеграма,
+       так что память здесь только ускоряет экран, а не открывает доступ. */
+    var uid = ''; try{ uid = String(((TGM.W.initDataUnsafe || {}).user || {}).id || ''); }catch(e){}
+    var mk = 'tgm_me:' + uid + ':' + TGM.code, hit = null;
+    try{ hit = JSON.parse(localStorage.getItem(mk) || 'null'); if (hit && !(Date.now() - hit.at < 6 * 3600e3)) hit = null; }catch(e){ hit = null; }
+    if (hit && hit.me){
+      TGM.me = hit.me; TGM.err = ''; TGM.busy = false;
+      a0Apply(TGM.me);
+      var c0 = apiCfg(); if (!S(c0.send)) { c0.send = 'tg'; apiSave(c0); }
+      a0Paint();
+      /* Проверка в фоне: если доступ сняли — закрываем экран. Нет сети — не трогаем. */
+      apiCall('me', {}).then(function(r){
+        try{ localStorage.setItem(mk, JSON.stringify({ at: Date.now(), me: { email: r.email, name: r.name, role: r.role, branch: r.branch, required: true } })); }catch(e){}
+      }).catch(function(e){
+        if (e && e.name === 'TypeError') return;
+        try{ localStorage.removeItem(mk); }catch(_){}
+        TGM.me = null; TGM.err = e.message || String(e); a0Paint();
+      });
+      return a0Start(TGM.me);
+    }
     TGM.busy = true; a0Paint();
     try{
       var r = await apiCall('me', {});
       TGM.me = { email: r.email, name: r.name, role: r.role, branch: r.branch, required: true };
       TGM.err = '';
+      try{ localStorage.setItem(mk, JSON.stringify({ at: Date.now(), me: TGM.me })); }catch(e){}
       a0Apply(TGM.me);
       /* Страница по старой привычке ждёт ключ филиала, прежде чем отправлять.
          В Телеграме ключа нет и не нужен — ставим метку, приёмник смотрит на подпись. */
