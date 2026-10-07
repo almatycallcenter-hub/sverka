@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F3F1EC">
+<title>Бронь — Тәп-Тәтті</title>
+<style>
+/* Страница брони для филиала: открывается кнопкой «Отметить: собрано / выдано»
+   из сообщения о брони в группе филиала. Одно решение на экран: что собрать,
+   для кого и одна большая кнопка следующего шага. */
+:root{--bg:#F3F1EC;--card:#FFFFFF;--ink:#14110C;--mut:#6F695D;--line:#E8E4DC;--navy:#1F2D4D;--gold:#E39B2F;
+  --goldBg:#FFF3DC;--ok:#2C6B3F;--okBg:#EAF4EE;--red:#A12C2C}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:17px;line-height:1.45;padding:0 0 120px}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px;margin-bottom:12px;box-shadow:0 2px 10px rgba(20,17,12,.05)}
+.card h2{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.num{font-size:34px;font-weight:850;letter-spacing:-.01em;line-height:1.1}
+.chipS{display:inline-block;font-size:14px;font-weight:750;padding:5px 12px;border-radius:999px}
+.chipS.new{background:#E9EEF7;color:var(--navy)}
+.chipS.ready{background:var(--goldBg);color:#8A5A00}
+.chipS.done{background:var(--okBg);color:var(--ok)}
+.chipS.cancel{background:#F8E8E8;color:var(--red)}
+.mut{color:var(--mut);font-size:15px}
+.track{display:flex;align-items:flex-start;margin:16px 0 4px}
+.track .s{flex:1;text-align:center;font-size:12.5px;color:var(--mut);position:relative}
+.track .s i{display:block;width:26px;height:26px;border-radius:13px;margin:0 auto 4px;background:#E7E3DA;
+  border:3px solid var(--card);box-shadow:0 0 0 1px var(--line);font-style:normal;color:#fff;font-size:13px;line-height:20px;font-weight:800}
+.track .s:not(:first-child)::before{content:"";position:absolute;top:12px;right:50%;width:100%;height:3px;background:#E7E3DA;z-index:-1}
+.track .s.on{color:var(--ink);font-weight:700}
+.track .s.on i{background:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.track .s.on::before{background:var(--ok)!important}
+.track.cancel .s.on i{background:var(--red);box-shadow:0 0 0 1px var(--red)}
+.who b{font-size:19px;display:block}
+.tel{display:inline-flex;align-items:center;gap:8px;margin-top:8px;padding:8px 12px;border-radius:12px;background:var(--navy);
+  color:#fff;text-decoration:none;font-weight:700}
+.it{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.it:first-of-type{border-top:0}
+.it .q{font-weight:800;white-space:nowrap}
+.it small{display:block;color:var(--mut);font-size:13.5px}
+.sum{display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;border-top:2px solid var(--ink);margin-top:4px}
+.sum span{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.sum{gap:12px}
+.sum b{font-size:24px;color:var(--navy);white-space:nowrap}
+.place{font-size:17px;font-weight:700}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--bg) 70%,rgba(243,241,236,0))}
+.bar .in{max-width:640px;margin:0 auto}
+.big{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;border:0;border-radius:18px;background:var(--navy);
+  color:#fff;font-size:18px;font-weight:750;padding:17px;box-shadow:0 6px 18px rgba(31,45,77,.28)}
+.big.ok{background:var(--ok);box-shadow:0 6px 18px rgba(44,107,63,.3)}
+.big:disabled{opacity:.6}
+.links{display:flex;gap:10px;margin-top:4px}
+.links button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:12px;font-size:15px;font-weight:650}
+.links button.r{color:var(--red);border-color:#E5C4C4}
+.note{background:#FFF7E8;border:1px solid #EBD9AE;border-radius:16px;padding:14px;font-size:16px}
+.sk{height:120px;border-radius:20px;background:linear-gradient(90deg,#ece8e0,#f6f3ee,#ece8e0);background-size:200% 100%;animation:sk 1.2s infinite;margin-bottom:12px}
+@keyframes sk{to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+<main id="app"><div class="sk"></div><div class="sk"></div></main>
+<div class="bar" id="bar" hidden><div class="in" id="barIn"></div></div>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="ttbar.js"></script>
+<script>
+(function(){
+  'use strict';
+  var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
+  var W = null;
+  try{ W = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Telegram.WebApp : null; }catch(e){}
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function money(n){ return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+  function fq(n){ return Math.round(n * 100) / 100; }
+  var DOW = ['вс','пн','вт','ср','чт','пт','сб'], MON = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+  function day(s){ var p = String(s).split('-'), d = new Date(+p[0], +p[1]-1, +p[2]); return DOW[d.getDay()] + ', ' + (+p[2]) + ' ' + MON[+p[1]-1]; }
+  function hm(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  var ST = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена' };
+  var NUM = (new URLSearchParams(location.search).get('n') || '').replace(/\D/g, '');
+  var sp = W ? ((W.initDataUnsafe || {}).start_param || '') : '';
+  if (!NUM && /^bk\d+$/.test(sp)) NUM = sp.slice(2);
+  if (!W){ el('app').innerHTML = '<div class="note">Откройте бронь из Телеграма — кнопкой под сообщением в группе филиала.</div>'; return; }
+  try{ W.ready(); W.expand(); W.disableVerticalSwipes && W.disableVerticalSwipes(); }catch(e){}
+  if (!NUM){ el('app').innerHTML = '<div class="note">Не вижу номер брони. Откройте её кнопкой под сообщением о брони.</div>'; return; }
+
+  function api(body){
+    body.init = W.initData;
+    return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+      .then(function(r){ return r.json(); }).then(function(j){ if (!j || j.error) throw new Error((j && j.error) || 'нет ответа'); return j; });
+  }
+  function track(st){
+    var steps = st === 'cancel' ? [['new','Новая'],['cancel','Отменена']] : [['new','Новая'],['ready','Собрана'],['done','Выдана']];
+    var idx = 0; steps.forEach(function(s, i){ if (s[0] === st) idx = i; });
+    return '<div class="track' + (st === 'cancel' ? ' cancel' : '') + '">' + steps.map(function(s, i){
+      return '<div class="s' + (i <= idx ? ' on' : '') + '"><i>' + (i <= idx ? '✓' : '') + '</i>' + s[1] + '</div>'; }).join('') + '</div>';
+  }
+  var BK = null, CAN = {};
+  function draw(){
+    var b = BK, st = b.status;
+    var here = !b.dest || String(b.dest).match(/\d+/) && String(b.branch).match(/\d+/) && String(b.dest).match(/\d+/)[0] === String(b.branch).match(/\d+/)[0];
+    el('app').innerHTML =
+      '<div class="card"><div class="hd"><span class="num">Бронь №' + esc(b.num) + '</span><span class="chipS ' + esc(st) + '">' + ST[st] + '</span></div>' +
+        '<div class="mut">' + esc(b.branch) + ' · уценка ' + esc(day(b.day)) + '</div>' + track(st) +
+        (b.at && st !== 'new' ? '<div class="mut" style="text-align:center">' + ST[st] + ' · ' + esc(b.by) + ', ' + hm(b.at) + '</div>' : '') +
+      '</div>' +
+      '<div class="card who"><h2>Для кого</h2><b>' + esc(b.who) + '</b>' +
+        (b.pos || b.work ? '<span class="mut">' + esc([b.pos, b.work].filter(Boolean).join(' · ')) + '</span>' : '') +
+        (b.phone ? '<br><a class="tel" href="tel:' + esc(b.phone) + '">📞 ' + esc(b.phone) + ' <span style="font-weight:500;opacity:.8">✓ Телеграм</span></a>' : '') +
+      '</div>' +
+      '<div class="card"><h2>Собрать · ' + b.items.length + ' поз.</h2>' +
+        b.items.map(function(i){
+          return '<div class="it"><div>' + esc(i.dish) + (i.staff ? '<small>' + money(i.staff) + ' × ' + fq(i.qty) + ' = ' + money(i.staff * i.qty) + '</small>' : '') +
+            '</div><div class="q">× ' + fq(i.qty) + '</div></div>'; }).join('') +
+        (b.total ? '<div class="sum"><span>Сотрудник платит (−' + (b.off || 50) + '%)</span><b>' + money(b.total) + '</b></div>' : '') +
+      '</div>' +
+      '<div class="card"><h2>Где заберёт</h2><div class="place">' +
+        (here ? '📦 Отложить у себя' : '🚚 Отвезти в ' + esc(b.dest) + (b.trip ? ' · ' + esc(b.trip) : '')) + '</div></div>' +
+      (CAN.mark && (st === 'ready' || st === 'new' || st === 'done') ? '<div class="links">' +
+        (st === 'ready' || st === 'done' ? '<button type="button" data-s="' + (st === 'done' ? 'ready' : 'new') + '">↩️ Вернуть «' + (st === 'done' ? 'Собрана' : 'Новая') + '»</button>' : '') +
+        (st !== 'done' ? '<button type="button" class="r" data-s="cancel">Отменить бронь</button>' : '') + '</div>' : '');
+    var next = st === 'new' ? ['ready', '📦 Собрано — отложили'] : st === 'ready' ? ['done', '✅ Выдано сотруднику'] : null;
+    if (CAN.mark && next){
+      el('bar').hidden = false;
+      el('barIn').innerHTML = '<button type="button" class="big' + (next[0] === 'done' ? ' ok' : '') + '" data-s="' + next[0] + '">' + next[1] + '</button>';
+    } else el('bar').hidden = true;
+  }
+  function set(s){
+    function go(){
+      var bs = document.querySelectorAll('[data-s]'); bs.forEach(function(x){ x.disabled = true; });
+      api({ action: 'bk_set', num: NUM, status: s }).then(function(j){
+        BK = j.bk; CAN = j.can || CAN; draw();
+        try{ W.HapticFeedback && W.HapticFeedback.notificationOccurred('success'); }catch(e){}
+      }).catch(function(e){
+        bs.forEach(function(x){ x.disabled = false; });
+        try{ W.showAlert('Не получилось: ' + e.message); }catch(_){ alert('Не получилось: ' + e.message); }
+      });
+    }
+    if (s === 'cancel'){
+      var q = 'Отменить бронь №' + NUM + '? Продукция вернётся на витрину, сотрудник получит сообщение.';
+      try{ W.showConfirm(q, function(ok){ if (ok) go(); }); }catch(e){ if (confirm(q)) go(); }
+    } else go();
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('[data-s]');
+    if (b && !b.disabled) set(b.getAttribute('data-s'));
+  });
+  api({ action: 'bk_get', num: NUM }).then(function(j){ BK = j.bk; CAN = j.can || {}; draw(); })
+    .catch(function(e){ el('app').innerHTML = '<div class="note"><b>Бронь не открылась.</b><br>' + esc(e.message) + '</div>'; });
+})();
+</script>
+</body>
+</html>

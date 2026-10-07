@@ -105,6 +105,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 <input type="file" id="file" accept="image/*" capture="environment" multiple class="hidden">
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="ttbar.js"></script>
 <script>
 (function(){
   'use strict';
@@ -122,6 +123,9 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   }
   var INIT = TG ? TG.initData : '';
   var CODE = TG && TG.initDataUnsafe ? (TG.initDataUnsafe.start_param || '') : '';
+  /* Вкладка «Фото» общего приложения передаёт филиал параметром ?c= */
+  var C_ = TG ? (new URLSearchParams(location.search).get('c') || '') : '';
+  if (/^[0-9a-f]{10}$/.test(C_)) CODE = 'ph' + C_;
   /* Кнопка «Отправить списки» ведёт в то же мини-приложение с кодом ls… —
      это вечерние списки на странице филиала, а не фото. */
   if (/^ls[0-9a-f]{10}$/.test(CODE)){ location.replace('index.html' + location.search + location.hash); return; }

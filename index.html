@@ -690,6 +690,9 @@ try{
   (function(){
     var W = window.Telegram && window.Telegram.WebApp;
     var sp = W && W.initData && W.initDataUnsafe ? (W.initDataUnsafe.start_param || '') : '';
+    /* Из общего приложения «ТТ Алматы» филиал приходит параметром ?c= */
+    var c = W && W.initData ? (new URLSearchParams(location.search).get('c') || '') : '';
+    if (/^[0-9a-f]{10}$/.test(c)) sp = 'ls' + c;
     if (!/^ls[0-9a-f]{10}$/.test(sp)) return;
     window.TGM = { init: W.initData, code: sp, W: W, me: null, err: '', busy: true };
     try{ W.ready(); W.expand(); }catch(e){}
@@ -710,6 +713,7 @@ html.tgm .tgTabs button{flex:1;padding:11px 8px;border-radius:12px;border:1px so
   background:var(--card,#fff);font:inherit;font-size:14.5px;font-weight:600;color:var(--txt,#111)}
 html.tgm .tgTabs button.on{background:#1f2d4d;border-color:#1f2d4d;color:#fff}
 </style>
+<script src="ttbar.js"></script>
 <script>
 /* Две кнопки сверху вместо меню: «Скидка» и «Списание». Нажатие — тот же пункт меню. */
 document.addEventListener('DOMContentLoaded', function(){
@@ -760,6 +764,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
       <a data-page="off"><span class="ic">🗑️</span>Списание завтра</a>
       <a data-page="in"><span class="ic">📦</span>Приёмка списаний</a>
+      <a data-page="bk"><span class="ic">🛍️</span>Брони сотрудников</a>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <div class="navsec">Сверка</div>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
@@ -956,6 +961,69 @@ document.addEventListener('DOMContentLoaded', function(){
 
         <div class="printHead" id="inHead"></div>
         <div id="inBody"></div>
+      </section>
+
+      <!-- ─── Брони сотрудников: как заказы в магазине ─── -->
+      <section class="page wide" id="pg-bk">
+        <style>
+          .bkT{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+          .bkT button{display:block;text-align:left;background:var(--card);color:var(--txt);border:1px solid var(--bd);border-radius:12px;
+            padding:10px 13px;box-shadow:var(--shCard)}
+          .bkT button:hover:not(:disabled){background:var(--rowHov);border-color:var(--bd)}
+          .bkT button span{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut)}
+          .bkT button span i{width:8px;height:8px;border-radius:4px;display:inline-block}
+          .bkT button b{display:block;font-size:24px;font-weight:650;margin-top:2px}
+          .bkT button.on,.bkT button.on:hover:not(:disabled){background:#1f2d4d;border-color:#1f2d4d;color:#fff}
+          .bkT button.on span{color:#c9d1e3}
+          .bkWrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;align-items:start}
+          @media(max-width:980px){.bkWrap{grid-template-columns:1fr}}
+          .bkC{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shCard)}
+          .bkC .h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+          .bkC .n{font-size:22px;font-weight:750;letter-spacing:-.01em}
+          .bkC .sum{margin-left:auto;font-size:20px;font-weight:700}
+          .bkC .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0;font-size:13px}
+          @media(max-width:620px){.bkC .meta{grid-template-columns:1fr}}
+          .bkC .meta small{display:block;color:var(--mut);font-size:11.5px}
+          .bkC .its{border-top:1px solid var(--bd)}
+          .bkC .its div{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--bd);font-size:13px}
+          .bkC .its div:last-child{border-bottom:0}
+          .bkS{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px}
+          .bkS.new{background:#E9EEF7;color:#1f2d4d}.bkS.ready{background:#FFF3DC;color:#8A5A00}
+          .bkS.done{background:#EAF4EE;color:#2C6B3F}.bkS.cancel{background:#F8E8E8;color:#A12C2C}
+          .bkWait{font-size:12px;color:var(--mut)}
+          .bkWait.late{color:#A12C2C;font-weight:600}
+          .bkSide .card h2{margin-bottom:8px}
+          .bkQ{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--bd);font-size:13px;cursor:pointer}
+          .bkQ:first-of-type{border-top:0}
+          .bkQ .av{flex:0 0 32px;height:32px;border-radius:16px;background:#E9EEF7;color:#1f2d4d;font-weight:700;font-size:12px;
+            display:flex;align-items:center;justify-content:center}
+          .bkQ .tx{flex:1;min-width:0}
+          .bkQ .tx small{display:block;color:var(--mut)}
+          .bkBar{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:4px 0}
+          .bkBar .l{flex:0 0 46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+          .bkBar .t{flex:1;height:8px;border-radius:4px;background:var(--panel);overflow:hidden}
+          .bkBar .t i{display:block;height:100%;background:#E39B2F;border-radius:4px}
+          .bkBar b{flex:0 0 auto;font-weight:600}
+        </style>
+        <div class="card noprint">
+          <h2>Брони сотрудников</h2>
+          <p class="lead">Как заказы в магазине: сотрудник выбирает в витрине, филиал отмечает в Телеграме
+            «Собрано» и «Выдано». Здесь видно всё сразу — что ждёт, что собрано, кто сколько платит.</p>
+          <div class="row" style="margin-top:4px">
+            <div><label class="lbl">С</label><input type="date" id="bkFrom"></div>
+            <div><label class="lbl">По</label><input type="date" id="bkTo"></div>
+            <div><label class="lbl">Филиал</label><select id="bkWh"><option value="">Все филиалы</option></select></div>
+            <div style="flex:1 1 180px"><label class="lbl">Поиск</label><input type="text" id="bkQ" placeholder="№, имя или позиция"></div>
+            <button id="bkLoad">Обновить</button>
+            <button class="sec" id="bkPrice" title="Цены для витрины из отчёта «Продажи со скидкой 20%»">Цены в витрину</button>
+          </div>
+          <div class="msg" id="bkMsg"></div>
+        </div>
+        <div class="bkT" id="bkTiles"></div>
+        <div class="bkWrap">
+          <div id="bkList"></div>
+          <div class="bkSide" id="bkSide"></div>
+        </div>
       </section>
 
       <!-- ─── Спасатель филиала ────────────────────────── -->
@@ -8978,6 +9046,154 @@ async function zayBooks(){
     box.innerHTML = bookHtml(res.rows || [], wh, d);
   }catch(e){ box.innerHTML = ''; }   // молча: филиалу это не ошибка, а просто «пока пусто»
 }
+/* ═══ Брони сотрудников (админ) ═══
+   Данные — books из таблицы: строки активных броней + лист статусов (там же
+   отменённые с позициями). Цены и сумма — уже со скидкой сотрудника. */
+var BKA = { rows: [], stat: {}, prices: {}, off: 50, f: '', loaded: false };
+function bkaStaff(dish){
+  var p = BKA.prices[String(dish || '').replace(/[ёЁ]/g, 'е').replace(/["«»“”]/g, '').replace(/\s+/g, ' ').trim().toLowerCase()] || 0;
+  return p ? Math.round(p * (100 - BKA.off) / 100) : 0;
+}
+function bkaList(){
+  var by = {};
+  BKA.rows.forEach(function(r){
+    var n = r.num || ('?' + r.who + r.branch);
+    var b = by[n] || (by[n] = { num: r.num, day: r.day, branch: r.branch, who: r.who, pos: r.pos, work: r.work,
+                                 dest: r.dest, trip: r.trip, items: [] });
+    b.items.push({ dish: r.dish, qty: +r.qty || 0 });
+  });
+  Object.keys(BKA.stat).forEach(function(n){
+    var s = BKA.stat[n];
+    if (!by[n]) by[n] = { num: s.num, day: s.day, branch: s.branch, who: s.who, items: (s.items || []).map(function(i){ return { dish: i.dish, qty: i.qty, staff: i.staff }; }) };
+    var b = by[n]; b.status = s.status; b.at = s.at; b.by = s.by; b.made = s.made; b.phone = s.phone;
+    (s.items || []).forEach(function(i){ b.items.forEach(function(x){ if (x.dish === i.dish && !x.staff) x.staff = i.staff; }); });
+  });
+  return Object.keys(by).map(function(n){
+    var b = by[n]; b.status = b.status || 'new';
+    b.items.forEach(function(i){ if (!i.staff) i.staff = bkaStaff(i.dish); });
+    b.total = b.items.reduce(function(s, i){ return s + (i.staff || 0) * (i.qty || 0); }, 0);
+    return b;
+  }).sort(function(a, b){ return (b.made || 0) - (a.made || 0) || (+b.num || 0) - (+a.num || 0); });
+}
+function bkaMoney(n){ return fmtQ(Math.round(n || 0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+function bkaAgo(t){
+  if (!t) return '';
+  var m = Math.round((Date.now() - t) / 60000);
+  return m < 60 ? m + ' мин' : m < 1440 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : Math.floor(m / 1440) + ' дн';
+}
+var BKA_ST = { 'new': ['Новая', '#1f2d4d'], ready: ['Собрана', '#E39B2F'], done: ['Выдана', '#2C6B3F'], cancel: ['Отменена', '#A12C2C'] };
+function bkaRender(){
+  var all = bkaList(), wh = $('bkWh').value, q = String($('bkQ').value || '').trim().toLowerCase();
+  var whs = {}; all.forEach(function(b){ whs[b.branch] = 1; });
+  var sel = $('bkWh'), cur = sel.value;
+  sel.innerHTML = '<option value="">Все филиалы</option>' + Object.keys(whs).sort().map(function(w){
+    return '<option' + (w === cur ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('');
+  var vis = all.filter(function(b){
+    if (wh && b.branch !== wh) return false;
+    if (q && (String(b.num) + ' ' + b.who + ' ' + b.items.map(function(i){ return i.dish; }).join(' ')).toLowerCase().indexOf(q) < 0) return false;
+    return true;
+  });
+  var cnt = { 'new': 0, ready: 0, done: 0, cancel: 0 }, money = 0;
+  vis.forEach(function(b){ cnt[b.status] = (cnt[b.status] || 0) + 1; if (b.status !== 'cancel') money += b.total; });
+  $('bkTiles').innerHTML = ['new', 'ready', 'done', 'cancel'].map(function(s){
+    return '<button type="button" data-bkf="' + s + '" class="' + (BKA.f === s ? 'on' : '') + '"><span><i style="background:' + BKA_ST[s][1] + '"></i>' +
+      BKA_ST[s][0] + (s === 'new' ? ' · ждут' : '') + '</span><b>' + cnt[s] + '</b></button>'; }).join('') +
+    '<button type="button" data-bkf=""' + (BKA.f ? '' : ' class="on"') + '><span>Всего броней</span><b>' + vis.length + '</b></button>' +
+    '<button type="button" disabled style="opacity:1"><span>К оплате сотрудниками</span><b>' + bkaMoney(money) + '</b></button>';
+  var list = BKA.f ? vis.filter(function(b){ return b.status === BKA.f; }) : vis;
+  $('bkList').innerHTML = list.length ? list.map(function(b){
+    var here = !b.dest || String(b.dest).replace(/\D/g, '') === String(b.branch).replace(/\D/g, '');
+    var late = b.status === 'new' && b.made && Date.now() - b.made > 3 * 3600e3;
+    return '<div class="bkC" id="bkc' + esc(b.num) + '"><div class="h"><span class="n">№' + esc(b.num || '—') + '</span>' +
+      '<span class="bkS ' + b.status + '">' + BKA_ST[b.status][0] + '</span>' +
+      (b.status === 'new' && b.made ? '<span class="bkWait' + (late ? ' late' : '') + '">ждёт ' + bkaAgo(b.made) + '</span>' : '') +
+      (b.status !== 'new' && b.at ? '<span class="bkWait">' + esc(b.by || '') + ' · ' + new Date(b.at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + '</span>' : '') +
+      '<span class="sum">' + (b.total ? bkaMoney(b.total) : '') + '</span></div>' +
+      '<div class="meta"><div><small>Сотрудник</small><b>' + esc(b.who) + '</b>' +
+        (b.pos || b.work ? '<br>' + esc([b.pos, b.work].filter(Boolean).join(' · ')) : '') +
+        (b.phone ? '<br><a href="tel:' + esc(b.phone) + '">' + esc(b.phone) + '</a> <span style="color:#2C6B3F">✓ Телеграм</span>' : '') + '</div>' +
+      '<div><small>Филиал · уценка ' + esc(b.day) + '</small><b>' + esc(b.branch) + '</b><br>' +
+        (here ? '📦 заберёт здесь' : '🚚 в ' + esc(b.dest) + (b.trip ? ' · ' + esc(b.trip) : '')) + '</div></div>' +
+      '<div class="its">' + b.items.map(function(i){
+        return '<div><span>' + esc(i.dish) + ' <span style="color:var(--mut)">× ' + fmtQ(i.qty) + '</span></span><span>' +
+          (i.staff ? bkaMoney(i.staff * i.qty) : '<span style="color:var(--mut)">нет цены</span>') + '</span></div>'; }).join('') + '</div></div>';
+  }).join('') : '<div class="card"><p class="lead" style="margin:0">Броней с такими условиями нет.</p></div>';
+
+  /* справа: очередь, что берут, по филиалам */
+  var queue = vis.filter(function(b){ return b.status === 'new'; }).sort(function(a, b){ return (a.made || 0) - (b.made || 0); });
+  var top = {}, brs = {};
+  vis.forEach(function(b){
+    if (b.status === 'cancel') return;
+    b.items.forEach(function(i){ top[i.dish] = (top[i.dish] || 0) + i.qty; });
+    var x = brs[b.branch] || (brs[b.branch] = { n: 0, m: 0 }); x.n++; x.m += b.total;
+  });
+  var topL = Object.keys(top).sort(function(a, b){ return top[b] - top[a]; }).slice(0, 8), tMax = topL.length ? top[topL[0]] : 1;
+  var brL = Object.keys(brs).sort(function(a, b){ return brs[b].n - brs[a].n; }), bMax = brL.length ? brs[brL[0]].n : 1;
+  function ini(n){ return String(n || '?').split(/\s+/).map(function(w){ return w.charAt(0); }).join('').slice(0, 2).toUpperCase(); }
+  $('bkSide').innerHTML =
+    '<div class="card"><h2>Ждут сборки · ' + queue.length + '</h2>' + (queue.length ? queue.slice(0, 8).map(function(b){
+      return '<div class="bkQ" data-bkgo="' + esc(b.num) + '"><span class="av">' + esc(ini(b.who)) + '</span><span class="tx"><b>' + esc(b.who) + '</b>' +
+        '<small>№' + esc(b.num) + ' · ' + esc(b.branch) + '</small></span><span style="text-align:right">' + (b.total ? bkaMoney(b.total) : '') +
+        '<small style="display:block;color:var(--mut)">' + bkaAgo(b.made) + '</small></span></div>'; }).join('')
+      : '<p class="lead" style="margin:0">Все собраны 👌</p>') + '</div>' +
+    '<div class="card"><h2>Что берут</h2>' + (topL.map(function(d){
+      return '<div class="bkBar"><span class="l" title="' + esc(d) + '">' + esc(d) + '</span><span class="t"><i style="width:' + Math.round(top[d] / tMax * 100) + '%"></i></span><b>' + fmtQ(top[d]) + '</b></div>'; }).join('') || '<p class="lead" style="margin:0">—</p>') + '</div>' +
+    '<div class="card"><h2>По филиалам</h2>' + (brL.map(function(w){
+      return '<div class="bkBar"><span class="l">' + esc(w) + '</span><span class="t"><i style="width:' + Math.round(brs[w].n / bMax * 100) + '%;background:#1f2d4d"></i></span><b>' + brs[w].n + ' · ' + bkaMoney(brs[w].m) + '</b></div>'; }).join('') || '<p class="lead" style="margin:0">—</p>') + '</div>';
+}
+async function bkaLoad(){
+  if (!$('bkFrom').value){ $('bkFrom').value = isoToday(); $('bkTo').value = shift(isoToday(), 1); }
+  var c = apiCfg();
+  msg('bkMsg', 'Загружаю брони…', 'wait');
+  try{
+    var j = await apiCall('books', { key: c.read || '', from: D($('bkFrom').value), to: D($('bkTo').value) });
+    BKA.rows = j.rows || []; BKA.stat = j.stat || {}; BKA.prices = j.prices || {}; BKA.off = +j.off || 50; BKA.loaded = true;
+    $('bkMsg').className = 'msg';
+    bkaRender();
+    bkaPricesAuto();
+  }catch(e){ msg('bkMsg', 'Брони не загрузились: ' + esc(e.message), 'err'); }
+}
+/* Цены для витрины — из отчёта «Продажи со скидкой 20%»: сумма без скидки / количество.
+   В таблицу уходит только «блюдо — цена», без чеков и покупателей. */
+function bkaPriceList(){
+  var q = {}, sum = {}, name = {};
+  (DB.s20 || []).forEach(function(r){
+    var k = nrm(r[2]), s0 = N(r[4]);
+    if (!s0 || !k) return;
+    q[k] = (q[k] || 0) + N(r[3]); sum[k] = (sum[k] || 0) + s0; name[k] = name[k] || String(r[2]).trim();
+  });
+  return Object.keys(q).filter(function(k){ return q[k] > 0; }).map(function(k){ return [name[k], Math.round(sum[k] / q[k])]; });
+}
+async function bkaPrices(quiet){
+  var list = bkaPriceList();
+  if (!list.length){ if (!quiet) msg('bkMsg', 'Нет отчёта «Продажи со скидкой 20%» — загрузите его на странице «Выгрузки iiko».', 'err'); return; }
+  try{
+    var j = await apiCall('prices_set', { key: apiCfg().read || '', prices: list });
+    try{ localStorage.setItem('tt_price_sent', String(list.length) + ':' + list.slice(0, 50).join('|').length); }catch(e){}
+    if (!quiet) msg('bkMsg', 'Цены отправлены в витрину: ' + (j.saved || list.length) + ' позиций. Сотрудник видит цену −' + BKA.off + '%.', 'ok');
+  }catch(e){ if (!quiet) msg('bkMsg', 'Цены не ушли: ' + esc(e.message), 'err'); }
+}
+function bkaPricesAuto(){
+  var list = bkaPriceList(); if (!list.length) return;
+  var sig = String(list.length) + ':' + list.slice(0, 50).join('|').length, was = '';
+  try{ was = localStorage.getItem('tt_price_sent') || ''; }catch(e){}
+  if (sig !== was) bkaPrices(true);
+}
+document.addEventListener('DOMContentLoaded', function(){
+  if (!$('bkLoad')) return;
+  $('bkLoad').onclick = bkaLoad;
+  $('bkPrice').onclick = function(){ bkaPrices(false); };
+  $('bkWh').onchange = bkaRender; $('bkQ').oninput = bkaRender;
+  $('bkTiles').addEventListener('click', function(e){
+    var b = e.target.closest('[data-bkf]'); if (!b) return;
+    BKA.f = b.getAttribute('data-bkf'); bkaRender();
+  });
+  $('bkSide').addEventListener('click', function(e){
+    var q = e.target.closest('[data-bkgo]'); if (!q) return;
+    var c = document.getElementById('bkc' + q.getAttribute('data-bkgo')); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+});
+
 function apiReadList(body){ return apiCall('read', body); }
 /* Справочник открыт обоим ключам: он нужен и администратору, и телефону филиала,
    а у филиала есть только ключ отправки. Секрета в названиях продукции нет. */
@@ -9894,6 +10110,7 @@ $('a0Go').onclick = function(){
     heat:['Продажи по часам','что и когда покупают, когда уценивают'],
     off: ['Списание завтра','что филиал снимает с продажи'],
     in:  ['Приёмка списаний','цех сверяет привезённое со списком'],
+    bk:  ['Брони сотрудников','что ждёт сборки, что собрано и выдано'],
     sos: ['Спасатель филиала','у кого залежалось и кто это продаёт'],
     hist:['История сверок','что было в прошлые разы'],
     db:  ['Хранилище','данные этого браузера'],
@@ -9921,6 +10138,7 @@ $('a0Go').onclick = function(){
     el('scrim').classList.remove('on');
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
     if (p === 'hist' && typeof renderHist === 'function') renderHist();
+    if (p === 'bk' && typeof bkaLoad === 'function') bkaLoad();
     if (typeof showFresh === 'function') showFresh();
     if (p === 'chr'){
       if (!el('cFrom').value) el('cFrom').value = el('dFrom').value;

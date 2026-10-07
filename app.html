@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F3F1EC">
+<title>ТТ Алматы</title>
+<style>
+/* Главная мини-приложения «ТТ Алматы»: кто ты, твой филиал и крупные карточки
+   разделов. Вкладки внизу — общие для всех страниц (ttbar.js). */
+:root{
+  --bg:#F3F1EC;--card:#FFFFFF;--ink:#14110C;--mut:#7A7468;--line:#E8E4DC;
+  --navy:#1F2D4D;--gold:#E39B2F;--goldBg:#FFF3DC;--ok:#2C6B3F;--okBg:#EAF4EE;--warnBg:#FFF6E0;--warn:#8A5A00;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px;line-height:1.4;padding:0 0 110px}
+main{max-width:640px;margin:0 auto;padding:18px 16px 0}
+.me{display:flex;align-items:center;gap:16px;padding:6px 2px 18px}
+.ava{flex:0 0 68px;height:68px;border-radius:22px;background:var(--card);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:var(--navy);overflow:hidden}
+.ava img{width:100%;height:100%;object-fit:cover}
+.me .role{font-size:12.5px;font-weight:800;letter-spacing:.06em;color:var(--gold);text-transform:uppercase}
+.me .nm{font-size:26px;font-weight:700;line-height:1.15;margin-top:2px}
+.me .sub{font-size:14px;color:var(--mut);margin-top:3px}
+.hero{border-radius:22px;padding:16px 18px;margin:0 0 16px;background:linear-gradient(135deg,#FFF6E4,#FFFFFF);
+  border:1px solid #F1DFBC;position:relative;overflow:hidden}
+.hero b{font-size:16.5px}
+.hero b,.hero p{display:block;padding-right:64px}
+.hero p{margin:4px 0 0;color:#5f594e;font-size:14px}
+.hero .big{position:absolute;right:-4px;bottom:-12px;font-size:64px;opacity:.9}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:0 0 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:0 0 auto;padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);
+  font:600 14px system-ui,-apple-system,sans-serif;color:var(--ink)}
+.chips button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.card{display:flex;align-items:center;gap:16px;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);
+  border-radius:24px;padding:18px;margin:0 0 12px;box-shadow:0 2px 10px rgba(20,17,12,.04);
+  font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.card:active{transform:scale(.99)}
+.tile{flex:0 0 56px;height:56px;border-radius:18px;background:var(--goldBg);color:var(--gold);
+  display:flex;align-items:center;justify-content:center}
+.tile svg{width:28px;height:28px}
+.card .tx{flex:1;min-width:0}
+.card .t1{font-size:19px;font-weight:700;line-height:1.2}
+.card .t2{font-size:14px;color:var(--mut);margin-top:4px;line-height:1.3}
+.card .t3{font-size:12.5px;color:#a39d91;margin-top:2px}
+.card .ch{flex:0 0 auto;color:#b0aa9f}
+.card.add{border-style:dashed;background:transparent;box-shadow:none}
+.card.add .tile{background:#E9EEF7;color:var(--navy)}
+.sec{font-size:12.5px;font-weight:800;letter-spacing:.06em;color:var(--mut);text-transform:uppercase;margin:18px 4px 10px}
+.note{border-radius:18px;padding:14px 16px;font-size:15px;margin:0 0 12px;background:var(--warnBg);color:var(--warn);border:1px solid #F0D9A6}
+.sk{height:84px;border-radius:24px;background:linear-gradient(90deg,#ece8e0,#f6f3ee,#ece8e0);background-size:200% 100%;
+  animation:sk 1.2s infinite;margin:0 0 12px}
+@keyframes sk{to{background-position:-200% 0}}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main id="app">
+  <div class="me"><div class="ava" id="ava">ТТ</div>
+    <div><div class="role" id="role">Тәп-Тәтті</div><div class="nm" id="nm">ТТ Алматы</div><div class="sub" id="sub">Загрузка… / Жүктелуде…</div></div></div>
+  <div id="body"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+</main>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="ttbar.js"></script>
+<script>
+(function(){
+  'use strict';
+  var W = null;
+  try{ W = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Telegram.WebApp : null; }catch(e){}
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  if (!W){
+    el('sub').textContent = 'Откройте из Телеграма: бот @ttcallcenterttbot → «Открыть».';
+    el('body').innerHTML = '';
+    return;
+  }
+  try{ W.ready(); W.expand(); W.disableVerticalSwipes && W.disableVerticalSwipes(); }catch(e){}
+  try{ W.setHeaderColor && W.setHeaderColor('#F3F1EC'); W.setBackgroundColor && W.setBackgroundColor('#F3F1EC'); }catch(e){}
+  var U = (W.initDataUnsafe || {}).user || {};
+  var first = U.first_name || '';
+  el('nm').textContent = first || 'ТТ Алматы';
+  el('ava').textContent = (first || 'Т').charAt(0).toUpperCase();
+  if (U.photo_url) el('ava').innerHTML = '<img src="' + esc(U.photo_url) + '" alt="">';
+
+  var IC = {
+    ls: '<path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/>',
+    ph: '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+    kx: '<path d="M7 14a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17.6 6.05 4 4 0 0 1 17 14"/><path d="M7 12v8h10v-8"/><path d="M7 17h10"/>',
+    vit: '<path d="M4 9l1.5-5h13L20 9"/><path d="M4 9h16v11H4z"/><path d="M9 20v-6h6v6"/>',
+    add: '<rect x="5" y="3" width="14" height="18" rx="3"/><path d="M12 9v6M9 12h6"/>'
+  };
+  function svg(n){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + IC[n] + '</svg>'; }
+  var CH = '<svg class="ch" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  function card(id, t1, t2, t3, href){
+    return '<button class="card" data-href="' + esc(href) + '"><span class="tile">' + svg(id) + '</span>' +
+      '<span class="tx"><span class="t1" style="display:block">' + t1 + '</span><span class="t2" style="display:block">' + t2 + '</span>' +
+      (t3 ? '<span class="t3" style="display:block">' + t3 + '</span>' : '') + '</span>' + CH + '</button>';
+  }
+  function short(b){ var m = String(b).match(/\d+/); return m ? 'ТТ' + m[0] : b; }
+
+  function render(P){
+    var br = P.branches || [], cur = P.code || (br[0] && br[0].code) || '';
+    var B = br.filter(function(x){ return x.code === cur; })[0];
+    var kit = (P.kitchens || []).filter(function(k){ return k.code === cur; })[0] ||
+              (P.baker && !B ? (P.kitchens || []).filter(function(k){ return k.code === (P.kx || ''); })[0] || (P.kitchens || [])[0] : null);
+    el('role').textContent = B ? 'Филиал ' + short(B.branch) : P.baker ? 'Пекарь' : P.staff ? 'Сотрудник' : 'Тәп-Тәтті';
+    el('sub').textContent = B ? B.branch : P.baker && kit ? 'Кухня ' + short(kit.branch) : 'Тәп-Тәтті';
+    var h = '';
+    if (!br.length && !P.baker && !P.staff){
+      el('body').innerHTML = '<div class="note"><b>Вас нет в рабочих группах.</b><br>Попросите администратора добавить вас ' +
+        'в группу своего филиала в Телеграме — и откройте приложение снова.<br>' +
+        'Филиалыңыздың жұмыс тобына қосуды әкімшіден сұраңыз.</div>';
+      return;
+    }
+    var d = new Date(), hr = d.getHours();
+    var heroT = hr >= 21 ? 'Время вечерних списков' : hr < 11 ? 'Доброе утро!' : 'Хорошего дня!';
+    var heroP = hr >= 21 ? 'Скидка и списание на завтра — до 23:00. · Тізімдер 23:00-ге дейін.'
+              : hr < 11 ? 'Утром — фото списания и документы. · Таңертең — есептен шығару фотосы.'
+              : 'Всё для работы филиала — в одном месте. · Барлығы бір жерде.';
+    if (P.baker && !B){ heroT = hr < 11 ? 'Доброе утро!' : 'Хорошей смены!';
+      heroP = 'Отмечайте заготовки — бот напомнит о сроках. · Дайындамаларды белгілеңіз.'; }
+    h += '<div class="hero"><b>' + heroT + '</b><p>' + heroP + '</p><span class="big">🥐</span></div>';
+    if (br.length > 1){
+      h += '<div class="chips">' + br.map(function(b){
+        return '<button data-code="' + esc(b.code) + '" class="' + (b.code === cur ? 'on' : '') + '">' + esc(short(b.branch)) + '</button>'; }).join('') + '</div>';
+    }
+    if (B){
+      h += card('ls', 'Списки скидки и списания', 'Жеңілдік және есептен шығару тізімі', 'Каждый вечер до 23:00', 'index.html?c=' + B.code);
+      h += card('ph', 'Фото списания', 'Есептен шығару фотосы', 'Утром — фото и документы', 'spisanie.html?c=' + B.code);
+    }
+    if (P.baker && !B && (P.kitchens || []).length > 1){
+      h += '<div class="chips">' + P.kitchens.map(function(k){
+        return '<button data-kx="' + esc(k.code) + '" class="' + (kit && k.code === kit.code ? 'on' : '') + '">Кухня ' + esc(short(k.branch)) + '</button>'; }).join('') + '</div>';
+    }
+    if (kit && (B ? B.kitchen : P.baker))
+      h += card('kx', 'Кухня: заготовки', 'Ас үй: дайындамалар', 'Сроки, списание, заявка на сырьё', 'kuhnya.html?c=' + kit.code);
+    var k = P.show || '';
+    h += card('vit', 'Витрина со скидкой', 'Жеңілдіктегі өнімдер', 'Забронировать продукцию для себя', 'vitrina.html' + (k ? '?k=' + encodeURIComponent(k) : '?tg=1'));
+    h += '<div id="addBox"></div>';
+    el('body').innerHTML = h;
+    el('body').querySelectorAll('.card[data-href]').forEach(function(c){
+      c.onclick = function(){ window.TTBAR ? TTBAR.go(this.getAttribute('data-href')) : location.replace(this.getAttribute('data-href') + location.hash); };
+    });
+    el('body').querySelectorAll('[data-code]').forEach(function(b){
+      b.onclick = function(){ TTBAR.setCode(this.getAttribute('data-code')); render(TTBAR.profile()); };
+    });
+    el('body').querySelectorAll('[data-kx]').forEach(function(b){
+      b.onclick = function(){ TTBAR.setKx(this.getAttribute('data-kx')); render(TTBAR.profile()); };
+    });
+    homeScreen();
+  }
+  /* «Добавить на главный экран» — Телеграм 8.0+. Если уже добавлено — не показываем. */
+  function homeScreen(){
+    var box = el('addBox'); if (!box) return;
+    if (!W.addToHomeScreen || !(W.isVersionAtLeast && W.isVersionAtLeast('8.0'))) return;
+    function show(){
+      box.innerHTML = '<button class="card add" id="addHome"><span class="tile">' + svg('add') + '</span><span class="tx">' +
+        '<span class="t1" style="display:block">На главный экран</span><span class="t2" style="display:block">Открывать одним касанием, как приложение · Басты экранға қосу</span></span></button>';
+      el('addHome').onclick = function(){ try{ W.addToHomeScreen(); }catch(e){} };
+    }
+    try{
+      W.checkHomeScreenStatus(function(st){ if (st !== 'added') show(); });
+    }catch(e){ show(); }
+  }
+  function wait(){
+    var P = window.TTBAR ? TTBAR.profile() : {};
+    if (P.loaded) return render(P);
+    window.addEventListener('ttprofile', function(e){ render(e.detail); }, { once: true });
+    setTimeout(function(){ var Q = TTBAR.profile(); if (!Q.loaded){ el('sub').textContent = 'Нет связи с таблицей — проверьте интернет.'; } }, 15000);
+  }
+  wait();
+})();
+</script>
+</body>
+</html>

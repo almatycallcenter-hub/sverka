@@ -7,24 +7,23 @@
 <title>Что со скидкой — Тәп-Тәтті</title>
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8892b'/%3E%3Ctext x='32' y='44' font-family='sans-serif' font-size='30' font-weight='700' fill='%23fff' text-anchor='middle'%3E50%25%3C/text%3E%3C/svg%3E">
 <style>
-/* Витрину открывают сотрудники, среди них пожилые. Отсюда всё остальное:
-   крупный шрифт, чёрным по светлому, одно решение на экран и единственная
-   кнопка внизу, до которой дотягивается большой палец.
-
-   Путь короткий и всегда один и тот же: филиал → продукция → корзина →
-   получение → готово. Раньше это была одна длинная лента всех филиалов
-   сразу — на телефоне она превращалась в отчёт об остатках, а должна
-   ощущаться как простой магазин. */
+/* Витрина как магазин: фото, цена сотрудника, корзина, «Мои брони».
+   Открывают сотрудники, среди них пожилые: крупный шрифт, тёмный текст на
+   светлом, одно решение на экран, главная кнопка — внизу под большим пальцем.
+   Цвета — те же, что в приложении «ТТ Алматы». */
 :root{
-  --bg:#F7F5F0;
+  --bg:#F3F1EC;
   --card:#FFFFFF;
   --ink:#14110C;
-  --mut:#6B6559;
-  --line:#E6E3DD;      /* светло-серые разделители вместо бежевых рамок */
-  --gold:#8A6516;
+  --mut:#6F695D;
+  --line:#E8E4DC;
+  --navy:#1F2D4D;
+  --gold:#E39B2F;
+  --goldBg:#FFF3DC;
   --ok:#2C6B3F;
-  --okBg:#EDF5EF;
-  --shadow:0 1px 0 rgba(20,17,12,.04);
+  --okBg:#EAF4EE;
+  --red:#A12C2C;
+  --shadow:0 2px 10px rgba(20,17,12,.05);
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -32,141 +31,262 @@ body{
   margin:0;background:var(--bg);color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:17px;line-height:1.45;
-  padding:0 0 96px;                 /* место под нижнюю панель */
+  padding:0 0 110px;
 }
 button,input{font:inherit;color:inherit}
-button{cursor:pointer}
+button{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.hidden{display:none!important}
 
-/* ── шапка: одна строка, не липкая ── */
+/* ── шапка ── */
 .top{
-  background:var(--card);border-bottom:1px solid var(--line);
-  padding:12px 16px;display:flex;align-items:center;gap:12px;
+  background:rgba(243,241,236,.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding:12px 16px 10px;display:flex;align-items:center;gap:12px;
   position:sticky;top:0;z-index:5;
 }
 .top .back{
-  flex:0 0 auto;width:40px;height:40px;border-radius:12px;
+  flex:0 0 auto;width:42px;height:42px;border-radius:14px;
   border:1px solid var(--line);background:var(--card);
-  font-size:22px;line-height:1;display:none;
+  font-size:24px;line-height:1;display:none;
 }
 .top .ttl{flex:1;min-width:0}
-.top h1{margin:0;font-size:17px;font-weight:600;line-height:1.25;
+.top h1{margin:0;font-size:21px;font-weight:750;line-height:1.2;letter-spacing:-.01em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top .sub{font-size:14px;color:var(--mut);line-height:1.25;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .top .upd{
-  flex:0 0 auto;width:40px;height:40px;border-radius:12px;
-  border:1px solid var(--line);background:var(--card);font-size:18px;line-height:1;
+  flex:0 0 auto;width:42px;height:42px;border-radius:14px;
+  border:1px solid var(--line);background:var(--card);font-size:19px;line-height:1;
 }
 .top .upd[disabled]{opacity:.5}
+.top .cartBtn{flex:0 0 auto;position:relative;width:42px;height:42px;border-radius:14px;border:0;
+  background:var(--navy);color:#fff;display:none;align-items:center;justify-content:center}
+.top .cartBtn b{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;border-radius:11px;
+  background:var(--gold);color:#fff;font-size:12.5px;line-height:22px;padding:0 6px;text-align:center}
 
-main{max-width:760px;margin:0 auto;padding:12px 16px 0}
+main{max-width:760px;margin:0 auto;padding:4px 16px 0}
+
+/* ── вкладки «Витрина / Мои брони» ── */
+.seg{display:flex;background:#E7E3DA;border-radius:14px;padding:4px;margin:0 0 12px}
+.seg button{flex:1;border:0;background:transparent;border-radius:11px;padding:10px 8px;
+  font-size:15.5px;font-weight:650;color:var(--mut)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.seg button i{font-style:normal;display:inline-block;min-width:20px;height:20px;line-height:20px;border-radius:10px;
+  background:var(--gold);color:#fff;font-size:12px;margin-left:6px;padding:0 6px}
 
 /* ── поиск ── */
 .find{
-  display:block;width:100%;padding:13px 14px;margin-bottom:12px;
-  border:1px solid var(--line);border-radius:12px;background:var(--card);
+  display:block;width:100%;padding:13px 16px 13px 44px;margin-bottom:12px;
+  border:1px solid var(--line);border-radius:14px;background:var(--card) no-repeat 14px 50%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%237A7468' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
 }
-.find:focus{outline:none;border-color:var(--ok)}
+.find:focus{outline:none;border-color:var(--navy)}
 
 /* ── полоска категорий ── */
-.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;margin:0 -16px;padding-left:16px;padding-right:16px;
   -webkit-overflow-scrolling:touch;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chips button{
-  flex:0 0 auto;padding:8px 14px;border-radius:999px;
-  border:1px solid var(--line);background:var(--card);font-size:15px;white-space:nowrap;
+  flex:0 0 auto;padding:9px 15px;border-radius:999px;
+  border:1px solid var(--line);background:var(--card);font-size:15px;font-weight:600;white-space:nowrap;
 }
-.chips button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.chips button.on{background:var(--navy);border-color:var(--navy);color:#fff}
 
-/* ── список: филиалы и продукция одной разметкой ── */
-.list{background:var(--card);border:1px solid var(--line);border-radius:14px;
-  overflow:hidden;box-shadow:var(--shadow);margin-bottom:14px}
-.row{
-  display:flex;align-items:center;gap:12px;padding:14px 16px;
-  border-top:1px solid var(--line);
-}
-.row:first-child{border-top:0}
-.row .txt{flex:1;min-width:0}
-.row .nm{font-size:17px;line-height:1.3;overflow-wrap:break-word}
-.row .sub{font-size:14px;color:var(--mut);margin-top:2px}
-/* Своя бронь на экране филиалов и плашка правки — один и тот же зелёный:
-   человек должен узнавать «это про меня» с одного взгляда. */
-.row .mine{font-size:14px;color:var(--ok);font-weight:600;margin-top:4px}
-.edit{background:#EAF6EE;border:1px solid #BFE0CB;border-radius:12px;
-  padding:12px 14px;margin:0 0 12px;font-size:15px;line-height:1.45;color:#1d4d31}
-.edit button,.drop{display:block;width:100%;margin-top:10px;padding:11px 14px;
-  border:1px solid #D9B4B4;border-radius:10px;background:#fff;color:#9B2C2C;
-  font:inherit;font-size:15px;font-weight:600;cursor:pointer}
-.drop{margin-top:14px}
-.edit button:active,.drop:active{background:#FBEDED}
-.row .go{flex:0 0 auto;color:var(--mut);font-size:20px}
-/* Строка-кнопка не должна выглядеть кнопкой: у <button> своя рамка, и она
-   обводила каждый филиал жирным прямоугольником. Оставляем только разделитель. */
-.row.tap{width:100%;text-align:left;border:0;border-top:1px solid var(--line);
-  border-radius:0;background:var(--card);font:inherit;color:inherit}
-.row.tap:first-child{border-top:0}
-.row.tap:active{background:#FAF8F4}
-.row.off .nm{color:var(--mut)}
-.row.has{background:var(--okBg)}
+/* ── филиалы ── */
+.shop{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);
+  border:1px solid var(--line);border-radius:22px;padding:14px;margin:0 0 10px;box-shadow:var(--shadow)}
+.shop:active{transform:scale(.99)}
+.shop.off{box-shadow:none;background:transparent}
+.shop.off .nm{color:var(--mut)}
+.shop .pics{flex:0 0 74px;height:74px;border-radius:18px;overflow:hidden;display:grid;
+  grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;background:var(--line)}
+.shop .pics.one{grid-template-columns:1fr;grid-template-rows:1fr}
+.shop .pics .ph{border-radius:0;font-size:20px}
+.shop .pics.one .ph{font-size:32px}
+.shop .txt{flex:1;min-width:0}
+.shop .nm{font-size:18px;font-weight:700;line-height:1.25}
+.shop .sub{font-size:14px;color:var(--mut);margin-top:2px}
+.shop .mine{display:inline-block;font-size:13.5px;font-weight:650;margin-top:6px;padding:3px 10px;border-radius:999px;
+  background:var(--okBg);color:var(--ok)}
+.shop .go{flex:0 0 auto;color:#B0AA9F;font-size:24px}
 
-/* ── степпер ── */
-.st{flex:0 0 auto;display:flex;align-items:center;gap:2px}
-.st button{
-  width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
-  background:var(--card);font-size:22px;line-height:1;font-weight:600;
-}
-.st button:disabled{opacity:.35}
-.st .n{min-width:34px;text-align:center;font-size:18px;font-weight:700}
-.st .n.zero{color:var(--mut);font-weight:400}
+/* ── карточки продукции ── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media (min-width:600px){.grid{grid-template-columns:1fr 1fr 1fr}}
+.pc{position:relative;background:var(--card);border:1px solid var(--line);border-radius:20px;overflow:hidden;
+  box-shadow:var(--shadow);display:flex;flex-direction:column;text-align:left;padding:0}
+.pc.has{border-color:var(--navy);box-shadow:0 0 0 1.5px var(--navy) inset,var(--shadow)}
+.pc .img{position:relative;aspect-ratio:1/1;width:100%}
+.pc .img .ph,.pc .img img{position:absolute;inset:0;width:100%;height:100%}
+.pc .img img{object-fit:cover}
+.pc .off{position:absolute;left:8px;top:8px;background:var(--gold);color:#fff;font-size:12.5px;font-weight:800;
+  padding:3px 8px;border-radius:8px;letter-spacing:.02em}
+.pc .tag{position:absolute;left:8px;bottom:8px;background:var(--navy);color:#fff;font-weight:800;font-size:15px;
+  padding:4px 9px;border-radius:9px;line-height:1.2}
+.pc .tag s{display:block;font-weight:500;font-size:11.5px;opacity:.7}
+.pc .bd{padding:10px 12px 12px;flex:1;display:flex;flex-direction:column}
+.pc .nm{font-size:15.5px;font-weight:650;line-height:1.25;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc .left{font-size:13px;color:var(--mut);margin-top:4px}
+.pc .ft{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:auto;padding-top:8px}
+.pc .add{flex:0 0 auto;width:40px;height:40px;border-radius:20px;border:0;
+  background:var(--goldBg);color:var(--navy);font-size:24px;font-weight:700;line-height:1}
+.pc .qty{flex:1;display:flex;align-items:center;justify-content:space-between;background:var(--navy);
+  border-radius:20px;color:#fff}
+.pc .qty button{width:40px;height:40px;border:0;background:transparent;color:#fff;font-size:22px;font-weight:600}
+.pc .qty span{min-width:22px;text-align:center;font-weight:800;font-size:16px}
+.pc.dead .img{filter:grayscale(1);opacity:.55}
+.pc.dead .gone{position:absolute;inset:auto 8px 8px 8px;background:rgba(20,17,12,.75);color:#fff;font-size:13px;
+  font-weight:700;text-align:center;border-radius:9px;padding:4px}
+
+/* Заглушка вместо фото — пока фото не прислали. Цвет зависит от названия. */
+.ph{display:flex;align-items:center;justify-content:center;font-size:48px;
+  background:linear-gradient(135deg,var(--a,#FFF3DC),var(--b,#F7E3BE))}
+
+/* ── карточка товара (снизу) ── */
+.pv{position:fixed;inset:0;z-index:70;display:flex;flex-direction:column;justify-content:flex-end}
+.pv[hidden]{display:none}
+.pv .sc{position:absolute;inset:0;background:rgba(20,17,12,.45);animation:fade .18s}
+.pv .pn{position:relative;background:var(--card);border-radius:26px 26px 0 0;max-height:92vh;overflow:auto;
+  padding:0 0 calc(16px + env(safe-area-inset-bottom));animation:up .22s ease-out;max-width:760px;width:100%;margin:0 auto}
+.pv .im{position:relative;aspect-ratio:4/3;width:100%;background:var(--line)}
+.pv .im img,.pv .im .ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;font-size:96px}
+.pv .x{position:absolute;right:12px;top:12px;width:38px;height:38px;border-radius:19px;border:0;
+  background:rgba(255,255,255,.92);font-size:22px;line-height:1}
+.pv .in{padding:16px 18px 0}
+.pv .cat{display:inline-block;font-size:12.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--gold);background:var(--goldBg);padding:3px 10px;border-radius:999px}
+.pv h2{margin:8px 0 4px;font-size:25px;line-height:1.2;font-weight:780;letter-spacing:-.01em}
+.pv .pr{display:flex;align-items:baseline;gap:10px;margin:4px 0 2px}
+.pv .pr b{font-size:26px;font-weight:800;color:var(--navy)}
+.pv .pr s{color:var(--mut);font-size:16px}
+.pv .pr i{font-style:normal;background:var(--gold);color:#fff;font-weight:800;font-size:13px;padding:2px 8px;border-radius:7px}
+.pv .lf{color:var(--mut);font-size:15px}
+.pv .row2{display:flex;align-items:center;justify-content:space-between;margin:18px 0 6px}
+.pv .row2 .l{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.stp{display:flex;align-items:center;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stp button{width:50px;height:48px;border:0;background:var(--card);font-size:24px;font-weight:600}
+.stp button:disabled{opacity:.3}
+.stp span{min-width:56px;text-align:center;font-weight:800;font-size:18px;border-left:1px solid var(--line);
+  border-right:1px solid var(--line);line-height:48px}
+.big{display:flex;align-items:center;justify-content:space-between;width:100%;border:0;border-radius:16px;
+  background:var(--navy);color:#fff;font-size:17.5px;font-weight:700;padding:16px 18px;margin-top:14px}
+.big:disabled{background:#CFCBC2;color:#6B6559}
+.big.gh{background:var(--card);color:var(--red);border:1px solid #E5C4C4;justify-content:center}
+.big .ar{font-size:20px}
 
 /* ── нижняя панель ── */
 .bar{
   position:fixed;left:0;right:0;bottom:0;z-index:6;
-  background:var(--card);border-top:1px solid var(--line);
   padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(to top,var(--bg) 70%,rgba(243,241,236,0));
 }
-.bar .in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
-.bar .cnt{flex:1;min-width:0;font-size:14px;color:var(--mut);line-height:1.25;
-  overflow:hidden}
-.bar .cnt b{display:block;font-size:16px;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .in{max-width:760px;margin:0 auto}
 .bar button{
-  flex:0 0 auto;padding:14px 22px;border-radius:12px;border:0;
-  background:var(--ok);color:#fff;font-size:17px;font-weight:600;
+  display:flex;align-items:center;gap:12px;width:100%;border:0;border-radius:18px;
+  background:var(--navy);color:#fff;padding:12px 14px 12px 18px;text-align:left;
+  box-shadow:0 6px 18px rgba(31,45,77,.28);
 }
-.bar button:disabled{background:#CFCBC2;color:#6B6559}
+.bar button:disabled{background:#CFCBC2;color:#6B6559;box-shadow:none}
+.bar .cnt{flex:1;min-width:0;font-size:13.5px;line-height:1.25;opacity:.85;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .cnt b{display:block;font-size:17px;opacity:1;font-weight:750;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .go2{flex:0 0 auto;font-weight:700;font-size:16px;background:rgba(255,255,255,.14);border-radius:12px;padding:10px 14px}
 
-/* ── экран оформления ── */
-.card{background:var(--card);border:1px solid var(--line);border-radius:14px;
-  padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
-.card h2{margin:0 0 10px;font-size:16px;font-weight:600}
+/* ── корзина и оформление ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;
+  padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card h2{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
 .card .lbl{display:block;font-size:14px;color:var(--mut);margin:0 0 6px}
 .card input[type=text]{
   display:block;width:100%;padding:14px;border:1px solid var(--line);
-  border-radius:12px;background:var(--card);font-size:17px;
+  border-radius:14px;background:#FBFAF7;font-size:17px;
 }
-.card input[type=text]:focus{outline:none;border-color:var(--ok)}
+.card input[type=text]:focus{outline:none;border-color:var(--navy);background:#fff}
+.ci{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.ci:first-of-type{border-top:0;padding-top:2px}
+.ci .th{flex:0 0 64px;height:64px;border-radius:14px;overflow:hidden;position:relative}
+.ci .th img,.ci .th .ph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;font-size:28px}
+.ci .tx{flex:1;min-width:0}
+.ci .nm{font-size:16px;font-weight:650;line-height:1.25}
+.ci .pp{font-size:13.5px;color:var(--mut);margin-top:2px}
+.ci .stp button{width:38px;height:36px;font-size:20px}
+.ci .stp span{min-width:40px;line-height:36px;font-size:16px}
+.ci .rt{text-align:right;flex:0 0 auto}
+.ci .rt b{display:block;font-size:16px;margin-top:6px}
+.ci .rm{border:0;background:none;color:var(--mut);font-size:20px;padding:0 0 0 6px}
+.sumrow{display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;margin-top:4px;border-top:2px solid var(--ink)}
+.sumrow span{font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.sumrow{gap:12px}
+.sumrow b{font-size:26px;font-weight:800;color:var(--navy);white-space:nowrap}
 .pickBtn{
   display:flex;width:100%;align-items:center;gap:10px;text-align:left;
-  padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card);
-  font-size:17px;
+  padding:14px;border:1px solid var(--line);border-radius:14px;background:#FBFAF7;font-size:17px;
 }
 .pickBtn span{flex:1;min-width:0}
 .pickBtn.empty span{color:var(--mut)}
-.tot{display:flex;justify-content:space-between;font-size:16px;padding-top:4px}
-.tot b{font-weight:700}
+.pickBtn span.go{flex:0 0 auto;color:#B0AA9F;font-size:20px}
+.phone{display:flex;width:100%;align-items:center;gap:12px;padding:0;border:1.5px solid var(--navy);border-radius:14px;
+  background:var(--card);overflow:hidden;text-align:left}
+.phone .ic{flex:0 0 52px;height:52px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center}
+.phone span{font-weight:700;font-size:16.5px}
+.verified{border-radius:14px;overflow:hidden;border:1px solid #BFE0CB}
+.verified .vh{background:#3DBE5F;color:#0F2E18;font-size:12.5px;font-weight:800;letter-spacing:.06em;padding:6px 12px}
+.verified .vb{padding:10px 12px;background:var(--okBg)}
+.verified .vb b{font-size:19px;display:block}
 .mini{font-size:14px;color:var(--mut);margin:8px 0 0}
-.warn{font-size:14px;line-height:1.45;margin:10px 0 0;padding:10px 12px;border-radius:10px;
+.warn{font-size:14px;line-height:1.45;margin:10px 0 0;padding:10px 12px;border-radius:12px;
   background:#fff6e5;color:#7a4a00;border:1px solid #f0d9ad}
-.note{background:#FFF7E8;border:1px solid #EBD9AE;border-radius:12px;
+.note{background:#FFF7E8;border:1px solid #EBD9AE;border-radius:16px;
   padding:14px;margin-bottom:14px;font-size:16px}
+.edit{background:#EAF6EE;border:1px solid #BFE0CB;border-radius:16px;
+  padding:12px 14px;margin:0 0 12px;font-size:15px;line-height:1.45;color:#1d4d31}
 
-/* ── готово ── */
-.done{background:var(--okBg);border:1px solid #BFD9C6;border-radius:14px;
-  padding:20px;margin-bottom:14px}
-.done h2{margin:0 0 4px;font-size:20px}
-.done .num{font-size:28px;font-weight:700;margin:6px 0 10px}
-.done p{margin:4px 0;font-size:16px}
+/* ── бронь принята ── */
+.ok1{display:inline-flex;align-items:center;gap:6px;background:#3DBE5F;color:#0F2E18;font-weight:800;font-size:13px;
+  letter-spacing:.06em;padding:6px 12px;border-radius:8px;text-transform:uppercase}
+.bnum{display:inline-block;font-size:44px;font-weight:850;letter-spacing:-.01em;line-height:1.05;margin:10px 0 6px;
+  background:var(--navy);color:#fff;padding:4px 14px;border-radius:12px}
+.done p{margin:6px 0;font-size:16px}
+
+/* ── путь брони: Новая → Собрана → Выдана ── */
+.track{display:flex;align-items:flex-start;margin:14px 0 4px}
+.track .s{flex:1;text-align:center;font-size:12.5px;color:var(--mut);position:relative}
+.track .s i{display:block;width:26px;height:26px;border-radius:13px;margin:0 auto 4px;background:#E7E3DA;
+  border:3px solid var(--card);box-shadow:0 0 0 1px var(--line);font-style:normal;color:#fff;font-size:13px;line-height:20px;font-weight:800}
+.track .s:not(:first-child)::before{content:"";position:absolute;top:12px;right:50%;width:100%;height:3px;background:#E7E3DA;z-index:-1}
+.track .s.on{color:var(--ink);font-weight:700}
+.track .s.on i{background:var(--ok);box-shadow:0 0 0 1px var(--ok)}
+.track .s.on::before{background:var(--ok)!important}
+.track.cancel .s.on i{background:var(--red);box-shadow:0 0 0 1px var(--red)}
+
+/* ── мои брони ── */
+.mb{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.mb .hd{display:flex;align-items:center;gap:10px}
+.mb .hd b{font-size:19px}
+.mb .hd .when{flex:1;color:var(--mut);font-size:14px}
+.chipS{display:inline-block;font-size:13px;font-weight:750;padding:4px 10px;border-radius:999px}
+.chipS.new{background:#E9EEF7;color:var(--navy)}
+.chipS.ready{background:var(--goldBg);color:#8A5A00}
+.chipS.done{background:var(--okBg);color:var(--ok)}
+.chipS.cancel{background:#F8E8E8;color:var(--red)}
+.chipS.past{background:#EEEBE4;color:var(--mut)}
+.mb.old{box-shadow:none}
+.mb.old .hd b{font-size:17px}
+.secT{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:16px 4px 10px}
+.moT{font-size:15px;font-weight:700;margin:14px 4px 8px}
+.sumC{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 4px}
+.sumC div{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.sumC b{display:block;font-size:17px;font-weight:800;line-height:1.2;white-space:nowrap}
+.sumC span{font-size:12.5px;color:var(--mut)}
+.sumC .g{background:var(--okBg);border-color:#BFE0CB}
+.sumC .g b{color:var(--ok)}
+.mb .it{font-size:15px;color:#3b372f;margin-top:8px;line-height:1.5}
+.mb .ft{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.mb .ft b{font-size:18px;color:var(--navy)}
+.mb .acts{display:flex;gap:8px}
+.mb .acts button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 12px;font-size:14.5px;font-weight:650}
+.mb .acts button.r{color:var(--red);border-color:#E5C4C4}
 
 /* ── всплывающий выбор ── */
 .sheet{position:fixed;inset:0;z-index:20;background:var(--bg);
@@ -177,15 +297,24 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 .sheet .b{flex:1;overflow:auto;padding:12px 16px;max-width:760px;width:100%;margin:0 auto}
 .sheet .b button{
   display:block;width:100%;text-align:left;padding:16px;margin-bottom:10px;
-  border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:17px;
+  border:1px solid var(--line);border-radius:14px;background:var(--card);font-size:17px;
 }
 .sheet .b button small{display:block;font-size:14px;color:var(--mut);margin-top:2px}
 .sheet .f{padding:12px 16px calc(12px + env(safe-area-inset-bottom));
   max-width:760px;width:100%;margin:0 auto}
-.sheet .f button{width:100%;padding:14px;border-radius:12px;border:1px solid var(--line);
+.sheet .f button{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);
   background:var(--card);font-size:17px}
 
-/* Внутри Телеграма своя шапка сверху — наша строка с брендом её дублирует. */
+/* ── всплывающее «добавлено» ── */
+.vtoast{position:fixed;left:16px;right:16px;top:12px;z-index:80;max-width:520px;margin:0 auto;background:var(--ink);color:#fff;
+  border-radius:16px;padding:12px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 24px rgba(0,0,0,.25);
+  animation:drop .25s ease-out}
+.vtoast .ck{flex:0 0 26px;height:26px;border-radius:13px;background:#3DBE5F;color:#0F2E18;text-align:center;line-height:26px;font-weight:900}
+.vtoast small{display:block;opacity:.75;font-size:13.5px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes drop{from{transform:translateY(-20px);opacity:0}to{transform:none;opacity:1}}
+
 .in-tg .brandline{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -198,6 +327,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     <h1 id="ttl">Что уходит со скидкой</h1>
     <div class="sub" id="sub">загружаю…</div>
   </div>
+  <button class="cartBtn" id="cartBtn" type="button" aria-label="Корзина"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14l-1.5 11h-11z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><b id="cartN">0</b></button>
   <button class="upd" id="upd" type="button" aria-label="Обновить">⟳</button>
 </div>
 
@@ -205,10 +335,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 
 <div class="bar" id="bar" hidden>
   <div class="in">
-    <div class="cnt" id="barTxt"></div>
-    <button id="barBtn" type="button">Продолжить</button>
+    <button id="barBtn" type="button"><span class="cnt" id="barTxt"></span><span class="go2" id="barGo">Продолжить</span></button>
   </div>
 </div>
+
+<div class="pv" id="pv" hidden><div class="sc" id="pvX"></div><div class="pn" id="pvB"></div></div>
 
 <div class="sheet" id="pick" hidden>
   <div class="h"><h2 id="pickT"></h2></div>
@@ -217,6 +348,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
 </div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="ttbar.js"></script>
 <script>
 (function(){
   'use strict';
@@ -234,12 +366,18 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
      нужно. Хвост адреса (#tgWebAppData…) переносим как есть — в нём подпись. */
   try{
     var sp0 = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
+    /* Переход вкладкой внизу (есть ?k= или ?tg=) — остаёмся на витрине. */
+    if (location.search) sp0 = '';
     if (sp0 && /^ph[0-9a-f]{10}$/.test(sp0)){
       location.replace('spisanie.html' + location.search + location.hash);
       return;
     }
     if (sp0 && /^ls[0-9a-f]{10}$/.test(sp0)){   // вечерние списки филиала
       location.replace('index.html' + location.search + location.hash);
+      return;
+    }
+    if (sp0 && /^bk\d{1,9}$/.test(sp0)){        // бронь: филиал отмечает «собрано / выдано»
+      location.replace('bron.html' + location.search + location.hash);
       return;
     }
     if (sp0 && /^kx[0-9a-f]{10}$/.test(sp0)){   // кухня: сроки заготовок
@@ -272,10 +410,11 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   try{
     var qp = new URLSearchParams(location.search);
     var fromTg = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
+    if (/^(ph|ls|kx)[0-9a-f]{10}$/.test(fromTg || '') || /^bk\d+$/.test(fromTg || '')) fromTg = '';   // это код филиала, не ключ
     if (qp.get('k') || fromTg){
       KEY = qp.get('k') || fromTg;
       localStorage.setItem(STORE, KEY);
-      if (qp.get('k')) history.replaceState(null, '', location.pathname);
+      if (qp.get('k')) history.replaceState(null, '', location.pathname + location.hash);
     } else {
       KEY = localStorage.getItem(STORE) || '';
     }
@@ -446,7 +585,80 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       .sort().map(function(k){ return { dish: k, qty: CART[k] }; });
   }
 
+  /* ─── витрина как магазин: фото, цены, корзина, «Мои брони» ─── */
+  var OFF = 50;            // скидка сотрудника, %; приходит с сервера
+  var BST = {};            // номер брони → статус
+  var FOTO = {};           // название → файл фото (foto.json)
+  var TAB = 'shop';        // shop | mine
+  var MINE = null;         // мои брони (из Телеграма)
+  var PHONE = '', PHONE_SHOW = '';
+  try{ PHONE = localStorage.getItem('tt_vitrina_phone') || ''; PHONE_SHOW = localStorage.getItem('tt_vitrina_phone_show') || ''; }catch(e){}
+  var ST_T = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена', past: 'Прошла' };
+
+  function money(n){ return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+  function rowOf(dish){ return rowsOf(BR).filter(function(x){ return x.dish === dish; })[0] || null; }
+  function staffOf(dish){ var r = rowOf(dish); return r ? (+r.staff || 0) : 0; }
+  function fullOf(dish){ var r = rowOf(dish); return r ? (+r.price || 0) : 0; }
+  function cartSum(){
+    var s = 0, miss = 0;
+    Object.keys(CART).forEach(function(k){
+      if (!(CART[k] > 0)) return;
+      var p = staffOf(k); if (p) s += p * CART[k]; else miss++;
+    });
+    return { sum: Math.round(s), miss: miss };
+  }
+
+  /* Фото — из foto.json (название → файл). Пока фото нет — заглушка: эмодзи по
+     категории на мягком фоне, цвет от названия, чтобы соседние карточки различались. */
+  var EMO = [[/пицц/, '🍕'], [/торт|наполеон|медовик|муравейник|прага/, '🎂'],
+    [/пирожн|десерт|чизкейк|тирамису|эклер|трубоч|корзиноч|макарон/, '🍰'], [/печень|вупи/, '🍪'],
+    [/кекс|маффин|капкейк/, '🧁'], [/хлеб|нан\b|батон|багет/, '🍞'], [/салат/, '🥗'],
+    [/сэндвич|сендвич|бутерброд|бургер|хот-?дог|клаб/, '🥪'], [/ролл|шаурм|лаваш|буррито/, '🌯'],
+    [/завтрак|омлет|яйц|сырник|блин|каша/, '🍳'], [/суп/, '🍲'], [/кофе|чай|напит|сок|лимонад|морс/, '☕'],
+    [/круассан|слойк|рогалик|тоқаш|булоч|выпеч|самса|бауырсақ|пирож|ватруш|синнабон|улитк/, '🥐']];
+  var TINT = [['#FFF3DC', '#F7E3BE'], ['#FDEBE4', '#F6D3C6'], ['#EAF2E6', '#D5E6CC'], ['#E9EEF7', '#D3DDEE'],
+              ['#F5EAF3', '#E8D3E4'], ['#FFF0E0', '#F8DDBE']];
+  function hsh(s){ var h = 0; s = String(s); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
+  function pic(dish, cat){
+    var f = FOTO[nrm(dish)];
+    if (f) return '<img loading="lazy" alt="" src="' + esc(f) + '">';
+    var s = nrm(dish + ' ' + (cat || '')), e = '🧁';
+    for (var i = 0; i < EMO.length; i++) if (EMO[i][0].test(s)){ e = EMO[i][1]; break; }
+    var t = TINT[hsh(dish) % TINT.length];
+    return '<div class="ph" style="--a:' + t[0] + ';--b:' + t[1] + '">' + e + '</div>';
+  }
+  function loadFoto(){
+    fetch('foto.json?v=' + Math.floor(Date.now() / 6e5)).then(function(r){ return r.ok ? r.json() : {}; })
+      .then(function(j){
+        var m = {};
+        Object.keys(j || {}).forEach(function(k){ m[nrm(k)] = j[k]; });
+        FOTO = m;
+        if (VIEW === 'items' || VIEW === 'shops' || VIEW === 'cart') go(VIEW, true);
+      }).catch(function(){});
+  }
+
+  function toast(t, s){
+    var d = document.createElement('div'); d.className = 'vtoast';
+    d.innerHTML = '<span class="ck">✓</span><div><b>' + esc(t) + '</b>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</div>';
+    document.body.appendChild(d);
+    try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('success'); }catch(e){}
+    setTimeout(function(){ d.remove(); }, 2200);
+  }
+  function track(st){
+    var steps = st === 'cancel' ? [['new', 'Новая'], ['cancel', 'Отменена']]
+                                : [['new', 'Новая'], ['ready', 'Собрана'], ['done', 'Выдана']];
+    var idx = 0; steps.forEach(function(s, i){ if (s[0] === st) idx = i; });
+    return '<div class="track' + (st === 'cancel' ? ' cancel' : '') + '">' + steps.map(function(s, i){
+      return '<div class="s' + (i <= idx ? ' on' : '') + '"><i>' + (i <= idx ? '✓' : '') + '</i>' + s[1] + '</div>'; }).join('') + '</div>';
+  }
+
   /* ─── экран 1: филиалы ─── */
+  function segHtml(){
+    if (!TG) return '';
+    var act = (MINE || []).filter(function(m){ return m.status === 'new' || m.status === 'ready'; }).length;
+    return '<div class="seg"><button type="button" data-tab="shop" class="' + (TAB === 'shop' ? 'on' : '') + '">Витрина −' + OFF + '%</button>' +
+      '<button type="button" data-tab="mine" class="' + (TAB === 'mine' ? 'on' : '') + '">Мои брони' + (act ? '<i>' + act + '</i>' : '') + '</button></div>';
+  }
   function drawShops(){
     var q = nrm(Q);
     var body = SHOPS.map(function(s){
@@ -458,28 +670,99 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       var sub = !rs.length ? 'список ещё не прислали'
               : q ? (n + ' ' + plural(n, 'совпадение', 'совпадения', 'совпадений'))
               : (n + ' ' + plural(n, 'позиция', 'позиции', 'позиций'));
-      /* Свою бронь показываем прямо здесь. Без этого «изменить» негде найти:
-         человек видит список филиалов и не догадывается, что надо зайти внутрь. */
       var mb = myBook(br);
-      return '<button class="row tap' + (rs.length ? '' : ' off') + '" type="button" ' +
-             'data-shop="' + esc(br) + '"' + (rs.length ? '' : ' disabled') + '>' +
-        '<div class="txt"><div class="nm">' + esc(br) + '</div>' +
+      var show = (q ? hit : rs).slice().sort(function(a, b){ return (FOTO[nrm(b.dish)] ? 1 : 0) - (FOTO[nrm(a.dish)] ? 1 : 0); });
+      var pics = show.length >= 4 ? '<div class="pics">' + show.slice(0, 4).map(function(r){ return pic(r.dish, r.cat); }).join('') + '</div>'
+               : '<div class="pics one">' + (show[0] ? pic(show[0].dish, show[0].cat) : '<div class="ph" style="--a:#EEEBE4;--b:#E3DED4">⏳</div>') + '</div>';
+      var st = mb && mb.num ? BST[mb.num] : '';
+      return '<button class="shop' + (rs.length ? '' : ' off') + '" type="button" data-shop="' + esc(br) + '"' + (rs.length ? '' : ' disabled') + '>' +
+        pics + '<div class="txt"><div class="nm">' + esc(br) + '</div>' +
         '<div class="sub">' + esc(sub) + (rs.length ? ' · ' + esc(s[2]) : '') + '</div>' +
-        (mb ? '<div class="mine">Ваша бронь' + (mb.num ? ' №' + esc(mb.num) : '') +
-              ' · ' + mb.pos + ' ' + plural(mb.pos, 'позиция', 'позиции', 'позиций') +
-              ' — нажмите, чтобы изменить</div>' : '') +
-        '</div>' +
-        (rs.length ? '<div class="go">›</div>' : '') + '</button>';
+        (mb ? '<div class="mine">Ваша бронь' + (mb.num ? ' №' + esc(mb.num) : '') + (st ? ' · ' + ST_T[st] : '') + '</div>' : '') +
+        '</div>' + (rs.length ? '<div class="go">›</div>' : '') + '</button>';
     }).join('');
 
-    el('app').innerHTML =
-      '<input class="find" id="q" type="text" placeholder="Поиск продукции" ' +
+    el('app').innerHTML = segHtml() +
+      '<input class="find" id="q" type="text" placeholder="Найти продукцию во всех филиалах" ' +
         'autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(Q) + '">' +
-      (body ? '<div class="list">' + body + '</div>'
-            : '<div class="note">Ничего не нашлось. Попробуйте другое слово ' +
-              'или очистите поиск.</div>');
+      (body || '<div class="note">Ничего не нашлось. Попробуйте другое слово или очистите поиск.</div>');
     el('bar').hidden = true;
     bindSearch();
+  }
+
+  /* ─── мои брони: сейчас и вся история ─── */
+  var MINE_SUM = null, MINE_SHOW = 15;
+  var MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  function mbCard(m, full){
+    var its = m.items || [], live = m.status === 'new' || m.status === 'ready';
+    var place = m.dest && !sameSpot(m.dest, m.branch) ? shopTitle(m.dest) + (m.trip ? ' · ' + m.trip : '') : shopTitle(m.branch);
+    return '<div class="mb' + (full ? '' : ' old') + '"><div class="hd"><b>' + (m.num ? '№' + esc(m.num) : 'Бронь') + '</b><span class="when">' + esc(human(m.day)) + '</span>' +
+      '<span class="chipS ' + esc(m.status) + '">' + (ST_T[m.status] || m.status) + '</span></div>' +
+      (full ? track(m.status) : '') +
+      '<div class="it">' + its.map(function(x){ return esc(x.dish) + ' × ' + fmtQ(x.qty); }).join(', ') + '</div>' +
+      '<div class="mini">' + (m.status === 'ready' ? '📦 Заберите: ' : '📍 ') + esc(place) + '</div>' +
+      '<div class="ft"><b>' + (m.total ? money(m.total) : '') + '</b>' +
+      (live ? '<div class="acts">' + (m.day === DAY && m.status === 'new' ? '<button type="button" data-mbedit="' + esc(m.num) + '">Изменить</button>' : '') +
+              '<button type="button" class="r" data-mbcancel="' + esc(m.num) + '">Отменить</button></div>'
+            : (m.saved && m.status !== 'cancel' ? '<span class="mini" style="margin:0">сэкономили ' + money(m.saved) + '</span>' : '')) +
+      '</div></div>';
+  }
+  function drawMine(){
+    if (!MINE){ el('app').innerHTML = segHtml() + '<div class="note">Загружаю ваши брони…</div>'; loadMine(); return; }
+    var h = segHtml();
+    if (!MINE.length){
+      el('app').innerHTML = h + '<div class="note"><b>Пока броней нет.</b><br>Выберите продукцию на вкладке «Витрина» — ' +
+        'бронь появится здесь, и сюда же придёт статус от филиала. Здесь же будет вся история ваших броней.</div>';
+      el('bar').hidden = true; return;
+    }
+    var now = MINE.filter(function(m){ return m.status === 'new' || m.status === 'ready'; });
+    var hist = MINE.filter(function(m){ return !(m.status === 'new' || m.status === 'ready'); });
+    var S = MINE_SUM || {};
+    if (S.count) h += '<div class="sumC"><div><b>' + S.count + '</b><span>' + plural(S.count, 'бронь', 'брони', 'броней') + ' всего</span></div>' +
+      '<div><b>' + money(S.total) + '</b><span>оплачено по −' + OFF + '%</span></div>' +
+      '<div class="g"><b>' + money(S.saved) + '</b><span>сэкономлено</span></div></div>';
+    if (now.length) h += '<div class="secT">Сейчас</div>' + now.map(function(m){ return mbCard(m, true); }).join('');
+    if (hist.length){
+      h += '<div class="secT">История</div>';
+      var last = '';
+      hist.slice(0, MINE_SHOW).forEach(function(m){
+        var p = String(m.day).split('-'), mo = MONTHS[+p[1] - 1] + ' ' + p[0];
+        if (mo !== last){ h += '<div class="moT">' + mo + '</div>'; last = mo; }
+        h += mbCard(m, false);
+      });
+      if (hist.length > MINE_SHOW) h += '<button type="button" class="big gh" id="mbMore" style="color:var(--navy);border-color:var(--line)">Показать ещё ' +
+        Math.min(15, hist.length - MINE_SHOW) + ' из ' + (hist.length - MINE_SHOW) + '</button><div style="height:12px"></div>';
+    }
+    el('app').innerHTML = h;
+    if (el('mbMore')) el('mbMore').onclick = function(){ MINE_SHOW += 15; drawMine(); };
+    el('bar').hidden = true;
+  }
+  function loadMine(){
+    if (!TG) return;
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'my_books', init: TG.initData }) })
+      .then(function(r){ return r.json(); }).then(function(j){
+        if (!j || j.error) throw new Error((j && j.error) || 'нет ответа');
+        MINE = j.list || []; MINE_SUM = j.sum || null;
+        if (VIEW === 'shops') (TAB === 'mine' ? drawMine : drawShops)();
+      }).catch(function(e){
+        if (VIEW === 'shops' && TAB === 'mine')
+          el('app').innerHTML = segHtml() + '<div class="note">Брони не загрузились: ' + esc(e.message) + '</div>';
+      });
+  }
+  function mbCancel(num){
+    function doIt(){
+      fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'bk_set', init: TG.initData, num: num, status: 'cancel' }) })
+        .then(function(r){ return r.json(); }).then(function(j){
+          if (!j || j.error) throw new Error((j && j.error) || 'нет ответа');
+          toast('Бронь №' + num + ' отменена', 'продукция вернулась на витрину');
+          MINE = null; load(true); drawMine();
+        }).catch(function(e){ alert('Не получилось: ' + e.message); });
+    }
+    var q = 'Отменить бронь №' + num + '? Продукция вернётся на витрину.';
+    if (TG && TG.showConfirm) TG.showConfirm(q, function(ok){ if (ok) doIt(); });
+    else if (confirm(q)) doIt();
   }
 
   /* ─── экран 2: продукция филиала ─── */
@@ -488,94 +771,131 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     var cats = {};
     rs.forEach(function(r){ cats[r.cat || 'Прочее'] = 1; });
     var catList = Object.keys(cats).sort();
-
     var vis = rs.filter(function(r){
       if (CAT && (r.cat || 'Прочее') !== CAT) return false;
       return !q || nrm(r.dish).indexOf(q) >= 0;
     });
-    /* Кончившееся не прячем и не делаем полупрозрачным — просто уводим вниз:
-       выцветший текст на телефоне не читается, а знать, что позиция была, полезно. */
+    /* Кончившееся уводим вниз и гасим фото: знать, что было, полезно. */
     var live = [], out = [];
-    vis.forEach(function(r){
-      (leftOf(BR, r.dish, +r.qty || 0) > 0 ? live : out).push(r);
-    });
+    vis.forEach(function(r){ (leftOf(BR, r.dish, +r.qty || 0) > 0 ? live : out).push(r); });
     var byName = function(a, b){ return a.dish < b.dish ? -1 : 1; };
     live.sort(byName); out.sort(byName);
 
-    function row(r, dead){
+    function card(r, dead){
       var have = +r.qty || 0, left = leftOf(BR, r.dish, have), mine = CART[r.dish] || 0;
-      if (dead) return '<div class="row off"><div class="txt">' +
-        '<div class="nm">' + esc(r.dish) + '</div>' +
-        '<div class="sub">Нет в наличии</div></div></div>';
-      return '<div class="row' + (mine ? ' has' : '') + '">' +
-        '<div class="txt"><div class="nm">' + esc(r.dish) + '</div>' +
-        '<div class="sub">Осталось ' + fmtQ(left) + ' ' + unitOf(r.dish) + '</div></div>' +
-        '<div class="st">' +
-          '<button type="button" data-m="' + esc(r.dish) + '"' + (mine ? '' : ' disabled') + '>−</button>' +
-          '<span class="n' + (mine ? '' : ' zero') + '">' + fmtQ(mine) + '</span>' +
-          '<button type="button" data-p="' + esc(r.dish) + '"' +
-            (mine >= left ? ' disabled' : '') + '>+</button>' +
+      var p = +r.staff || 0, full = +r.price || 0;
+      return '<div class="pc' + (mine ? ' has' : '') + (dead ? ' dead' : '') + '" data-open="' + esc(r.dish) + '">' +
+        '<div class="img">' + pic(r.dish, r.cat) + '<span class="off">−' + OFF + '%</span>' +
+          (p && !dead ? '<span class="tag">' + money(p) + (full ? '<s>' + money(full) + '</s>' : '') + '</span>' : '') +
+          (dead ? '<span class="gone">Разобрали</span>' : '') +
+        '</div><div class="bd"><div class="nm">' + esc(r.dish) + '</div>' +
+        (dead ? '<div class="left">нет в наличии</div>'
+          : mine ? '<div class="left">осталось ' + fmtQ(left) + ' ' + unitOf(r.dish) + '</div><div class="ft"><span class="qty"><button type="button" data-m="' + esc(r.dish) + '">−</button><span>' + fmtQ(mine) + ' ' + unitOf(r.dish) +
+                   '</span><button type="button" data-p="' + esc(r.dish) + '"' + (mine >= left ? ' disabled style="opacity:.35"' : '') + '>+</button></span></div>'
+                 : '<div class="ft"><span class="left" style="margin:0">осталось ' + fmtQ(left) + ' ' + unitOf(r.dish) + '</span>' +
+                   '<button type="button" class="add" data-p="' + esc(r.dish) + '" aria-label="Добавить">+</button></div>') +
         '</div></div>';
     }
 
     el('app').innerHTML =
-      (EDIT
-        ? '<div class="edit">Вы меняете свою бронь' +
-          (EDIT !== '—' ? ' №' + esc(EDIT) : '') + '. Убавьте или добавьте что нужно ' +
-          'и подтвердите заново — в брони останется то, что осталось в списке.' +
-          '<button type="button" id="dropBook">Снять бронь целиком</button></div>'
-        : '') +
+      (EDIT ? '<div class="edit">Вы меняете свою бронь' + (EDIT !== '—' ? ' №' + esc(EDIT) : '') +
+              '. Добавьте или уберите что нужно и сохраните — филиал соберёт заново.</div>' : '') +
       '<input class="find" id="q" type="text" placeholder="Поиск по названию" ' +
         'autocomplete="off" autocorrect="off" spellcheck="false" value="' + esc(Q) + '">' +
       (catList.length > 1
-        ? '<div class="chips" id="chips">' +
-          '<button type="button" class="' + (CAT ? '' : 'on') + '" data-c="">все</button>' +
-          catList.map(function(c){
-            return '<button type="button" class="' + (CAT === c ? 'on' : '') +
-                   '" data-c="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') +
-          '</div>'
-        : '') +
+        ? '<div class="chips" id="chips"><button type="button" class="' + (CAT ? '' : 'on') + '" data-c="">Все</button>' +
+          catList.map(function(c){ return '<button type="button" class="' + (CAT === c ? 'on' : '') + '" data-c="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') +
+          '</div>' : '') +
       (live.length || out.length
-        ? '<div class="list">' + live.map(function(r){ return row(r, false); }).join('') +
-          out.map(function(r){ return row(r, true); }).join('') + '</div>'
+        ? '<div class="grid">' + live.map(function(r){ return card(r, false); }).join('') +
+          out.map(function(r){ return card(r, true); }).join('') + '</div>'
         : '<div class="note">В этой категории ничего нет.</div>');
     bindSearch();
     drawBar();
   }
 
+  /* ─── карточка товара ─── */
+  var PV = null;
+  function openPv(dish){
+    var r = rowOf(dish); if (!r) return;
+    var left = leftOf(BR, dish, +r.qty || 0);
+    PV = { dish: dish, q: CART[dish] || (left >= 1 ? 1 : left), had: CART[dish] || 0, left: left };
+    drawPv();
+    el('pv').hidden = false;
+  }
+  function drawPv(){
+    var r = rowOf(PV.dish), p = +r.staff || 0, full = +r.price || 0, st = stepOf(PV.dish, r.cat), dead = PV.left <= 0;
+    var sum = p * PV.q;
+    el('pvB').innerHTML =
+      '<div class="im">' + pic(r.dish, r.cat) + '<button type="button" class="x" id="pvClose" aria-label="Закрыть">×</button></div>' +
+      '<div class="in"><span class="cat">' + esc(r.cat || 'Продукция') + '</span>' +
+      '<h2>' + esc(r.dish) + '</h2>' +
+      (p ? '<div class="pr"><b>' + money(p) + '</b>' + (full ? '<s>' + money(full) + '</s>' : '') + '<i>−' + OFF + '%</i></div>'
+         : '<div class="pr"><i>−' + OFF + '%</i><span class="lf">цену подскажет филиал</span></div>') +
+      '<div class="lf">' + (dead ? 'Всё разобрали' : 'Осталось ' + fmtQ(PV.left) + ' ' + unitOf(r.dish) + ' · ' + esc(shopTitle(BR))) + '</div>' +
+      (dead ? '' :
+      '<div class="row2"><span class="l">Количество</span><div class="stp">' +
+        '<button type="button" id="pvM"' + (PV.q <= 0 ? ' disabled' : '') + '>−</button><span>' + fmtQ(PV.q) + '</span>' +
+        '<button type="button" id="pvP"' + (PV.q + (PV.q ? st : 1) > PV.left + 1e-9 ? ' disabled' : '') + '>+</button></div></div>' +
+      '<button type="button" class="big" id="pvGo"' + (!PV.q && !PV.had ? ' disabled' : '') + '><span>' +
+        (!PV.q ? 'Убрать из корзины' : PV.had ? 'Обновить корзину' : 'В корзину') + '</span><span>' +
+        (PV.q && sum ? money(sum) : '') + ' <span class="ar">→</span></span></button>') +
+      '</div>';
+    el('pvClose').onclick = closePv;
+    if (el('pvM')) el('pvM').onclick = function(){ var s2 = PV.q > 1 ? st : 1; PV.q = Math.max(0, Math.round((PV.q - (PV.q - s2 < 1 && PV.q > 1 ? PV.q - 1 : s2)) * 100) / 100); drawPv(); };
+    if (el('pvP')) el('pvP').onclick = function(){ PV.q = Math.min(PV.left, Math.round((PV.q + (PV.q ? st : 1)) * 100) / 100); drawPv(); };
+    if (el('pvGo')) el('pvGo').onclick = function(){
+      if (PV.q > 0) CART[PV.dish] = PV.q; else delete CART[PV.dish];
+      var d = PV.dish, q2 = PV.q, had = PV.had;
+      closePv(); drawItems();
+      if (q2 > 0) toast(had ? 'Корзина обновлена' : d + ' — в корзине', fmtQ(q2) + ' ' + unitOf(d) + (staffOf(d) ? ' × ' + money(staffOf(d)) : ''));
+    };
+  }
+  function closePv(){ el('pv').hidden = true; PV = null; }
+  el('pvX').onclick = closePv;
+
   /* ─── нижняя панель ─── */
   function drawBar(){
-    var c = cartCount();
-    if (VIEW !== 'items'){ el('bar').hidden = true; return; }
+    var c = cartCount(), s = cartSum();
+    el('cartBtn').style.display = VIEW === 'items' && c.pos ? 'flex' : 'none';
+    el('cartN').textContent = c.pos;
+    if (VIEW !== 'items'){ return; }
+    if (!c.pos && !EDIT){ el('bar').hidden = true; return; }
     el('bar').hidden = false;
-    el('barTxt').innerHTML = c.pos
-      ? '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + '</b>' +
-        cartQty(c)
-      : EDIT
-        ? '<b>В брони пусто</b>снимите бронь или верните позиции'
-        : '<b>Выберите продукцию</b>нажимайте + у нужных позиций';
-    el('barBtn').textContent = 'Продолжить';
-    el('barBtn').disabled = !c.pos;
+    if (!c.pos){
+      el('barTxt').innerHTML = '<b>В брони пусто</b>верните позиции или снимите бронь';
+      el('barGo').textContent = 'Снять бронь';
+      el('barBtn').disabled = false; return;
+    }
+    el('barTxt').innerHTML = '<b>' + (s.sum ? money(s.sum) : c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций')) + '</b>' +
+      c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + ' · ' + cartQty(c);
+    el('barGo').textContent = 'Корзина →';
+    el('barBtn').disabled = false;
   }
 
-  /* ─── экран 3: оформление ─── */
+  /* ─── экран 3: корзина и оформление ─── */
   function drawCart(){
-    var items = cartItems();
-    var c = cartCount();
+    var items = cartItems(), c = cartCount(), s = cartSum();
+    if (!items.length && !EDIT){ go('items'); return; }
     var here = DEST && sameSpot(DEST, BR);
-    /* Убавление брони окно не закрывает — иначе человек, снявший одну позицию,
-       упёрся бы в погашенную кнопку и снял бы всю бронь целиком. */
     var shut = !!DEST && !here && !bookOpen() && !onlyLess(items);
+    var canPhone = TG && TG.requestContact && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9');
     el('app').innerHTML =
-      '<div class="card"><h2>' + (EDIT ? 'Остаётся в брони' : 'Забираю') + '</h2>' +
-        '<div class="sub" style="color:var(--mut);font-size:14px;margin-bottom:8px">' +
-          esc(shopTitle(BR)) + '</div>' +
+      '<div class="card"><h2>' + (EDIT ? 'Остаётся в брони' : 'Корзина') + ' · ' + esc(shopTitle(BR)) + '</h2>' +
         items.map(function(i){
-          return '<div class="row" style="padding:10px 0;border-top:1px solid var(--line)">' +
-            '<div class="txt"><div class="nm">' + esc(i.dish) + '</div></div>' +
-            '<div style="font-weight:700">' + fmtQ(i.qty) + ' ' + unitOf(i.dish) +
-            '</div></div>';
+          var r = rowOf(i.dish) || {}, p = staffOf(i.dish), left = leftOf(BR, i.dish, +r.qty || 0);
+          return '<div class="ci"><div class="th">' + pic(i.dish, r.cat) + '</div>' +
+            '<div class="tx"><div class="nm">' + esc(i.dish) + '</div>' +
+            '<div class="pp">' + (p ? money(p) + ' / ' + unitOf(i.dish) : 'цена у филиала') + '</div>' +
+            '<div class="stp" style="display:inline-flex;margin-top:6px"><button type="button" data-m="' + esc(i.dish) + '">−</button>' +
+              '<span>' + fmtQ(i.qty) + '</span><button type="button" data-p="' + esc(i.dish) + '"' + (i.qty >= left ? ' disabled' : '') + '>+</button></div></div>' +
+            '<div class="rt"><button type="button" class="rm" data-rm="' + esc(i.dish) + '" aria-label="Убрать">×</button>' +
+              '<b>' + (p ? money(p * i.qty) : '') + '</b></div></div>';
         }).join('') +
+        (items.length ? '<div class="sumrow"><span>К оплате</span><b>' + money(s.sum) + '</b></div>' +
+          '<p class="mini">Цена сотрудника −' + OFF + '%. Оплата при получении в филиале — здесь ничего не списывается.' +
+          (s.miss ? ' Цена ' + s.miss + ' ' + plural(s.miss, 'позиции', 'позиций', 'позиций') + ' не указана — её назовёт филиал.' : '') + '</p>'
+          : '<p class="mini">В брони ничего не осталось.</p>') +
       '</div>' +
 
       '<div class="card"><h2>Кто берёт</h2>' +
@@ -583,10 +903,8 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
         '<input type="text" id="me" autocomplete="off" autocapitalize="words" ' +
           'placeholder="Например: Айгүл Сәрсенова" value="' + esc(ME) + '">' +
         (STAFF.length || TG_NAME
-          ? '<p class="mini"><button type="button" id="pickMe" ' +
-            'style="background:none;border:0;padding:0;color:var(--ok);' +
-            'text-decoration:underline;font-size:15px">Выбрать из списка</button></p>'
-          : '') +
+          ? '<p class="mini"><button type="button" id="pickMe" style="background:none;border:0;padding:0;color:var(--navy);' +
+            'text-decoration:underline;font-size:15px">Выбрать из списка</button></p>' : '') +
         '<p class="mini">Должность</p>' +
         '<button type="button" class="pickBtn' + (JOB ? '' : ' empty') + '" id="pickJob">' +
           '<span>' + esc(JOB || 'Выберите должность') + '</span><span class="go">›</span></button>' +
@@ -595,40 +913,34 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
           '<span>' + esc(WORK || 'Выберите место работы') + '</span><span class="go">›</span></button>' +
       '</div>' +
 
+      (canPhone ? '<div class="card"><h2>Ваш номер <span style="font-weight:600;text-transform:none;letter-spacing:0">· по желанию</span></h2>' +
+        (PHONE_SHOW
+          ? '<div class="verified"><div class="vh">✓ ПОДТВЕРЖДЁН ТЕЛЕГРАМОМ</div><div class="vb"><b>' + esc(PHONE_SHOW) + '</b>' +
+            '<span class="mini" style="margin:0">филиал позвонит, если что-то не так</span></div></div>'
+          : '<button type="button" class="phone" id="phoneBtn"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span>' +
+            '<span>Поделиться номером из Телеграма</span></button>' +
+            '<p class="mini">Телеграм сам пришлёт номер вашего аккаунта — набирать не нужно, и филиал знает, что он настоящий.</p>') +
+      '</div>' : '') +
+
       '<div class="card"><h2>Где заберёте</h2>' +
         '<button type="button" class="pickBtn' + (DEST ? '' : ' empty') + '" id="pickDest">' +
-          '<span>' + esc(DEST ? (here ? 'Заберу здесь · ' + shopTitle(BR) : shopTitle(DEST))
-                             : 'Выберите точку получения') + '</span><span class="go">›</span>' +
-        '</button>' +
+          '<span>' + esc(DEST ? (here ? 'Заберу здесь · ' + shopTitle(BR) : shopTitle(DEST)) : 'Выберите точку получения') +
+          '</span><span class="go">›</span></button>' +
         (DEST && !here && TRIPS.length
           ? '<p class="mini">Каким рейсом везти</p>' +
             '<button type="button" class="pickBtn' + (TRIP ? '' : ' empty') + '" id="pickTrip">' +
-              '<span>' + esc(TRIP || 'Выберите рейс') + '</span><span class="go">›</span>' +
-            '</button>'
-          : '') +
-        /* Закрытое окно объясняем здесь же, а не в момент нажатия: человек
-           должен понять причину до того, как наберёт корзину и упрётся. */
-        (shut ? '<p class="warn">Везут первым рейсом — он приходит к 8:00. ' +
-                'Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
-                '. Сейчас можно выбрать «Заберу здесь».</p>' : '') +
+              '<span>' + esc(TRIP || 'Выберите рейс') + '</span><span class="go">›</span></button>' : '') +
+        (shut ? '<p class="warn">Везут первым рейсом — он приходит к 8:00. Бронь с доставкой открыта с ' +
+                hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) + '. Сейчас можно выбрать «Заберу здесь».</p>' : '') +
       '</div>' +
+      (EDIT ? '<button type="button" class="big gh" id="dropBook">Снять бронь целиком</button><div style="height:12px"></div>' : '');
 
-      '<div class="card"><div class="tot"><span>Итого</span>' +
-        '<b>' + c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') +
-        ' · ' + cartQty(c) + '</b></div>' +
-        (EDIT ? '<button type="button" class="drop" id="dropBook">Снять бронь целиком</button>'
-              : '') +
-      '</div>';
-
-    el('bar').hidden = false;
-    /* В панели держим короткую строку: длинная переносится в три ряда и
-       выдавливает кнопку к краю экрана. */
-    el('barTxt').innerHTML = shut
-      ? '<b>' + c.pos + ' · ' + cartQty(c) + '</b>доставку забронируют с ' + hhmm(BOOK_OPEN)
-      : '<b>' + c.pos + ' · ' + cartQty(c) + '</b>' +
-        (EDIT ? 'старая бронь заменится этой' : 'проверьте и подтвердите');
-    el('barBtn').textContent = EDIT ? 'Сохранить' : 'Подтвердить';
+    el('bar').hidden = !items.length;
+    el('barTxt').innerHTML = '<b>' + (EDIT ? 'Сохранить бронь' : 'Оформить бронь') + '</b>' +
+      c.pos + ' ' + plural(c.pos, 'позиция', 'позиции', 'позиций') + (s.sum ? ' · ' + money(s.sum) : ' · ' + cartQty(c));
+    el('barGo').textContent = shut ? 'с ' + hhmm(BOOK_OPEN) : '→';
     el('barBtn').disabled = shut;
+    el('cartBtn').style.display = 'none';
 
     el('me').oninput = function(){ ME = this.value; };
     if (el('pickMe')) el('pickMe').onclick = askWho;
@@ -636,55 +948,75 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     el('pickWork').onclick = askWork;
     el('pickDest').onclick = askWhere;
     if (el('pickTrip')) el('pickTrip').onclick = askTrip;
+    if (el('phoneBtn')) el('phoneBtn').onclick = askPhone;
   }
 
-  /* ─── экран 4: готово ─── */
+  /* Номер — через Телеграм: человек ничего не набирает, а сервер проверяет подпись. */
+  function askPhone(){
+    try{
+      TG.requestContact(function(ok, res){
+        if (!ok || !res) return;
+        var raw = res.response || '', u = res.responseUnsafe || {}, c = u.contact || {};
+        if (typeof c === 'string') try{ c = JSON.parse(c); }catch(e){ c = {}; }
+        var ph = String(c.phone_number || '').replace(/[^\d]/g, '');
+        if (!raw || !ph) return;
+        PHONE = raw; PHONE_SHOW = '+' + ph;
+        try{ localStorage.setItem('tt_vitrina_phone', PHONE); localStorage.setItem('tt_vitrina_phone_show', PHONE_SHOW); }catch(e){}
+        drawCart();
+      });
+    }catch(e){}
+  }
+
+  /* ─── экран 4: бронь принята ─── */
   function drawDone(){
     var r = RES || {};
     var off = r.mode === 'off';
+    var its = r.items || [];
     el('app').innerHTML =
-      '<div class="done"><h2>' +
-        (off ? 'Бронь снята' : r.mode === 'edit' ? 'Бронь изменена ✓' : 'Бронь оформлена ✓') +
-      '</h2>' +
-        (!off && r.num ? '<div class="num">№' + esc(r.num) + '</div>' : '') +
-        '<p>' + esc(r.who) + (r.job || r.work ? '<br><span class="mini">' +
-          esc([r.job, r.work].filter(Boolean).join(' · ')) + '</span>' : '') + '</p>' +
-        (off
-          ? '<p>Филиал: <b>' + esc(r.destTitle) + '</b></p>' +
-            '<p>Продукция снова доступна остальным.</p>'
-          : '<p>Получение: <b>' + esc(r.destTitle) + '</b>' +
-            (r.trip ? ', ' + esc(r.trip) : '') + '</p>' +
-            '<p>Дата: ' + esc(human(r.day)) + '</p>' +
-            '<p>Позиций: ' + r.pos + ' · ' + esc(r.qtyText) + '</p>') +
-        '<p class="mini" style="margin-top:10px">' +
-          (r.told ? 'Филиал получил уведомление.' : 'Филиал увидит это на своём экране.') +
-        '</p>' +
-      '</div>';
+      '<div class="card done">' +
+        '<span class="ok1">✓ ' + (off ? 'Бронь снята' : r.mode === 'edit' ? 'Бронь изменена' : 'Бронь принята') + '</span><br>' +
+        (!off && r.num ? '<span class="bnum">№' + esc(r.num) + '</span>' : '') +
+        (off ? '<p>Продукция снова доступна остальным.</p>'
+             : '<p>' + (r.told ? 'Филиал ' + esc(shopTitle(BR || r.branch || '')) + ' получил бронь и отложит продукцию.' : 'Филиал увидит бронь на своём экране.') +
+               (TG ? ' Когда соберут — придёт сообщение от бота.' : '') + '</p>' + track('new')) +
+      '</div>' +
+      (!off && its.length ? '<div class="card"><h2>Отправлено филиалу</h2>' +
+        its.map(function(i){
+          return '<div class="ci"><div class="tx"><div class="nm">' + esc(i.dish) + '</div><div class="pp">' + fmtQ(i.qty) + ' ' + unitOf(i.dish) +
+            (i.staff ? ' × ' + money(i.staff) : '') + '</div></div><div class="rt"><b>' + (i.staff ? money(i.staff * i.qty) : '') + '</b></div></div>';
+        }).join('') +
+        (r.total ? '<div class="sumrow"><span>К оплате при получении</span><b>' + money(r.total) + '</b></div>' : '') +
+        '<p class="mini">Получение: <b>' + esc(r.destTitle) + '</b>' + (r.trip ? ', ' + esc(r.trip) : '') + ' · ' + esc(human(r.day)) + '</p>' +
+        '<p class="mini">' + esc(r.who) + (r.job || r.work ? ' · ' + esc([r.job, r.work].filter(Boolean).join(', ')) : '') +
+        (r.phone ? ' · ' + esc(r.phone) + ' ✓' : '') + '</p>' +
+      '</div>' : '') +
+      (TG && !off ? '<button type="button" class="big" id="toMine"><span>Мои брони</span><span class="ar">→</span></button>' : '');
+    if (el('toMine')) el('toMine').onclick = function(){ TAB = 'mine'; MINE = null; CART = {}; BR = ''; EDIT = ''; go('shops'); };
     el('bar').hidden = false;
-    el('barTxt').innerHTML = off ? '<b>Готово</b>бронь снята'
-                                 : '<b>Готово</b>можно взять ещё';
-    el('barBtn').textContent = 'К филиалам';
+    el('barTxt').innerHTML = '<b>Выбрать ещё</b>вернуться к филиалам';
+    el('barGo').textContent = '→';
     el('barBtn').disabled = false;
+    el('cartBtn').style.display = 'none';
   }
 
   /* ─── переходы ─── */
-  function go(v){
+  function go(v, keepScroll){
     VIEW = v;
-    /* CSS прячет стрелку по умолчанию, поэтому показывать надо явно:
-       пустая строка вернула бы правило из стилей, то есть снова none. */
     el('back').style.display = (v === 'shops') ? 'none' : 'block';
     el('ttl').textContent =
-      v === 'shops' ? 'Что уходит со скидкой' :
+      v === 'shops' ? (TAB === 'mine' ? 'Мои брони' : 'Витрина −' + OFF + '%') :
       v === 'items' ? shopTitle(BR) :
-      v === 'cart'  ? 'Оформление брони' : 'Готово';
+      v === 'cart'  ? (EDIT ? 'Изменение брони' : 'Корзина') : 'Готово';
     el('sub').textContent =
       v === 'items' ? (shopAddr(BR) || human(DAY)) :
-      DAY ? human(DAY) : '';
-    window.scrollTo(0, 0);
-    if (v === 'shops') drawShops();
+      v === 'shops' && TAB === 'mine' ? 'статус от филиала — здесь' :
+      DAY ? 'уценка ' + human(DAY) : '';
+    if (!keepScroll) window.scrollTo(0, 0);
+    if (v === 'shops') (TAB === 'mine' ? drawMine : drawShops)();
     else if (v === 'items') drawItems();
     else if (v === 'cart') drawCart();
     else drawDone();
+    if (v !== 'items') el('cartBtn').style.display = 'none';
   }
 
   function bindSearch(){
@@ -699,33 +1031,50 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   el('back').onclick = function(){
     if (VIEW === 'items'){ Q = ''; CAT = ''; go('shops'); }
     else if (VIEW === 'cart') go('items');
-    else go('shops');
+    else { TAB = 'shop'; go('shops'); }
   };
-  el('upd').onclick = function(){ load(); };
+  el('upd').onclick = function(){ if (VIEW === 'shops' && TAB === 'mine'){ MINE = null; drawMine(); } else load(); };
+  el('cartBtn').onclick = function(){ if (!DEST) DEST = BR; go('cart'); };
   el('barBtn').onclick = function(){
     if (VIEW === 'items'){
+      if (!cartCount().pos){ cancelBook(); return; }
       if (!DEST) DEST = BR;
       go('cart');
     }
     else if (VIEW === 'cart') send();
-    else { CART = {}; BR = ''; Q = ''; CAT = ''; DEST = ''; TRIP = ''; EDIT = ''; load(); }
+    else { CART = {}; BR = ''; Q = ''; CAT = ''; DEST = ''; TRIP = ''; EDIT = ''; TAB = 'shop'; load(); }
   };
 
   document.addEventListener('click', function(e){
     var t = e.target;
-    var shop = t.closest && t.closest('[data-shop]');
+    if (!t.closest) return;
+    var shop = t.closest('[data-shop]');
     if (shop){ openShop(shop.getAttribute('data-shop')); return; }
-    if (t.closest && t.closest('#dropBook')){ cancelBook(); return; }
-    var chip = t.closest && t.closest('[data-c]');
+    if (t.closest('#dropBook')){ cancelBook(); return; }
+    var tab = t.closest('[data-tab]');
+    if (tab){ TAB = tab.getAttribute('data-tab'); if (TAB === 'mine') MINE = MINE || null; go('shops'); return; }
+    var chip = t.closest('[data-c]');
     if (chip && VIEW === 'items'){ CAT = chip.getAttribute('data-c'); drawItems(); return; }
-    var plus = t.closest && t.closest('[data-p]');
+    var plus = t.closest('[data-p]');
     if (plus){ step(plus.getAttribute('data-p'), +1); return; }
-    var minus = t.closest && t.closest('[data-m]');
+    var minus = t.closest('[data-m]');
     if (minus){ step(minus.getAttribute('data-m'), -1); return; }
+    var rm = t.closest('[data-rm]');
+    if (rm){ delete CART[rm.getAttribute('data-rm')]; drawCart(); return; }
+    var mc = t.closest('[data-mbcancel]');
+    if (mc){ mbCancel(mc.getAttribute('data-mbcancel')); return; }
+    var me = t.closest('[data-mbedit]');
+    if (me){
+      var m = (MINE || []).filter(function(x){ return String(x.num) === me.getAttribute('data-mbedit'); })[0];
+      if (m){ if (m.who) ME = m.who; TAB = 'shop'; openShop(shopTitle(m.branch)); }
+      return;
+    }
+    var op = t.closest('[data-open]');
+    if (op && VIEW === 'items'){ openPv(op.getAttribute('data-open')); return; }
   }, false);
 
   function step(dish, d){
-    var r = rowsOf(BR).filter(function(x){ return x.dish === dish; })[0];
+    var r = rowOf(dish);
     if (!r) return;
     var left = leftOf(BR, dish, +r.qty || 0);
     var cur = CART[dish] || 0;
@@ -734,7 +1083,9 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     var st = cur ? stepOf(dish, r.cat) : 1;
     var next = Math.min(left, Math.max(0, Math.round((cur + d * st) * 100) / 100));
     if (next) CART[dish] = next; else delete CART[dish];
-    drawItems();
+    try{ TG && TG.HapticFeedback && TG.HapticFeedback.selectionChanged(); }catch(e){}
+    if (!cur && next && VIEW === 'items') toast(dish + ' — в корзине', '1 ' + unitOf(dish) + (staffOf(dish) ? ' × ' + money(staffOf(dish)) : ''));
+    if (VIEW === 'cart') drawCart(); else drawItems();
   }
 
   /* ─── всплывающий выбор ─── */
@@ -838,6 +1189,13 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     }
     if (!here && TRIPS.length && !TRIP){ askTrip(); return; }
 
+    /* Разрешение боту писать в личку — чтобы статус брони пришёл сообщением.
+       Спрашиваем один раз; ответ «нет» бронь не останавливает. */
+    var asked = ''; try{ asked = localStorage.getItem('tt_vitrina_wa') || ''; }catch(e){}
+    if (TG && !asked && TG.requestWriteAccess && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9')){
+      try{ localStorage.setItem('tt_vitrina_wa', '1'); }catch(e){}
+      try{ TG.requestWriteAccess(function(){ post(items, EDIT ? 'edit' : 'new'); }); return; }catch(e){}
+    }
     post(items, EDIT ? 'edit' : 'new');
   }
 
@@ -850,12 +1208,13 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     if (!DEST) DEST = BR;
     var here = sameSpot(DEST, BR);
     try{ localStorage.setItem(MEKEY, ME); }catch(e){}
-    var btn = el('barBtn'), was = btn.textContent;
-    btn.disabled = true; btn.textContent = mode === 'off' ? 'Снимаю…' : 'Отправляю…';
+    var btn = el('barBtn'), was = el('barGo').textContent;
+    btn.disabled = true; el('barGo').textContent = mode === 'off' ? 'Снимаю…' : 'Отправляю…';
     fetch(API, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
-                             who: ME, pos: JOB, work: WORK, dest: DEST, trip: here ? '' : TRIP, items: items })
+                             who: ME, pos: JOB, work: WORK, dest: DEST, trip: here ? '' : TRIP, items: items,
+                             init: TG ? TG.initData : '', phone: TG ? PHONE : '' })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
@@ -863,12 +1222,13 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       RES = { mode: mode, num: j.num || EDIT, who: ME, job: JOB, work: WORK, day: DAY, told: j.told,
               destTitle: mode === 'off' ? shopTitle(BR)
                        : here ? shopTitle(BR) : shopTitle(DEST),
-              trip: here ? '' : TRIP, pos: c.pos, qtyText: cartQty(c) };
-      CART = {}; EDIT = '';
+              trip: here ? '' : TRIP, pos: c.pos, qtyText: cartQty(c),
+              items: j.items || [], total: j.total || 0, phone: j.phone || '', branch: BR };
+      CART = {}; EDIT = ''; MINE = null;
       go('done');
       load(true);            // тихо обновляем остатки под новым состоянием
     }).catch(function(e){
-      btn.disabled = false; btn.textContent = was;
+      btn.disabled = false; el('barGo').textContent = was;
       el('app').insertAdjacentHTML('afterbegin',
         '<div class="note"><b>' + (mode === 'off' ? 'Бронь не снялась.' : 'Бронь не ушла.') +
         '</b><br>' + esc(e.message) +
@@ -904,6 +1264,16 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
     b.disabled = true;
     /* Без ключа интернет ни при чём — витрину открыли не по своей ссылке
        (например, из меню бота). Ключ запоминается на телефоне после первого входа. */
+    /* В Телеграме ключ берём из профиля приложения «ТТ Алматы» (кто в рабочих группах). */
+    if (!KEY && TG && window.TTBAR){
+      var pr = TTBAR.profile();
+      if (pr.show){ KEY = pr.show; try{ localStorage.setItem(STORE, KEY); }catch(e){} }
+      else if (!pr.loaded && !load._w){
+        load._w = 1;
+        window.addEventListener('ttprofile', function(){ load(quiet); }, { once: true });
+        b.disabled = false; return;
+      }
+    }
     if (!KEY){
       fail('Витрина открыта без ссылки доступа. Попросите ссылку на витрину у администратора ' +
            'и откройте её один раз — дальше телефон запомнит, и витрина будет открываться сама.', true);
@@ -919,12 +1289,15 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
       BOOKS = res.books || [];
       STAFF = res.staff || [];
       TRIPS = res.trips || [];
+      BST = res.bst || {};
+      if (res.off) OFF = +res.off || OFF;
       var t = rows.filter(function(r){ return r.day === tomorrow; });
       DAY = t.length ? tomorrow : today;
       ROWS = rows;
       b.disabled = false;
-      if (quiet){ if (VIEW === 'items') drawItems(); return; }
+      if (quiet){ if (VIEW === 'items') drawItems(); else if (VIEW === 'shops') go('shops', true); return; }
       go(BR && rowsOf(BR).length ? 'items' : 'shops');
+      if (TG && MINE === null) loadMine();
     }).catch(function(e){
       b.disabled = false;
       if (!quiet) fail(e.message || String(e));
@@ -932,6 +1305,7 @@ main{max-width:760px;margin:0 auto;padding:12px 16px 0}
   }
 
   load();
+  loadFoto();
 })();
 </script>
 </body>

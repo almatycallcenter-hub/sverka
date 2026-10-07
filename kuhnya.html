@@ -81,6 +81,7 @@ h2{font-size:15px;font-weight:700;margin:18px 2px 8px;color:var(--mut);text-tran
 <div class="bar hidden" id="bar"><button id="go" disabled>Отметить</button></div>
 
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="ttbar.js"></script>
 <script>
 (function(){
   'use strict';
@@ -90,6 +91,9 @@ h2{font-size:15px;font-weight:700;margin:18px 2px 8px;color:var(--mut);text-tran
   if (TG){ try{ TG.ready(); TG.expand(); TG.disableVerticalSwipes && TG.disableVerticalSwipes(); }catch(e){} }
   var INIT = TG ? TG.initData : '';
   var CODE = TG && TG.initDataUnsafe ? (TG.initDataUnsafe.start_param || '') : '';
+  /* Вкладка «Кухня» общего приложения передаёт кухню параметром ?c= */
+  var C_ = TG ? (new URLSearchParams(location.search).get('c') || '') : '';
+  if (/^[0-9a-f]{10}$/.test(C_)) CODE = 'kx' + C_;
 
   function el(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
