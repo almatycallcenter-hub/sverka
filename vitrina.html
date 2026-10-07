@@ -587,6 +587,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
 
   /* ─── витрина как магазин: фото, цены, корзина, «Мои брони» ─── */
   var OFF = 50;            // скидка сотрудника, %; приходит с сервера
+  /* Внутри Телеграма — только когда есть подпись: в браузере TG тоже есть, но пустой. */
+  var INTG = !!(TG && TG.initData);
   var BST = {};            // номер брони → статус
   var FOTO = {};           // название → файл фото (foto.json)
   var TAB = 'shop';        // shop | mine
@@ -654,7 +656,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
 
   /* ─── экран 1: филиалы ─── */
   function segHtml(){
-    if (!TG) return '';
+    if (!INTG) return '';
     var act = (MINE || []).filter(function(m){ return m.status === 'new' || m.status === 'ready'; }).length;
     return '<div class="seg"><button type="button" data-tab="shop" class="' + (TAB === 'shop' ? 'on' : '') + '">Витрина −' + OFF + '%</button>' +
       '<button type="button" data-tab="mine" class="' + (TAB === 'mine' ? 'on' : '') + '">Мои брони' + (act ? '<i>' + act + '</i>' : '') + '</button></div>';
@@ -738,7 +740,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     el('bar').hidden = true;
   }
   function loadMine(){
-    if (!TG) return;
+    if (!INTG) return;
     fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'my_books', init: TG.initData }) })
       .then(function(r){ return r.json(); }).then(function(j){
@@ -879,7 +881,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     if (!items.length && !EDIT){ go('items'); return; }
     var here = DEST && sameSpot(DEST, BR);
     var shut = !!DEST && !here && !bookOpen() && !onlyLess(items);
-    var canPhone = TG && TG.requestContact && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9');
+    var canPhone = INTG && TG.requestContact && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9');
     el('app').innerHTML =
       '<div class="card"><h2>' + (EDIT ? 'Остаётся в брони' : 'Корзина') + ' · ' + esc(shopTitle(BR)) + '</h2>' +
         items.map(function(i){
@@ -978,7 +980,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         (!off && r.num ? '<span class="bnum">№' + esc(r.num) + '</span>' : '') +
         (off ? '<p>Продукция снова доступна остальным.</p>'
              : '<p>' + (r.told ? 'Филиал ' + esc(shopTitle(BR || r.branch || '')) + ' получил бронь и отложит продукцию.' : 'Филиал увидит бронь на своём экране.') +
-               (TG ? ' Когда соберут — придёт сообщение от бота.' : '') + '</p>' + track('new')) +
+               (INTG ? ' Когда соберут — придёт сообщение от бота.' : '') + '</p>' + track('new')) +
       '</div>' +
       (!off && its.length ? '<div class="card"><h2>Отправлено филиалу</h2>' +
         its.map(function(i){
@@ -990,7 +992,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         '<p class="mini">' + esc(r.who) + (r.job || r.work ? ' · ' + esc([r.job, r.work].filter(Boolean).join(', ')) : '') +
         (r.phone ? ' · ' + esc(r.phone) + ' ✓' : '') + '</p>' +
       '</div>' : '') +
-      (TG && !off ? '<button type="button" class="big" id="toMine"><span>Мои брони</span><span class="ar">→</span></button>' : '');
+      (INTG && !off ? '<button type="button" class="big" id="toMine"><span>Мои брони</span><span class="ar">→</span></button>' : '');
     if (el('toMine')) el('toMine').onclick = function(){ TAB = 'mine'; MINE = null; CART = {}; BR = ''; EDIT = ''; go('shops'); };
     el('bar').hidden = false;
     el('barTxt').innerHTML = '<b>Выбрать ещё</b>вернуться к филиалам';
@@ -1192,7 +1194,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     /* Разрешение боту писать в личку — чтобы статус брони пришёл сообщением.
        Спрашиваем один раз; ответ «нет» бронь не останавливает. */
     var asked = ''; try{ asked = localStorage.getItem('tt_vitrina_wa') || ''; }catch(e){}
-    if (TG && !asked && TG.requestWriteAccess && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9')){
+    if (INTG && !asked && TG.requestWriteAccess && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9')){
       try{ localStorage.setItem('tt_vitrina_wa', '1'); }catch(e){}
       try{ TG.requestWriteAccess(function(){ post(items, EDIT ? 'edit' : 'new'); }); return; }catch(e){}
     }
@@ -1214,7 +1216,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
                              who: ME, pos: JOB, work: WORK, dest: DEST, trip: here ? '' : TRIP, items: items,
-                             init: TG ? TG.initData : '', phone: TG ? PHONE : '' })
+                             init: INTG ? TG.initData : '', phone: INTG ? PHONE : '' })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');
@@ -1297,7 +1299,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
       b.disabled = false;
       if (quiet){ if (VIEW === 'items') drawItems(); else if (VIEW === 'shops') go('shops', true); return; }
       go(BR && rowsOf(BR).length ? 'items' : 'shops');
-      if (TG && MINE === null) loadMine();
+      if (INTG && MINE === null) loadMine();
     }).catch(function(e){
       b.disabled = false;
       if (!quiet) fail(e.message || String(e));
