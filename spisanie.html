@@ -423,6 +423,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     if (t.id === 'cclose') return camClose();
     if (t.id === 'cfile'){ el('file').click(); return; }
     if (t.id === 'cgeo-btn') return geoFix();
+    if (t.id === 'cretry'){ camClose(); return camOpen(); }
     if ((a = t.getAttribute('data-day'))){ if (a !== S.day){ S.day = a; S.photos = []; load(); } return; }
     if ((a = t.getAttribute('data-m')) !== null) return step(+a, -1);
     if ((a = t.getAttribute('data-p')) !== null) return step(+a, 1);
@@ -499,7 +500,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function geoStart(){
     if (GEO_STATE === 'wait' || (GEO && Date.now() - GEO.at < 10 * 60e3)) return;
     GEO_STATE = 'wait'; GEO_WHY = ''; camInfo();
-    var done = false, fails = {}, ways = 0, timer = setTimeout(function(){ none('timeout'); }, 30000);
+    var done = false, fails = {}, ways = 0, brStarted = false, timer = setTimeout(function(){ none('timeout'); }, 30000);
     var diag = { tg: (TG && TG.version) || '-', lm: '-', br: '-' };
     function D(){ GEO_DIAG = 'TG ' + diag.tg + ' · tg:' + diag.lm + ' · br:' + diag.br; }
     D();
@@ -515,7 +516,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     }
     function none(why){ if (done) return; done = true; clearTimeout(timer);
       GEO_STATE = 'no'; GEO_WHY = why || 'no-fix'; D(); camInfo(); }
+    function startBr(){ if (brStarted || done) return; brStarted = true; browser(); }
     function fail(way, why){ fails[way] = why; D();
+      /* Телеграм не нашёл место (но и не запретил) — пробуем через телефон. */
+      if (way === 'lm' && why !== 'tg-denied' && !brStarted) startBr();
       if (Object.keys(fails).length < ways) return;               // другой путь ещё ищет
       none(fails.lm === 'tg-denied' ? 'tg-denied' : fails.br === 'denied' ? 'denied' :
            fails.lm === 'timeout' || fails.br === 'timeout' ? 'timeout' : fails.br || fails.lm); }
@@ -553,7 +557,12 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       };
       try{ LM.isInited ? go() : LM.init(go); }catch(e){ diag.lm = 'исключение'; fail('lm', 'no-fix'); }
     }
-    telegram(); browser();
+    /* Сначала Телеграм: он спрашивает разрешение своим окном. Браузерный
+       запрос места на iPhone показывает своё окно и может «перебить»
+       запрос камеры, поэтому его делаем только если Телеграм не ответил
+       за 6 секунд или не умеет. */
+    telegram();
+    if (!ways) startBr(); else setTimeout(startBr, 6000);
     if (!ways) none('no-api');
   }
   /* Кнопка в полосе места. Телеграм запретил доступ — открываем настройки
@@ -571,7 +580,6 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 
   function camOpen(){
     if (CAM || S.photos.length >= MAX_PHOTOS) return;
-    geoStart();
     var box = document.createElement('div');
     box.className = 'camv'; box.id = 'camv';
     box.innerHTML = '<div class="geo" id="cgeo"></div>' +
@@ -583,7 +591,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     CAM = { box: box, stream: null, timer: setInterval(camInfo, 1000) };
     camInfo();
     var md = navigator.mediaDevices;
-    if (!md || !md.getUserMedia) return camFail('');
+    if (!md || !md.getUserMedia){ camFail(''); return geoStart(); }
     md.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' },
                                              width: { ideal: 1920 }, height: { ideal: 1440 } } })
       .then(function(st){
@@ -593,8 +601,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
         v.addEventListener('loadedmetadata', camInfo); v.addEventListener('playing', camInfo);
         v.srcObject = st;
         var p = v.play(); if (p && p.catch) p.catch(function(){});
+        /* Место — только после камеры: два окна разрешений сразу iPhone не показывает. */
+        setTimeout(geoStart, 300);
       })
-      .catch(function(e){ camFail(e && e.name); });
+      .catch(function(e){ camFail(e && e.name); setTimeout(geoStart, 300); });
   }
   /* Камера в приложении не открылась. Запасной путь — камера телефона
      (не галерея), и только свежий снимок; в карточке это будет отмечено. */
@@ -604,9 +614,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var s = el('cst'); if (s) s.remove();
     var d = document.createElement('div'); d.className = 'err';
     d.innerHTML = '<div style="font-size:44px">📷</div><div>' + (name === 'NotAllowedError'
-      ? 'Нет доступа к камере. Разрешите Телеграму камеру в настройках телефона и откройте ещё раз.'
+      ? 'Нет доступа к камере. Нажмите «Попробовать снова» и, когда спросит, — «Разрешить». Не помогло — закройте мини-приложение и откройте заново.'
       : 'Камера в приложении не открылась.') + '</div>' +
-      '<button id="cfile">Открыть камеру телефона</button>' +
+      '<button id="cretry">Попробовать снова</button>' +
+      '<button id="cfile" style="background:transparent;color:#fff;border:1px solid #888">Открыть камеру телефона</button>' +
       '<div style="font-size:13px;color:#bbb">Подойдёт только снимок, сделанный сейчас. / Тек қазір түсірілген сурет.</div>';
     CAM.box.insertBefore(d, CAM.box.querySelector('.flash'));
     camInfo();
