@@ -1887,6 +1887,7 @@ function loadDB(){
   /* Справочник из облака, если он когда-то приезжал. Лежит в базе браузера,
      поэтому работает и без интернета — с тем набором, что успел скачаться. */
   if (DB.ref && DB.ref.spr && DB.ref.spr.length) applySpr(DB.ref.spr);
+  if (DB.ref && DB.ref.weight && typeof applyWeights === 'function') applyWeights(DB.ref.weight);
   if (DB.ref && DB.ref.syn)
     Object.keys(DB.ref.syn).forEach(function(k){ DB.syn[k] = DB.ref.syn[k]; });
 }
@@ -8185,10 +8186,17 @@ var ZAY = { cat: '', items: {} };   // items: нормализованное и�
 /* «Қатпарлы сүзбелі тоқаш» и «Қатпарлы тоқаш алмамен» считаются штучно, а не
    весом — так решили после того, как первые три позиции этого же семейства
    (Бауырсақ, рогалик, Көкнәр тоқаш) уже прижились как весовые. */
+/* Список по умолчанию. Рабочий приходит из таблицы (лист «Настройки») вместе
+   со справочником и хранится в DB.ref.weight — правится там, а не здесь. */
 var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
               'Көкнәр қосылған тоқаш'];
 var WEIGHT_K = {};
-WEIGHT.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
+applyWeights((DB.ref && DB.ref.weight) || WEIGHT);
+function applyWeights(list){
+  if (!Array.isArray(list) || !list.length) return;
+  WEIGHT_K = {};
+  list.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
+}
 function isKg(k){ return !!WEIGHT_K[k]; }
 
 /* Целые торты режут на половинки — это единственные позиции, где дробь не про
@@ -9271,6 +9279,7 @@ async function refPull(silent){
     var spr = res.spr || [], syn = res.syn || {};
     if (!spr.length) throw new Error('в таблице нет листа «Справочник» или он пуст');
     DB.ref = { spr: spr, syn: syn, ts: new Date().toISOString() };
+    if (Array.isArray(res.weight) && res.weight.length){ DB.ref.weight = res.weight; applyWeights(res.weight); }
     applySpr(spr);
     Object.keys(syn).forEach(function(k){ DB.syn[k] = syn[k]; });
     saveDB(); reresolveList(); refresh(); refStatus();
@@ -10771,7 +10780,10 @@ var ST_CASES = [
   ['Продали по 20% без списка',                   'Пирожное Шу', 'Проверка продажи 20%', 'нарушение (нет в списке филиала)'],
   ['Маффин: что истекает 13.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-13', 0],
   ['Маффин: что истекает 14.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-14', 3],
-  ['Процент стоит сразу за «Проверкой прихода 20%»', '', 'порядок колонок', 'ок']
+  ['Процент стоит сразу за «Проверкой прихода 20%»', '', 'порядок колонок', 'ок'],
+  ['Весовая позиция считается в кг',              'Көкнәр қосылған тоқаш', 'единица', 'кг'],
+  ['Қатпарлы тоқаш — в штуках (решение 13.10)',    'Қатпарлы сүзбелі тоқаш', 'единица', 'шт'],
+  ['Обычная позиция — в штуках',                   'Алмалы бәліш', 'единица', 'шт']
 ];
 
 function selfTest(){
@@ -10798,6 +10810,8 @@ function selfTest(){
           var o = repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }));
           var a = o.indexOf(col['Проверка прихода 20%']), b = o.indexOf(col['% прихода в списке на скидку']);
           got = (a >= 0 && b === a + 1) ? 'ок' : 'не на месте';
+        } else if (c[2] === 'единица'){
+          got = isKg(nrm(c[1])) ? 'кг' : 'шт';
         } else if (c[2].indexOf('истекает:') === 0){
           var e = expiring(ST_WH, c[2].slice(9)), q = 0;
           e.rows.forEach(function(r){ if (r.name === c[1]) q += r.qty; });

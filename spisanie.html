@@ -133,8 +133,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   if (/^kx[0-9a-f]{10}$/.test(CODE)){ location.replace('kuhnya.html' + location.search + location.hash); return; }
 
   /* Весовые позиции — те же, что на странице филиала и в витрине. */
+  /* По умолчанию; рабочий список приходит из таблицы (лист «Настройки»).
+     Қатпарлы тоқаши считаются штучно — решение 13.10. */
   var WEIGHT = ['Печенье Вупи', 'Бауырсақ', 'Ірімшік ж/е картоп қосылған рогалик',
-                'Көкнәр қосылған тоқаш', 'Қатпарлы сүзбелі тоқаш', 'Қатпарлы тоқаш алмамен'];
+                'Көкнәр қосылған тоқаш'];
   function nrm(s){ return String(s == null ? '' : s).replace(/[ёЁ]/g,'е').replace(/["«»“”]/g,'')
                      .replace(/\s+/g,' ').trim().toLowerCase(); }
   var KG = {}; WEIGHT.forEach(function(n){ KG[nrm(n)] = 1; });
@@ -192,6 +194,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     el('app').innerHTML = '<div class="center"><p>Загрузка… / Жүктелуде…</p></div>';
     api({ action: 'ph_init', day: S.day }).then(function(r){
       if (!r || r.error) return fail((r && r.error) || 'Нет ответа от таблицы.');
+      /* Весовые позиции — из таблицы (лист «Настройки»), если пришли. */
+      if (Array.isArray(r.weight) && r.weight.length){ KG = {}; r.weight.forEach(function(n){ KG[nrm(n)] = 1; }); }
       S.branch = r.branch; S.catalog = r.catalog || []; S.reasons = r.reasons || S.reasons;
       S.daily = r.daily || S.daily; S.other = r.other || [];
       S.sentAt = r.sentAt || '';
