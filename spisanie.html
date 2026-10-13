@@ -103,6 +103,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   font-size:14px;line-height:1.35;background:linear-gradient(rgba(0,0,0,.7),transparent)}
 .camv .gbtn{margin-left:6px;padding:5px 12px;border-radius:999px;border:0;background:#fff;color:#000;
   font-size:13px;font-weight:700;vertical-align:middle}
+.camv .gdiag{font-size:11px;color:#bbb;margin-top:4px}
 .camv .stamp{position:absolute;right:14px;bottom:calc(118px + env(safe-area-inset-bottom));text-align:right;
   font-size:14px;line-height:1.3;text-shadow:0 1px 3px rgba(0,0,0,.95);pointer-events:none}
 .camv .stamp b{font-size:16px;font-weight:600}
@@ -489,45 +490,71 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     return l;
   }
 
-  /* Геолокация: в новых Телеграмах — через сам Телеграм (он спросит
-     разрешение), иначе — через браузер. Отказ не мешает снимать: фото
-     примем, но в карточке будет «без геолокации». */
+  /* Место ищем сразу двумя путями — через Телеграм (LocationManager) и
+     через браузер; что ответит первым, то и берём. Браузер сначала просим
+     о быстром месте по Wi-Fi и вышкам (в помещении GPS может не поймать),
+     потом, если точность хуже 200 м, уточняем по GPS. GEO_DIAG — короткий
+     код, что ответил каждый путь: по нему видно, где застряло. */
+  var GEO_DIAG = '';
   function geoStart(){
     if (GEO_STATE === 'wait' || (GEO && Date.now() - GEO.at < 10 * 60e3)) return;
-    GEO_STATE = 'wait'; camInfo();
-    var done = false, timer = setTimeout(function(){ none('timeout'); }, 20000);
-    function got(lat, lon, acc){
-      if (done) return; done = true; clearTimeout(timer);
-      GEO = { lat: Number(lat), lon: Number(lon), acc: Math.round(Number(acc) || 0), district: '', city: '', at: Date.now() };
+    GEO_STATE = 'wait'; GEO_WHY = ''; camInfo();
+    var done = false, fails = {}, ways = 0, timer = setTimeout(function(){ none('timeout'); }, 30000);
+    var diag = { tg: (TG && TG.version) || '-', lm: '-', br: '-' };
+    function D(){ GEO_DIAG = 'TG ' + diag.tg + ' · tg:' + diag.lm + ' · br:' + diag.br; }
+    D();
+    function got(lat, lon, acc, via){
+      if (GEO && GEO_STATE === 'ok' && !(acc < GEO.acc)) return;   // уже есть место не хуже
+      var first = !done; done = true; clearTimeout(timer);
+      GEO = { lat: Number(lat), lon: Number(lon), acc: Math.round(Number(acc) || 0),
+              district: GEO && !first ? GEO.district : '', city: GEO && !first ? GEO.city : '', at: Date.now(), via: via };
       GEO_STATE = 'ok'; camInfo();
       api({ action: 'ph_geo', lat: GEO.lat, lon: GEO.lon }).then(function(r){
-        if (r && r.ok && GEO){ GEO.district = r.district || ''; GEO.city = r.city || ''; camInfo(); }
+        if (r && r.ok && GEO){ GEO.district = r.district || GEO.district; GEO.city = r.city || GEO.city; camInfo(); }
       }).catch(function(){});
     }
     function none(why){ if (done) return; done = true; clearTimeout(timer);
-      GEO_STATE = 'no'; GEO_WHY = why || 'no-fix'; camInfo(); }
+      GEO_STATE = 'no'; GEO_WHY = why || 'no-fix'; D(); camInfo(); }
+    function fail(way, why){ fails[way] = why; D();
+      if (Object.keys(fails).length < ways) return;               // другой путь ещё ищет
+      none(fails.lm === 'tg-denied' ? 'tg-denied' : fails.br === 'denied' ? 'denied' :
+           fails.lm === 'timeout' || fails.br === 'timeout' ? 'timeout' : fails.br || fails.lm); }
     function browser(){
-      if (!navigator.geolocation) return none('no-api');
-      try{
-        navigator.geolocation.getCurrentPosition(function(p){ got(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
-          function(e){ none(e && e.code === 1 ? 'denied' : e && e.code === 3 ? 'timeout' : 'no-fix'); },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
-      }catch(e){ none('no-api'); }
-    }
-    try{
-      var LM = TG && TG.LocationManager;
-      if (LM && TG.isVersionAtLeast && TG.isVersionAtLeast('8.0')){
-        var go = function(){
-          if (!LM.isLocationAvailable) return browser();
-          LM.getLocation(function(d){
-            if (d) return got(d.latitude, d.longitude, d.horizontal_accuracy);
-            none(LM.isAccessRequested && !LM.isAccessGranted ? 'tg-denied' : 'no-fix');
-          });
-        };
-        return LM.isInited ? go() : LM.init(go);
+      if (!navigator.geolocation){ diag.br = 'нет'; return; }
+      ways++;
+      var hi = false;
+      function ask(high){
+        try{
+          navigator.geolocation.getCurrentPosition(function(p){
+            diag.br = (high ? 'gps ' : 'ok ') + Math.round(p.coords.accuracy) + 'м'; D();
+            got(p.coords.latitude, p.coords.longitude, p.coords.accuracy, 'br');
+            if (!high && p.coords.accuracy > 200 && !hi){ hi = true; ask(true); }
+          }, function(e){
+            diag.br = 'err' + (e && e.code); D();
+            if (high) return;                                      // уточнение не вышло — оставляем что есть
+            fail('br', e && e.code === 1 ? 'denied' : e && e.code === 3 ? 'timeout' : 'no-fix');
+          }, { enableHighAccuracy: high, timeout: high ? 25000 : 20000, maximumAge: high ? 0 : 300000 });
+        }catch(e){ diag.br = 'исключение'; if (!high) fail('br', 'no-api'); }
       }
-    }catch(e){}
-    browser();
+      ask(false);
+    }
+    function telegram(){
+      var LM = TG && TG.LocationManager;
+      if (!(LM && TG.isVersionAtLeast && TG.isVersionAtLeast('8.0'))){ diag.lm = 'нет'; return; }
+      ways++;
+      var go = function(){
+        diag.lm = 'a' + (LM.isLocationAvailable ? 1 : 0) + 'r' + (LM.isAccessRequested ? 1 : 0) + 'g' + (LM.isAccessGranted ? 1 : 0); D();
+        if (!LM.isLocationAvailable) return fail('lm', 'no-fix');
+        LM.getLocation(function(d){
+          if (d){ diag.lm += ' ok'; D(); return got(d.latitude, d.longitude, d.horizontal_accuracy, 'tg'); }
+          diag.lm = 'a1r' + (LM.isAccessRequested ? 1 : 0) + 'g' + (LM.isAccessGranted ? 1 : 0) + ' пусто';
+          fail('lm', LM.isAccessRequested && !LM.isAccessGranted ? 'tg-denied' : 'no-fix');
+        });
+      };
+      try{ LM.isInited ? go() : LM.init(go); }catch(e){ diag.lm = 'исключение'; fail('lm', 'no-fix'); }
+    }
+    telegram(); browser();
+    if (!ways) none('no-api');
   }
   /* Кнопка в полосе места. Телеграм запретил доступ — открываем настройки
      бота (там переключатель «Геолокация»); иначе просто пробуем ещё раз. */
@@ -608,9 +635,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
         gt += ' Фото примем и без места.';
         gb = GEO_WHY === 'tg-denied' ? 'Разрешить' : 'Ещё раз';
       }
-      if (g.getAttribute('data-t') !== gt + gb){
-        g.setAttribute('data-t', gt + gb);
-        g.innerHTML = esc(gt) + (gb ? ' <button class="gbtn" id="cgeo-btn">' + esc(gb) + '</button>' : '');
+      if (g.getAttribute('data-t') !== gt + gb + GEO_DIAG){
+        g.setAttribute('data-t', gt + gb + GEO_DIAG);
+        g.innerHTML = esc(gt) + (gb ? ' <button class="gbtn" id="cgeo-btn">' + esc(gb) + '</button>' : '') +
+          (GEO_STATE === 'no' && GEO_DIAG ? '<div class="gdiag">' + esc(GEO_DIAG) + '</div>' : '');
       }
     }
     var st = el('cst');
