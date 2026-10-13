@@ -2945,11 +2945,12 @@ function build(wh, dFrom, dTo){
       if (M === 'ок' && pf > 0 && c > 0) lossPct = Math.round(c / pf * 100) + '%';
 
       rep.push({ day: T, name: sp.name, inList: vList, br: wh,
-        v: [ru(T), sp.name, nq ? '' : (c || ''),
-             h||'', p50||'', p50 > 0 ? who50(k,T) : '', vz||'', dSp0||'', dSp||'',
-             pGp(k,T2)||'', pTt(k,T2)||'', pGp(k,T1)||'', pTt(k,T1)||'',
-             pGp(k,T)||'',  pTt(k,T)||'',
-             L, M, Nn, W, lossPct], dsc: oth });
+        v: repRow({ day: ru(T), dish: sp.name, list: nq ? '' : (c || ''),
+             s20: h||'', p50: p50||'', who50: p50 > 0 ? who50(k,T) : '', vz: vz||'',
+             sp0: dSp0||'', sp1: dSp||'',
+             gpT2: pGp(k,T2)||'', ttT2: pTt(k,T2)||'', gpT1: pGp(k,T1)||'', ttT1: pTt(k,T1)||'',
+             gpT0: pGp(k,T)||'',  ttT0: pTt(k,T)||'',
+             chkSale: L, chkPrih: M, pct: lossPct, chkSp: Nn, why: W }), dsc: oth });
       if (vList){
         inL++; if (L === 'ок') ok++; else if (L !== 'нет данных') bad++;
         if (M === 'ок') kpi.prOk++;
@@ -3146,24 +3147,46 @@ function match50(){
 function round3(x){ return Math.round(x * 1000) / 1000; }
 
 /* ═════════ вывод ═════════ */
-var REP_HEAD_BASE = ['День','Блюдо','Продукция с ожидаемой 20% скидкой (в день отчёта)',
-  'Продано со скидкой 20%','Перемещ склад 50%','Имя сотрудника',
-  'Возврат по сроку (на след. день)',
-  'Списание (в день отчёта)','Списание (на след. день)',
-  'Приход Цех ГП (за 2 дня до)','Приход Таугуль торт (за 2 дня до)',
-  'Приход Цех ГП (за день до)','Приход Таугуль торт (за день до)',
-  'Приход Цех ГП (в день отчёта)','Приход Таугуль торт (в день отчёта)',
-  'Проверка продажи 20%','Проверка прихода 20%','Проверка прихода списания',
-  'Разбор расхождения',
-  '% прихода в списке на скидку'];
+/* Колонки отчёта по дням — одним списком: код, заголовок. Порядок здесь — это и
+   порядок на экране, и порядок в Excel. Везде в коде колонку ищут по КОДУ
+   (RC.pct, RC.chkPrih…), а не по номеру: добавили колонку в середину — ничего
+   больше править не нужно, номера пересчитаются сами. */
+var REP_COLS = [
+  { k: 'day',     h: 'День' },
+  { k: 'dish',    h: 'Блюдо' },
+  { k: 'list',    h: 'Продукция с ожидаемой 20% скидкой (в день отчёта)' },
+  { k: 's20',     h: 'Продано со скидкой 20%' },
+  { k: 'p50',     h: 'Перемещ склад 50%' },
+  { k: 'who50',   h: 'Имя сотрудника' },
+  { k: 'vz',      h: 'Возврат по сроку (на след. день)' },
+  { k: 'sp0',     h: 'Списание (в день отчёта)' },
+  { k: 'sp1',     h: 'Списание (на след. день)' },
+  { k: 'gpT2',    h: 'Приход Цех ГП (за 2 дня до)' },
+  { k: 'ttT2',    h: 'Приход Таугуль торт (за 2 дня до)',   frost: 1 },
+  { k: 'gpT1',    h: 'Приход Цех ГП (за день до)' },
+  { k: 'ttT1',    h: 'Приход Таугуль торт (за день до)',    frost: 1 },
+  { k: 'gpT0',    h: 'Приход Цех ГП (в день отчёта)' },
+  { k: 'ttT0',    h: 'Приход Таугуль торт (в день отчёта)', frost: 1 },
+  { k: 'chkSale', h: 'Проверка продажи 20%',          chk: 1 },
+  { k: 'chkPrih', h: 'Проверка прихода 20%',          chk: 1 },
+  { k: 'pct',     h: '% прихода в списке на скидку' },
+  { k: 'chkSp',   h: 'Проверка прихода списания',     chk: 1 },
+  { k: 'why',     h: 'Разбор расхождения',            chk: 1 }
+];
+var RC = {};                       // код колонки → её номер в строке
+REP_COLS.forEach(function(c, i){ RC[c.k] = i; });
+function repRow(o){ return REP_COLS.map(function(c){ return o[c.k] === undefined ? '' : o[c.k]; }); }
+var REP_HEAD_BASE = REP_COLS.map(function(c){ return c.h; });
 /* Колонки прочих скидок заранее неизвестны — какие типы есть в чеках за
    период, столько и колонок. Они дописываются в конец строки (номера старых
    колонок не сдвигаются), а показываются сразу за «Продано со скидкой 20%». */
 var REP_HEAD = REP_HEAD_BASE.slice();
-var CHK_WHY = 18;              // «Разбор расхождения»
-var PCT_COL = 19;              // «% прихода в списке на скидку»
-var DISC0 = 20;                // отсюда — «Продано: <тип скидки>»
-function isChk(i){ return i >= CHK0 && i <= CHK_WHY; }
+var CHK_WHY = RC.why;          // «Разбор расхождения»
+var PCT_COL = RC.pct;          // «% прихода в списке на скидку»
+var DISC0 = REP_COLS.length;   // отсюда — «Продано: <тип скидки>»
+var CHK_IDX = REP_COLS.map(function(c, i){ return c.chk ? i : -1; })
+                      .filter(function(i){ return i >= 0; });
+function isChk(i){ return CHK_IDX.indexOf(i) >= 0; }
 function discTypes(){ return REP_HEAD.slice(DISC0).map(function(h){ return h.replace(/^Продано: /, ''); }); }
 function withDisc(R){
   var tot = {};
@@ -3182,11 +3205,7 @@ function withDisc(R){
 function repOrder(base){
   var d = []; for (var i = DISC0; i < REP_HEAD.length; i++) d.push(i);
   var at = base.indexOf(3) + 1;
-  var out = base.slice(0, at).concat(d, base.slice(at));
-  /* Процент прихода ставим сразу за «Проверкой прихода 20%» — он из неё и следует. */
-  var pi = out.indexOf(PCT_COL), ci = out.indexOf(CHK0 + 1);
-  if (pi >= 0 && ci >= 0){ out.splice(pi, 1); out.splice(out.indexOf(CHK0 + 1) + 1, 0, PCT_COL); }
-  return out;
+  return base.slice(0, at).concat(d, base.slice(at));
 }
 /* Колонка «Филиал» появляется только в отчёте по всей сети, поэтому у неё нет
    места в строке — она живёт отдельным полем. Даём ей условный номер −1: так
@@ -3195,9 +3214,11 @@ function repOrder(base){
 var BR_COL = -1;
 function repHead(i){ return i === BR_COL ? 'Филиал' : REP_HEAD[i]; }
 function repVal(r, i){ return i === BR_COL ? S(r.br) : r.v[i]; }
-var FROST = [10,12,14];        // колонки заморозки
-var CHK0  = 15;                // с какой колонки идут проверки (15–18)
-var COMPACT = [0,1,2,3,6,7,8,19]; // что видно в компактном режиме (плюс проверка продажи справа)
+var FROST = REP_COLS.map(function(c, i){ return c.frost ? i : -1; })
+                    .filter(function(i){ return i >= 0; });   // колонки заморозки
+var CHK0  = RC.chkSale;        // главная проверка — она же справа в сжатом виде
+// что видно в сжатом режиме (плюс проверка продажи справа)
+var COMPACT = ['day','dish','list','s20','vz','sp0','sp1','pct'].map(function(k){ return RC[k]; });
 var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
 var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
 var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
@@ -3295,7 +3316,7 @@ function fillChkFilter(view){
   else if (view === 'm50')
     ((MATCH50 || {}).rows || []).forEach(function(r){ var v = S(r[7]); if (v) est[v] = 1; });
   else (REPORT ? REPORT.rep : []).forEach(function(r){
-    for (var i = CHK0; i <= CHK_WHY; i++){ var v = S(r.v[i]); if (v) est[v] = 1; }
+    CHK_IDX.forEach(function(i){ var v = S(r.v[i]); if (v) est[v] = 1; });
   });
   var vals = Object.keys(est).sort();
   if (cur && vals.indexOf(cur) < 0) vals.push(cur);
@@ -3313,15 +3334,14 @@ function rowsFiltered(){
   return REPORT.rep.filter(function(r){
     if (q && nrm(r.name).indexOf(q) < 0 && nrm(S(r.br)).indexOf(q) < 0) return false;
     // пометка ищется в любой из трёх проверок — так строка находится, где бы она ни стояла
-    if (chk && S(r.v[CHK0]) !== chk && S(r.v[CHK0+1]) !== chk && S(r.v[CHK0+2]) !== chk &&
-        S(r.v[CHK_WHY]) !== chk) return false;
+    if (chk && !CHK_IDX.some(function(i){ return S(r.v[i]) === chk; })) return false;
     // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
-    // Колонка 2 — «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
-    if (vList && S(r.v[2]) === '') return false;
+    // «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
+    if (vList && S(r.v[RC.list]) === '') return false;
     if (bad){
       var v = r.v;
-      if (!(String(v[CHK0]).indexOf('нарушение') === 0 ||
-            String(v[CHK0+1]) === 'нарушение' || String(v[CHK0+2]) === 'нарушение')) return false;
+      if (!(String(v[RC.chkSale]).indexOf('нарушение') === 0 ||
+            String(v[RC.chkPrih]) === 'нарушение' || String(v[RC.chkSp]) === 'нарушение')) return false;
     }
     return true;
   });
@@ -3334,12 +3354,8 @@ function detailHtml(v){
            (empty ? '—' : val) + '</span></div>';
   }
   return '<div class="dgrid">' +
-    cell(REP_HEAD[4],  v[4]) + cell(REP_HEAD[5], v[5]) + cell(REP_HEAD[7], v[7]) +
-    cell(REP_HEAD[9],  v[9]) + cell(REP_HEAD[10], v[10]) +
-    cell(REP_HEAD[11], v[11]) + cell(REP_HEAD[12], v[12]) +
-    cell(REP_HEAD[13], v[13]) + cell(REP_HEAD[14], v[14]) +
-    cell(REP_HEAD[CHK0+1], v[CHK0+1]) + cell(REP_HEAD[PCT_COL], v[PCT_COL]) +
-    cell(REP_HEAD[CHK0+2], v[CHK0+2]) +
+    ['p50','who50','sp0','gpT2','ttT2','gpT1','ttT1','gpT0','ttT0','chkPrih','pct','chkSp']
+      .map(function(k){ return cell(REP_HEAD[RC[k]], v[RC[k]]); }).join('') +
     (v[CHK_WHY] ? cell(REP_HEAD[CHK_WHY], chipHtml(v[CHK_WHY])) : '') +
     '</div>';
 }
@@ -10781,6 +10797,7 @@ var ST_CASES = [
   ['Маффин: что истекает 13.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-13', 0],
   ['Маффин: что истекает 14.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-14', 3],
   ['Процент стоит сразу за «Проверкой прихода 20%»', '', 'порядок колонок', 'ок'],
+  ['В строке отчёта столько значений, сколько колонок', 'Алмалы бәліш', 'ширина строки', 'ок'],
   ['Весовая позиция считается в кг',              'Көкнәр қосылған тоқаш', 'единица', 'кг'],
   ['Қатпарлы тоқаш — в штуках (решение 13.10)',    'Қатпарлы сүзбелі тоқаш', 'единица', 'шт'],
   ['Обычная позиция — в штуках',                   'Алмалы бәліш', 'единица', 'шт']
@@ -10810,6 +10827,11 @@ function selfTest(){
           var o = repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }));
           var a = o.indexOf(col['Проверка прихода 20%']), b = o.indexOf(col['% прихода в списке на скидку']);
           got = (a >= 0 && b === a + 1) ? 'ок' : 'не на месте';
+        } else if (c[2] === 'ширина строки'){
+          var rw = R.rep.filter(function(r){ return r.name === c[1]; })[0];
+          var uniq = {}; REP_HEAD_BASE.forEach(function(h){ uniq[h] = 1; });
+          got = (rw && rw.v.length === REP_HEAD_BASE.length &&
+                 Object.keys(uniq).length === REP_HEAD_BASE.length) ? 'ок' : 'не совпадает';
         } else if (c[2] === 'единица'){
           got = isKg(nrm(c[1])) ? 'кг' : 'шт';
         } else if (c[2].indexOf('истекает:') === 0){
