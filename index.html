@@ -707,6 +707,9 @@ try{
 html.tgm #whoBox, html.tgm #btnOut{display:none!important}
 /* Филиалу в Телеграме нужны только два списка — остальное меню прячем. */
 html.tgm .nav .navsec, html.tgm .nav a:not([data-page="zay"]):not([data-page="off"]){display:none!important}
+/* Экраны филиала: у администратора их в меню нет, у филиала — есть. */
+.nav a.brOnly{display:none}
+html.tgm .nav a.brOnly, html.brMode .nav a.brOnly{display:flex}
 .tgTabs{display:none}
 html.tgm .tgTabs{display:flex;gap:8px;padding:10px 12px 0;position:sticky;top:0;z-index:5;background:var(--bg,#f6f6f4)}
 html.tgm .tgTabs button{flex:1;padding:11px 8px;border-radius:12px;border:1px solid var(--bd,#d9d6cf);
@@ -761,29 +764,33 @@ document.addEventListener('DOMContentLoaded', function(){
       <div class="navsec">Данные</div>
       <a data-page="up"><span class="ic">📥</span>Выгрузки iiko<span class="pill" id="pUp" style="display:none"></span></a>
       <a data-page="sp"><span class="ic">📝</span>Списки филиалов<span class="pill" id="pSp" style="display:none"></span></a>
-      <a data-page="zay"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
-      <a data-page="off"><span class="ic">🗑️</span>Списание завтра</a>
+      <!-- Эти два экрана — для филиала (мини-приложение и ссылка филиала).
+           Администратору их не показываем, но пункты нужны: по ним переключает
+           вкладки «Скидка / Списание» в Телеграме. -->
+      <a data-page="zay" class="brOnly"><span class="ic">🧾</span>20-50% жеңілдік өнімдері</a>
+      <a data-page="off" class="brOnly"><span class="ic">🗑️</span>Списание завтра</a>
+      <div class="navsec">Сверка</div>
       <a data-page="in"><span class="ic">📦</span>Приёмка списаний</a>
       <a data-page="bk"><span class="ic">🛍️</span>Брони сотрудников</a>
-      <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
-      <div class="navsec">Сверка</div>
-      <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
+      <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <div class="navsec">Аналитика</div>
+      <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <a data-page="chr" data-tab="pos"><span class="ic">📈</span>Хронология</a>
       <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
+      <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
+      <a data-page="heat" data-tab="rank"><span class="ic">⏰</span>Что покупают по времени</a>
+      <a data-page="heat" data-tab="qty"><span class="ic">🔥</span>Когда уценивают</a>
+      <div class="navsec">Дополнительно</div>
       <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
       <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
-      <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
       <a data-page="chr" data-tab="prog"><span class="ic">🔮</span>Прогноз излишка</a>
-      <a data-page="heat" data-tab="rank"><span class="ic">⏰</span>Что покупают по времени</a>
-      <a data-page="heat" data-tab="qty"><span class="ic">🔥</span>Когда уценивают</a>
       <a data-page="chr" data-tab="norm"><span class="ic">📏</span>Нормы потерь</a>
       <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
-      <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
+      <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
       <a data-page="help"><span class="ic">❔</span>Как это считается</a>
     </nav>
 
@@ -1075,7 +1082,9 @@ document.addEventListener('DOMContentLoaded', function(){
       </section>
 
       <section class="page" id="pg-sp">
-        <div class="card">
+        <!-- Ручной разбор списков из WhatsApp и загрузка таблицы больше не нужны:
+             списки приходят из облака. Блоки оставлены скрытыми, чтобы не ломать код. -->
+        <div class="card" hidden>
           <h2>Вставьте сообщения из WhatsApp</h2>
           <p class="lead">Целиком, вместе с датами. Строка вида «Т8 05.08» переключает и филиал,
             и день — можно вставлять сразу несколько филиалов подряд.</p>
@@ -1092,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function(){
             на вкладке «Список филиала» в сверке и нажмёте «Запомнить».</div>
         </div>
 
-        <div class="card">
+        <div class="card" hidden>
           <h2>Или загрузите таблицу</h2>
           <p class="lead">Если филиалы заполняют общую Google-таблицу — скачайте её
             (Файл → Скачать → Microsoft Excel .xlsx) и загрузите здесь. Колонки:
@@ -1129,66 +1138,6 @@ document.addEventListener('DOMContentLoaded', function(){
           <div class="msg" id="m2c"></div>
         </div>
 
-        <div class="card">
-          <h2>Вход по логину</h2>
-          <p class="lead">Вместо ключа в ссылке — вход под своей почтой.</p>
-          <details class="tip"><summary>Что это и что настроить в Auth0</summary>
-            <p>Вместо ключа в ссылке человек входит под своей почтой. Приёмник
-              спрашивает у Auth0, чей это вход, и смотрит на лист <b>«Доступ»</b>:
-              какая роль и какой филиал. Филиал после этого физически не может
-              отправить список за соседа — это проверяется на сервере, а не в браузере.</p>
-            <p>В Auth0 нужно завести приложение типа <b>Single Page Application</b> и
-              вписать в него три поля — <i>Allowed Callback URLs</i>,
-              <i>Allowed Logout URLs</i>, <i>Allowed Web Origins</i> — адресом этой
-              страницы. Подробно всё расписано в файле «Вход через Auth0 — что настроить».</p>
-            <p><b>Домен и код приложения — не секреты.</b> Они и так видны в адресной
-              строке в момент входа. Секрета у такого приложения нет вовсе: вместо
-              него используется одноразовая проверка PKCE.</p>
-          </details>
-          <div class="row" style="margin-top:10px">
-            <div style="flex:1 1 260px"><label class="lbl">Домен Auth0</label>
-              <input type="text" id="a0Domain" placeholder="taptatti.eu.auth0.com"
-                autocomplete="off" spellcheck="false"></div>
-            <div style="flex:1 1 260px"><label class="lbl">Код приложения (Client ID)</label>
-              <input type="text" id="a0Client" placeholder="abc123..."
-                autocomplete="off" spellcheck="false"></div>
-            <button id="a0Save">Сохранить</button>
-            <button class="sec" id="a0Go">Войти</button>
-          </div>
-          <div class="msg" id="m2e"></div>
-          <div class="hint" id="a0Hint"></div>
-        </div>
-
-        <div class="card">
-          <h2>Ссылки для филиалов</h2>
-          <p class="lead">Каждому филиалу — своя ссылка, отправьте её один раз.</p>
-          <div class="row" style="margin-top:10px">
-            <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
-              <input type="text" class="secret" id="lnkKey" placeholder="SEND_KEY"
-                autocomplete="off" spellcheck="false"></div>
-            <button id="btnLinks">Собрать ссылки</button>
-            <button class="sec" id="btnUnlock" style="display:none">Снять режим филиала</button>
-          </div>
-          <div id="lnkOut"></div>
-
-          <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
-            <div style="flex:0 0 220px"><label class="lbl">Ключ цеха</label>
-              <input type="text" class="secret" id="lnkCheck" placeholder="CHECK_KEY"
-                autocomplete="off" spellcheck="false"></div>
-            <button class="sec" id="btnCehLink">Ссылка для цеха</button>
-          </div>
-          <div id="cehOut"></div>
-
-          <details class="tip"><summary>Что внутри ссылки</summary>
-            <p>Филиал и приёмник уже прописаны, вводить сотруднику нечего. Ключ из
-              адресной строки страница убирает сразу после первого открытия. Пусть
-              добавят страницу на главный экран телефона.</p>
-            <p>Ключ филиалов сотрудник видит — это нормально: им можно только
-              прислать свой список, ни прочитать чужое, ни удалить что-либо нельзя.
-              Ключ на чтение в эти ссылки не попадает.</p>
-          </details>
-          <div class="msg" id="m2d"></div>
-        </div>
       </section>
 
       <!-- ─── Сверка ───────────────────────────────────── -->
@@ -1423,6 +1372,66 @@ document.addEventListener('DOMContentLoaded', function(){
               вместе со страницей. Нужно, если в таблице что-то сломали.</p>
           </details>
           <div class="msg" id="m8"></div>
+        </div>
+        <div class="card">
+          <h2>Вход по логину</h2>
+          <p class="lead">Вместо ключа в ссылке — вход под своей почтой.</p>
+          <details class="tip"><summary>Что это и что настроить в Auth0</summary>
+            <p>Вместо ключа в ссылке человек входит под своей почтой. Приёмник
+              спрашивает у Auth0, чей это вход, и смотрит на лист <b>«Доступ»</b>:
+              какая роль и какой филиал. Филиал после этого физически не может
+              отправить список за соседа — это проверяется на сервере, а не в браузере.</p>
+            <p>В Auth0 нужно завести приложение типа <b>Single Page Application</b> и
+              вписать в него три поля — <i>Allowed Callback URLs</i>,
+              <i>Allowed Logout URLs</i>, <i>Allowed Web Origins</i> — адресом этой
+              страницы. Подробно всё расписано в файле «Вход через Auth0 — что настроить».</p>
+            <p><b>Домен и код приложения — не секреты.</b> Они и так видны в адресной
+              строке в момент входа. Секрета у такого приложения нет вовсе: вместо
+              него используется одноразовая проверка PKCE.</p>
+          </details>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:1 1 260px"><label class="lbl">Домен Auth0</label>
+              <input type="text" id="a0Domain" placeholder="taptatti.eu.auth0.com"
+                autocomplete="off" spellcheck="false"></div>
+            <div style="flex:1 1 260px"><label class="lbl">Код приложения (Client ID)</label>
+              <input type="text" id="a0Client" placeholder="abc123..."
+                autocomplete="off" spellcheck="false"></div>
+            <button id="a0Save">Сохранить</button>
+            <button class="sec" id="a0Go">Войти</button>
+          </div>
+          <div class="msg" id="m2e"></div>
+          <div class="hint" id="a0Hint"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ссылки для филиалов</h2>
+          <p class="lead">Каждому филиалу — своя ссылка, отправьте её один раз.</p>
+          <div class="row" style="margin-top:10px">
+            <div style="flex:0 0 220px"><label class="lbl">Ключ филиалов</label>
+              <input type="text" class="secret" id="lnkKey" placeholder="SEND_KEY"
+                autocomplete="off" spellcheck="false"></div>
+            <button id="btnLinks">Собрать ссылки</button>
+            <button class="sec" id="btnUnlock" style="display:none">Снять режим филиала</button>
+          </div>
+          <div id="lnkOut"></div>
+
+          <div class="row" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line)">
+            <div style="flex:0 0 220px"><label class="lbl">Ключ цеха</label>
+              <input type="text" class="secret" id="lnkCheck" placeholder="CHECK_KEY"
+                autocomplete="off" spellcheck="false"></div>
+            <button class="sec" id="btnCehLink">Ссылка для цеха</button>
+          </div>
+          <div id="cehOut"></div>
+
+          <details class="tip"><summary>Что внутри ссылки</summary>
+            <p>Филиал и приёмник уже прописаны, вводить сотруднику нечего. Ключ из
+              адресной строки страница убирает сразу после первого открытия. Пусть
+              добавят страницу на главный экран телефона.</p>
+            <p>Ключ филиалов сотрудник видит — это нормально: им можно только
+              прислать свой список, ни прочитать чужое, ни удалить что-либо нельзя.
+              Ключ на чтение в эти ссылки не попадает.</p>
+          </details>
+          <div class="msg" id="m2d"></div>
         </div>
       </section>
 
@@ -9259,6 +9268,7 @@ async function refPull(silent){
    Длину держим в узде: весь список пересказывать незачем, за ним идут по
    ссылке на витрину, а слишком длинный адрес телефон может обрезать. */
 var WA_TEXT_LIMIT = 1000;
+var WA_BTN_ON = false;
 
 function waText(wh, d, rows, url){
   var by = {}, cats = [];
@@ -9288,6 +9298,9 @@ function waText(wh, d, rows, url){
 }
 
 function waBtn(wh, d, rows, url){
+  /* Кнопка «Отправить в WhatsApp» снята: список и так сразу уходит в группу
+     сотрудников в Телеграме. Чтобы вернуть — уберите строку ниже. */
+  if (!WA_BTN_ON) return '';
   return ' <a class="waBtn" target="_blank" rel="noopener" href="https://wa.me/?text=' +
          encodeURIComponent(waText(wh, d, rows, url)) +
          '">📱 Отправить в WhatsApp</a>';
@@ -9911,6 +9924,7 @@ function a0Apply(me){
   if (me && me.role === 'филиал' && me.branch){ c.wh = me.branch; c.lock = 1; }
   else { delete c.lock; delete c.wh; }
   apiSave(c);
+  try{ document.documentElement.classList.toggle('brMode', !!c.lock); }catch(e){}
 }
 function a0Start(me){
   if (!me) return '';
@@ -10239,8 +10253,8 @@ $('a0Go').onclick = function(){
     }
     if (p === 'exp' && typeof expFill === 'function'){ expFill(); expRun(); }
     if (p === 'db' && typeof refStatus === 'function') refStatus();
-    if (p === 'sp' && typeof unlockShow === 'function') unlockShow();
-    if (p === 'sp' && typeof apiCfg === 'function'){
+    if ((p === 'sp' || p === 'db') && typeof unlockShow === 'function') unlockShow();
+    if ((p === 'sp' || p === 'db') && typeof apiCfg === 'function'){
       var a = apiCfg();
       if (a.read && !el('apiKey').value) el('apiKey').value = a.read;
       if (a.send && !el('lnkKey').value) el('lnkKey').value = a.send;
@@ -10316,7 +10330,8 @@ $('a0Go').onclick = function(){
     /* Ссылка прямо сказала, куда открыться, — она главнее всего остального. */
     try{ if (window.START_FROM_LINK && el('pg-' + window.START_FROM_LINK))
            return window.START_FROM_LINK; }catch(e){}
-    try{ if (typeof apiCfg === 'function' && apiCfg().lock) return 'zay'; }catch(e){}
+    try{ if (typeof apiCfg === 'function' && apiCfg().lock){
+      document.documentElement.classList.add('brMode'); return 'zay'; } }catch(e){}
     return (DB.mov && DB.mov.length) ? 'rep' : 'up';
   }
   window.STARTPAGE = startPage;
