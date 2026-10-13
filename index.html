@@ -3173,19 +3173,30 @@ var REP_COLS = [
   { k: 'chkSp',   h: 'Проверка прихода списания',     chk: 1 },
   { k: 'why',     h: 'Разбор расхождения',            chk: 1 }
 ];
-var RC = {};                       // код колонки → её номер в строке
-REP_COLS.forEach(function(c, i){ RC[c.k] = i; });
+/* Всё, что выводится из схемы, пересчитывается одной функцией. Её же зовёт
+   контрольный пример «вставили колонку — ничего не съехало». */
+var RC, REP_HEAD_BASE, REP_HEAD, CHK_WHY, PCT_COL, DISC0, CHK_IDX, FROST, CHK0, COMPACT;
+function repSchema(){
+  RC = {};                                     // код колонки → её номер в строке
+  REP_COLS.forEach(function(c, i){ RC[c.k] = i; });
+  REP_HEAD_BASE = REP_COLS.map(function(c){ return c.h; });
+  REP_HEAD = REP_HEAD_BASE.slice();
+  CHK_WHY = RC.why;                            // «Разбор расхождения»
+  PCT_COL = RC.pct;                            // «% прихода в списке на скидку»
+  DISC0   = REP_COLS.length;                   // отсюда — «Продано: <тип скидки>»
+  CHK_IDX = REP_COLS.map(function(c, i){ return c.chk ? i : -1; })
+                    .filter(function(i){ return i >= 0; });       // проверки — красим чипами
+  FROST   = REP_COLS.map(function(c, i){ return c.frost ? i : -1; })
+                    .filter(function(i){ return i >= 0; });       // колонки заморозки
+  CHK0    = RC.chkSale;                        // главная проверка — справа в сжатом виде
+  // что видно в сжатом режиме (плюс проверка продажи справа)
+  COMPACT = ['day','dish','list','s20','vz','sp0','sp1','pct'].map(function(k){ return RC[k]; });
+}
+repSchema();
 function repRow(o){ return REP_COLS.map(function(c){ return o[c.k] === undefined ? '' : o[c.k]; }); }
-var REP_HEAD_BASE = REP_COLS.map(function(c){ return c.h; });
 /* Колонки прочих скидок заранее неизвестны — какие типы есть в чеках за
    период, столько и колонок. Они дописываются в конец строки (номера старых
    колонок не сдвигаются), а показываются сразу за «Продано со скидкой 20%». */
-var REP_HEAD = REP_HEAD_BASE.slice();
-var CHK_WHY = RC.why;          // «Разбор расхождения»
-var PCT_COL = RC.pct;          // «% прихода в списке на скидку»
-var DISC0 = REP_COLS.length;   // отсюда — «Продано: <тип скидки>»
-var CHK_IDX = REP_COLS.map(function(c, i){ return c.chk ? i : -1; })
-                      .filter(function(i){ return i >= 0; });
 function isChk(i){ return CHK_IDX.indexOf(i) >= 0; }
 function discTypes(){ return REP_HEAD.slice(DISC0).map(function(h){ return h.replace(/^Продано: /, ''); }); }
 function withDisc(R){
@@ -3214,11 +3225,7 @@ function repOrder(base){
 var BR_COL = -1;
 function repHead(i){ return i === BR_COL ? 'Филиал' : REP_HEAD[i]; }
 function repVal(r, i){ return i === BR_COL ? S(r.br) : r.v[i]; }
-var FROST = REP_COLS.map(function(c, i){ return c.frost ? i : -1; })
-                    .filter(function(i){ return i >= 0; });   // колонки заморозки
-var CHK0  = RC.chkSale;        // главная проверка — она же справа в сжатом виде
-// что видно в сжатом режиме (плюс проверка продажи справа)
-var COMPACT = ['day','dish','list','s20','vz','sp0','sp1','pct'].map(function(k){ return RC[k]; });
+// FROST, CHK0, COMPACT — считаются в repSchema() из REP_COLS
 var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
 var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
 var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
@@ -10785,19 +10792,22 @@ function stData(){
 }
 var ST_CASES = [
   // [что проверяем, блюдо, колонка отчёта на 13.10 (или особый расчёт), ожидание]
-  ['Приход 5, список 5 — проверка прихода',      'Алмалы бәліш', 'Проверка прихода 20%', 'ок'],
-  ['Приход 5, список 5 — процент',               'Алмалы бәліш', '% прихода в списке на скидку', '100%'],
-  ['Список 5, продали 5 — проверка продажи',     'Алмалы бәліш', 'Проверка продажи 20%', 'ок'],
-  ['Приход 6, список 1 — процент',               'Капкейк', '% прихода в списке на скидку', '17%'],
-  ['Приход 2, список 3',                          'Синнабон', 'Проверка прихода 20%', 'приход меньше скидки'],
-  ['Приход 2, список 3 — процент не считается',  'Синнабон', '% прихода в списке на скидку', ''],
-  ['Приход только накануне',                      'Эклер', 'Проверка прихода 20%', 'нету прихода по сроку'],
-  ['Приход с тортового склада',                   'Наполеон торт', 'Проверка прихода 20%', 'невозможно отследить (заморозка)'],
-  ['Продали по 20% без списка',                   'Пирожное Шу', 'Проверка продажи 20%', 'нарушение (нет в списке филиала)'],
+  // колонку называем постоянным КОДОМ из REP_COLS, а не заголовком: заголовок
+  // могут переформулировать, код — нет
+  ['Приход 5, список 5 — проверка прихода',      'Алмалы бәліш', 'chkPrih', 'ок'],
+  ['Приход 5, список 5 — процент',               'Алмалы бәліш', 'pct', '100%'],
+  ['Список 5, продали 5 — проверка продажи',     'Алмалы бәліш', 'chkSale', 'ок'],
+  ['Приход 6, список 1 — процент',               'Капкейк', 'pct', '17%'],
+  ['Приход 2, список 3',                          'Синнабон', 'chkPrih', 'приход меньше скидки'],
+  ['Приход 2, список 3 — процент не считается',  'Синнабон', 'pct', ''],
+  ['Приход только накануне',                      'Эклер', 'chkPrih', 'нету прихода по сроку'],
+  ['Приход с тортового склада',                   'Наполеон торт', 'chkPrih', 'невозможно отследить (заморозка)'],
+  ['Продали по 20% без списка',                   'Пирожное Шу', 'chkSale', 'нарушение (нет в списке филиала)'],
   ['Маффин: что истекает 13.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-13', 0],
   ['Маффин: что истекает 14.10 (ФИФО)',           'Шоколадный маффин', 'истекает:2026-10-14', 3],
   ['Процент стоит сразу за «Проверкой прихода 20%»', '', 'порядок колонок', 'ок'],
   ['В строке отчёта столько значений, сколько колонок', 'Алмалы бәліш', 'ширина строки', 'ок'],
+  ['Вставили новую колонку — значения, подсветка и фильтры не съехали', '', 'вставка колонки', 'ок'],
   ['Весовая позиция считается в кг',              'Көкнәр қосылған тоқаш', 'единица', 'кг'],
   ['Қатпарлы тоқаш — в штуках (решение 13.10)',    'Қатпарлы сүзбелі тоқаш', 'единица', 'шт'],
   ['Обычная позиция — в штуках',                   'Алмалы бәліш', 'единица', 'шт']
@@ -10819,14 +10829,16 @@ function selfTest(){
     fx.mov = d.mov; fx.s20 = d.s20; fx.list = d.list;
     DB = fx; applySpr(ST_SPR);
     var R = build(ST_WH, '2026-10-13', '2026-10-13');
-    var col = {}; REP_HEAD_BASE.forEach(function(h, i){ col[h] = i; });
+    var col = RC;
     ST_CASES.forEach(function(c){
       var got, err = '';
       try{
         if (c[2] === 'порядок колонок'){
           var o = repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }));
-          var a = o.indexOf(col['Проверка прихода 20%']), b = o.indexOf(col['% прихода в списке на скидку']);
+          var a = o.indexOf(RC.chkPrih), b = o.indexOf(RC.pct);
           got = (a >= 0 && b === a + 1) ? 'ок' : 'не на месте';
+        } else if (c[2] === 'вставка колонки'){
+          got = stInsertCol() || 'ок';
         } else if (c[2] === 'ширина строки'){
           var rw = R.rep.filter(function(r){ return r.name === c[1]; })[0];
           var uniq = {}; REP_HEAD_BASE.forEach(function(h){ uniq[h] = 1; });
@@ -10839,10 +10851,10 @@ function selfTest(){
           e.rows.forEach(function(r){ if (r.name === c[1]) q += r.qty; });
           got = q;
         } else {
-          if (col[c[2]] === undefined) throw new Error('нет колонки «' + c[2] + '»');
+          if (RC[c[2]] === undefined) throw new Error('нет колонки с кодом «' + c[2] + '»');
           var row = R.rep.filter(function(r){ return r.name === c[1]; })[0];
           if (!row) throw new Error('строки нет в отчёте');
-          got = S(row.v[col[c[2]]]);
+          got = S(row.v[RC[c[2]]]);
         }
       }catch(x){ err = x.message || String(x); got = '—'; }
       out.push({ what: c[0], dish: c[1], col: c[2], want: c[3], got: got,
@@ -10857,6 +10869,32 @@ function selfTest(){
     try{ _expM = {}; _expSig = ''; }catch(e){}
   }
   return out;
+}
+
+/* Вставляем пустую колонку в середину схемы, пересчитываем отчёт и сверяем
+   по КОДАМ: те же значения, та же подсветка (проверки, заморозка), тот же
+   сжатый вид и тот же отбор фильтром. Потом схему возвращаем как была.
+   Возвращает '' — если всё на месте, иначе — что съехало. */
+function stInsertCol(){
+  function snap(){
+    var R = build(ST_WH, '2026-10-13', '2026-10-13');
+    var keys = REP_COLS.map(function(c){ return c.k; }).filter(function(k){ return k !== '__test'; });
+    return {
+      rows: R.rep.map(function(r){ return keys.map(function(k){ return k + '=' + S(r.v[RC[k]]); }).join('|'); }).join('\n'),
+      chk: keys.filter(function(k){ return isChk(RC[k]); }).join(','),
+      frost: keys.filter(function(k){ return FROST.indexOf(RC[k]) >= 0; }).join(','),
+      compact: COMPACT.map(function(i){ return REP_COLS[i].k; }).join(','),
+      order: repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }))
+               .map(function(i){ return REP_COLS[i].k; }).filter(function(k){ return k !== '__test'; }).join(','),
+      bad: R.rep.filter(function(r){ return CHK_IDX.some(function(i){ return cls(r.v[i]) === 'bad'; }); }).length
+    };
+  }
+  var before = snap(), after;
+  REP_COLS.splice(3, 0, { k: '__test', h: 'Тестовая колонка' });
+  try{ repSchema(); after = snap(); }
+  finally { REP_COLS.splice(3, 1); repSchema(); }
+  var diff = Object.keys(before).filter(function(k){ return String(before[k]) !== String(after[k]); });
+  return diff.length ? 'съехало: ' + diff.join(', ') : '';
 }
 
 function selfTestHtml(res){
