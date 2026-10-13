@@ -1551,6 +1551,7 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
   </div>
 </div>
+<script src="calculations.js"></script>
 <script>
 /* ═════════ встроенные справочник и синонимы ═════════ */
 window.onerror = function(m, src, ln, col){
@@ -2869,12 +2870,8 @@ function build(wh, dFrom, dTo){
       var dSp = mv(k,T3,'spisanie'), h = sk(k,T), vz = mv(k,T3,'vozvrat_srok'), p50 = mv(k,T,'perem_50');
       var dSp0 = mv(k,T,'spisanie');   // списание, оформленное в сам день отчёта
       // ── проверка продажи 20% ──────────────────────────────
-      var sum20 = h + p50 + dSp + vz, L;
-      if (nq)               L = 'нет данных';
-      else if (T > posLast) L = 'нет данных';
-      else if (c > 0)       L = Math.abs(sum20 - c) < 1e-6 ? 'ок'
-                              : (sum20 > c ? 'продажа больше списка' : 'продажа меньше списка');
-      else                  L = sum20 < 1e-9 ? 'ок' : 'нарушение (нет в списке филиала)';
+      var sum20 = h + p50 + dSp + vz;
+      var L = Calculations.reconcileDiscount(c, sum20, nq, T > posLast);
 
       // ── разбор «продажа меньше списка»: куда делась разница ──
       /* Заявили c, а по 20% (+ склад 50%, возврат, списание) ушло меньше.
@@ -4417,7 +4414,8 @@ function chrono(dFrom, dTo){
     var f = isKus[k] ? 1 / KUSOK : 1;
     var m = null;
     if (r.length > 5 && r[5] !== '' && r[5] != null) m = N(r[5]);
-    else { var pc = discPct(t); if (pc) m = N(r[4]) * f * (PR[base] || 0) * pc; else dscNoSum[t] = 1; }
+    else { m = Calculations.estimatedDiscountAmount(N(r[4]), f, PR[base] || 0, t);
+      if (m === null) dscNoSum[t] = 1; }
     var ws = brOf(r[1]);
     ws.forEach(function(w){
       var kk = w + '|' + base + '|' + d;
@@ -4590,44 +4588,26 @@ function chrono(dFrom, dTo){
        а срок на витрине идёт от разморозки, которую нигде не фиксируют. ФИФО по
        ним даёт бессмысленные «8 суток» — возраст по таким не считаем вовсе. */
     var frozenPos = !!TORT[a.k];
-    var fifo = [], ageSum = 0, ageQty = 0;
-    if (open > 1e-9) fifo.push({ d: '', qty: open });
-    if (frozenPos) series.forEach(function(x){ x.age = null; });
-    else series.forEach(function(x){
-      if (x.p > 1e-9) fifo.push({ d: x.d, qty: x.p });
-      var need = x.s, dSum = 0, dQty = 0;
-      while (need > 1e-9 && fifo.length){
-        var b = fifo[0], t = Math.min(b.qty, need);
-        if (b.d){ var age = daysBetween(b.d, x.d);
-                  ageSum += age * t; ageQty += t; dSum += age * t; dQty += t; }
-        b.qty -= t; need -= t;
-        if (b.qty <= 1e-9) fifo.shift();
-      }
-      /* Уехавшее на доставку и потери тоже снимаются с очереди — иначе старые
-         партии висят вечно и возраст задирается до недели на ровном месте.
-         В средний возраст они не идут: когда доставка продала штуку, мы не знаем. */
-      var nl = x.l + (x.dost || 0);
-      while (nl > 1e-9 && fifo.length){
-        var b2 = fifo[0], t2 = Math.min(b2.qty, nl);
-        b2.qty -= t2; nl -= t2;
-        if (b2.qty <= 1e-9) fifo.shift();
-      }
-      x.age = dQty > 0 ? dSum / dQty : null;
-    });
-    var ageAvg = ageQty > 0 ? ageSum / ageQty : null;
+    /* Уехавшее на доставку и потери снимаются с очереди, но не входят в
+       средний возраст: время продажи доставки неизвестно. Расчёт — в calculations.js. */
+    var fifoAge = Calculations.fifoAges(series, open, frozenPos, daysBetween);
+    series.forEach(function(x, i){ x.age = fifoAge.ages[i]; });
+    var ageAvg = fifoAge.average;
 
     /* ── Рекомендуемая заявка на день ──────────────────────────
        Спрос считаем по дням, когда витрина не пустела: в день стопа продажи
        обрезаны отсутствием товара и занижают спрос. Берём медиану, а не среднее,
        чтобы один праздничный день не задрал заявку на всю неделю. */
     var dSold = series.filter(function(x){ return x.s > 1e-9; }).length;
+    /* Медиана спроса в дни без стопа — её показывают в подсказке («в обычный день
+       продаётся…»), а заявку из неё считает calculations.js. */
     var demand = series.filter(function(x){ return !x.st; }).map(function(x){ return x.s; })
                        .sort(function(a, b){ return a - b; });
     var med = demand.length
       ? (demand.length % 2 ? demand[(demand.length - 1) / 2]
          : (demand[demand.length / 2 - 1] + demand[demand.length / 2]) / 2)
       : 0;
-    var zakaz = med > 0 ? Math.ceil(med * 1.1) : 0;   // 10% страховки
+    var zakaz = Calculations.recommendedOrder(series);   // медиана без стопов + 10% страховки
     var nowDay = days.length ? P / days.length : 0;   // сколько завозят сейчас
 
     /* «Худший день».
@@ -6108,8 +6088,7 @@ function kxcDays(i){
    и другие скидки, а в движениях — возврат по качеству и недостачи. Каждое из
    этого тоже деньги, просто по другой причине; собираем их в одном месте. */
 function discPct(tip){                       // «Скидка 10%» → 0.1
-  var m = /(\d{1,2})\s*%/.exec(S(tip));
-  return m ? +m[1] / 100 : null;
+  return Calculations.discountPercent(S(tip));
 }
 function lossData(from, to, F){
   var whOf = whResolver(), PR = priceMap();
@@ -10808,6 +10787,7 @@ var ST_CASES = [
   ['Процент стоит сразу за «Проверкой прихода 20%»', '', 'порядок колонок', 'ок'],
   ['В строке отчёта столько значений, сколько колонок', 'Алмалы бәліш', 'ширина строки', 'ок'],
   ['Вставили новую колонку — значения, подсветка и фильтры не съехали', '', 'вставка колонки', 'ок'],
+  ['Файл расчётов calculations.js подключён',      '', 'calculations', 'ок'],
   ['Весовая позиция считается в кг',              'Көкнәр қосылған тоқаш', 'единица', 'кг'],
   ['Қатпарлы тоқаш — в штуках (решение 13.10)',    'Қатпарлы сүзбелі тоқаш', 'единица', 'шт'],
   ['Обычная позиция — в штуках',                   'Алмалы бәліш', 'единица', 'шт']
@@ -10837,6 +10817,9 @@ function selfTest(){
           var o = repOrder(REP_HEAD_BASE.map(function(_, i){ return i; }));
           var a = o.indexOf(RC.chkPrih), b = o.indexOf(RC.pct);
           got = (a >= 0 && b === a + 1) ? 'ок' : 'не на месте';
+        } else if (c[2] === 'calculations'){
+          got = (window.Calculations && typeof Calculations.reconcileDiscount === 'function' &&
+                 Calculations.reconcileDiscount(5, 5, false, false) === 'ок') ? 'ок' : 'не загрузился';
         } else if (c[2] === 'вставка колонки'){
           got = stInsertCol() || 'ок';
         } else if (c[2] === 'ширина строки'){
