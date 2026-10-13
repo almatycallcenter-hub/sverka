@@ -101,6 +101,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 .camv video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
 .camv .geo{position:absolute;left:0;right:0;top:0;z-index:2;padding:calc(10px + env(safe-area-inset-top)) 14px 14px;
   font-size:14px;line-height:1.35;background:linear-gradient(rgba(0,0,0,.7),transparent)}
+.camv .gbtn{margin-left:6px;padding:5px 12px;border-radius:999px;border:0;background:#fff;color:#000;
+  font-size:13px;font-weight:700;vertical-align:middle}
 .camv .stamp{position:absolute;right:14px;bottom:calc(118px + env(safe-area-inset-bottom));text-align:right;
   font-size:14px;line-height:1.3;text-shadow:0 1px 3px rgba(0,0,0,.95);pointer-events:none}
 .camv .stamp b{font-size:16px;font-weight:600}
@@ -419,6 +421,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     if (t.id === 'cshot') return camShot();
     if (t.id === 'cclose') return camClose();
     if (t.id === 'cfile'){ el('file').click(); return; }
+    if (t.id === 'cgeo-btn') return geoFix();
     if ((a = t.getAttribute('data-day'))){ if (a !== S.day){ S.day = a; S.photos = []; load(); } return; }
     if ((a = t.getAttribute('data-m')) !== null) return step(+a, -1);
     if ((a = t.getAttribute('data-p')) !== null) return step(+a, 1);
@@ -462,6 +465,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   var OFF = 0;                 // поправка часов телефона к серверу, мс
   var GEO = null;              // { lat, lon, acc, district, city, at }
   var GEO_STATE = '';          // '' | 'wait' | 'ok' | 'no'
+  var GEO_WHY = '';            // почему нет места: tg-denied | denied | timeout | no-fix | no-api
   var CAM = null;              // открытая камера
   var FRESH_MS = 5 * 60e3;     // запасной путь: снимок камерой телефона не старше 5 минут
   var MON = ['янв.', 'февр.', 'мар.', 'апр.', 'мая', 'июн.', 'июл.', 'авг.', 'сент.', 'окт.', 'нояб.', 'дек.'];
@@ -491,7 +495,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function geoStart(){
     if (GEO_STATE === 'wait' || (GEO && Date.now() - GEO.at < 10 * 60e3)) return;
     GEO_STATE = 'wait'; camInfo();
-    var done = false, timer = setTimeout(none, 20000);
+    var done = false, timer = setTimeout(function(){ none('timeout'); }, 20000);
     function got(lat, lon, acc){
       if (done) return; done = true; clearTimeout(timer);
       GEO = { lat: Number(lat), lon: Number(lon), acc: Math.round(Number(acc) || 0), district: '', city: '', at: Date.now() };
@@ -500,26 +504,43 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
         if (r && r.ok && GEO){ GEO.district = r.district || ''; GEO.city = r.city || ''; camInfo(); }
       }).catch(function(){});
     }
-    function none(){ if (done) return; done = true; clearTimeout(timer); GEO_STATE = 'no'; camInfo(); }
+    function none(why){ if (done) return; done = true; clearTimeout(timer);
+      GEO_STATE = 'no'; GEO_WHY = why || 'no-fix'; camInfo(); }
     function browser(){
-      if (!navigator.geolocation) return none();
+      if (!navigator.geolocation) return none('no-api');
       try{
         navigator.geolocation.getCurrentPosition(function(p){ got(p.coords.latitude, p.coords.longitude, p.coords.accuracy); },
-          none, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
-      }catch(e){ none(); }
+          function(e){ none(e && e.code === 1 ? 'denied' : e && e.code === 3 ? 'timeout' : 'no-fix'); },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+      }catch(e){ none('no-api'); }
     }
     try{
       var LM = TG && TG.LocationManager;
       if (LM && TG.isVersionAtLeast && TG.isVersionAtLeast('8.0')){
         var go = function(){
           if (!LM.isLocationAvailable) return browser();
-          LM.getLocation(function(d){ d ? got(d.latitude, d.longitude, d.horizontal_accuracy) : none(); });
+          LM.getLocation(function(d){
+            if (d) return got(d.latitude, d.longitude, d.horizontal_accuracy);
+            none(LM.isAccessRequested && !LM.isAccessGranted ? 'tg-denied' : 'no-fix');
+          });
         };
         return LM.isInited ? go() : LM.init(go);
       }
     }catch(e){}
     browser();
   }
+  /* Кнопка в полосе места. Телеграм запретил доступ — открываем настройки
+     бота (там переключатель «Геолокация»); иначе просто пробуем ещё раз. */
+  function geoFix(){
+    var LM = TG && TG.LocationManager;
+    if (GEO_WHY === 'tg-denied' && LM && LM.openSettings){ try{ LM.openSettings(); return; }catch(e){} }
+    GEO_STATE = ''; GEO_WHY = ''; geoStart();
+  }
+  /* Вернулись из настроек с разрешением — сразу пробуем снова. */
+  try{ TG && TG.onEvent && TG.onEvent('locationManagerUpdated', function(){
+    if (GEO_STATE === 'no'){ GEO_STATE = ''; GEO_WHY = ''; geoStart(); } }); }catch(e){}
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden && CAM && GEO_STATE === 'no'){ GEO_STATE = ''; GEO_WHY = ''; geoStart(); } });
 
   function camOpen(){
     if (CAM || S.photos.length >= MAX_PHOTOS) return;
@@ -573,9 +594,25 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function camInfo(){
     if (!CAM) return;
     var g = el('cgeo');
-    if (g) g.textContent = GEO_STATE === 'wait' ? '📍 Определяю место…' :
-      GEO_STATE === 'ok' ? '📍 ' + (geoPlace() || 'Место получено') + (GEO && GEO.acc > 300 ? ' · точность ~' + GEO.acc + ' м' : '') :
-      GEO_STATE === 'no' ? '📍 Геолокация не разрешена — фото примем, но без места. Разрешите Телеграму геолокацию.' : '';
+    if (g){
+      var gt = GEO_STATE === 'wait' ? '📍 Определяю место…' :
+        GEO_STATE === 'ok' ? '📍 ' + (geoPlace() || 'Место получено') + (GEO && GEO.acc > 300 ? ' · точность ~' + GEO.acc + ' м' : '') : '';
+      var gb = '';
+      if (GEO_STATE === 'no'){
+        gt = ({
+          'tg-denied': '📍 Телеграм не дал доступ к месту. Нажмите «Разрешить» и включите «Геолокация».',
+          'denied':    '📍 Геолокация запрещена. Настройки телефона → Telegram → Геопозиция → «При использовании».',
+          'timeout':   '📍 Место не определилось — включите геолокацию на телефоне.',
+          'no-api':    '📍 Этот Телеграм не умеет передавать место — обновите Телеграм.'
+        })[GEO_WHY] || '📍 Место не определилось.';
+        gt += ' Фото примем и без места.';
+        gb = GEO_WHY === 'tg-denied' ? 'Разрешить' : 'Ещё раз';
+      }
+      if (g.getAttribute('data-t') !== gt + gb){
+        g.setAttribute('data-t', gt + gb);
+        g.innerHTML = esc(gt) + (gb ? ' <button class="gbtn" id="cgeo-btn">' + esc(gb) + '</button>' : '');
+      }
+    }
     var st = el('cst');
     if (st){ var l = stampLines(srvNow());
       st.innerHTML = '<b>' + esc(l[0]) + '</b>' + l.slice(1).map(function(x){ return '<br>' + esc(x); }).join(''); }
