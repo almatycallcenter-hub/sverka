@@ -9546,8 +9546,10 @@ $('btnHistClear').onclick = function(){
 function showFresh(){
   var f = dataFreshness();
   ['freshRep','freshChr'].forEach(function(id){ if ($(id)) $(id).innerHTML = f.html; });
-  // «за какой период что загружено» — там же, где выбирают файлы и период
-  var cov = coverageHtml();
+  /* Блок «За какой период что загружено» снят по просьбе администратора.
+     Если выгрузки разойдутся по датам, об этом и так скажет проверка
+     checkCoverage() в предупреждениях. Вернуть — coverageHtml() вместо ''. */
+  var cov = '';
   ['covUp','covRep'].forEach(function(id){ if ($(id)) $(id).innerHTML = cov; });
 }
 
