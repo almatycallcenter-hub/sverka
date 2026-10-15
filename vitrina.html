@@ -198,11 +198,11 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
 .card h2{margin:0 0 10px;font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
 .card .lbl{display:block;font-size:14px;color:var(--mut);margin:0 0 6px}
-.card input[type=text]{
+.card input[type=text],.card input[type=tel]{
   display:block;width:100%;padding:14px;border:1px solid var(--line);
   border-radius:14px;background:#FBFAF7;font-size:17px;
 }
-.card input[type=text]:focus{outline:none;border-color:var(--navy);background:#fff}
+.card input[type=text]:focus,.card input[type=tel]:focus{outline:none;border-color:var(--navy);background:#fff}
 .ci{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
 .ci:first-of-type{border-top:0;padding-top:2px}
 .ci .th{flex:0 0 64px;height:64px;border-radius:14px;overflow:hidden;position:relative}
@@ -639,7 +639,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   var FOTO = {};           // название → файл фото (foto.json)
   var TAB = 'shop';        // shop | mine
   var MINE = null;         // мои брони (из Телеграма)
-  var PHONE = '', PHONE_SHOW = '';
+  var PHONE = '', PHONE_SHOW = '', PHONE_MAN = '', PHONE_FAIL = '';
+  try{ PHONE_MAN = localStorage.getItem('tt_vitrina_phone_man') || ''; }catch(e){}
   try{ PHONE = localStorage.getItem('tt_vitrina_phone') || ''; PHONE_SHOW = localStorage.getItem('tt_vitrina_phone_show') || ''; }catch(e){}
   var ST_T = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена', past: 'Прошла' };
 
@@ -968,10 +969,16 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
           '<span>' + esc(WORK || 'Выберите место работы') + '</span><span class="go">›</span></button>' +
       '</div>' +
 
-      (canPhone ? '<div class="card"><h2>Ваш номер <span style="font-weight:600;text-transform:none;letter-spacing:0">· по желанию</span></h2>' +
+      (INTG ? '<div class="card"><h2>Ваш номер <span style="font-weight:600;text-transform:none;letter-spacing:0">· по желанию</span></h2>' +
         (PHONE_SHOW
           ? '<div class="verified"><div class="vh">✓ ПОДТВЕРЖДЁН ТЕЛЕГРАМОМ</div><div class="vb"><b>' + esc(PHONE_SHOW) + '</b>' +
             '<span class="mini" style="margin:0">филиал позвонит, если что-то не так</span></div></div>'
+          : (!canPhone || PHONE_FAIL || PHONE_MAN)
+          ? (PHONE_FAIL ? '<p class="mini" style="margin:0 0 8px;color:var(--ink)">' + esc(PHONE_FAIL) + '</p>' : '') +
+            '<input type="tel" id="phMan" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __" value="' + esc(PHONE_MAN) + '">' +
+            '<p class="mini">Впишите номер сами — филиал увидит пометку «введён вручную».' +
+            (canPhone ? ' <button type="button" id="phoneBtn" style="background:none;border:0;padding:0;color:var(--navy);text-decoration:underline;font-size:inherit">' +
+              'Попробовать через Телеграм</button>' : '') + '</p>'
           : '<button type="button" class="phone" id="phoneBtn"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span>' +
             '<span class="tx">Поделиться номером из Телеграма</span></button>' +
             '<p class="mini">Телеграм сам пришлёт номер вашего аккаунта — набирать не нужно, и филиал знает, что он настоящий.</p>') +
@@ -1005,38 +1012,49 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     el('pickDest').onclick = askWhere;
     if (el('pickTrip')) el('pickTrip').onclick = askTrip;
     if (el('phoneBtn')) el('phoneBtn').onclick = askPhone;
+    if (el('phMan')) el('phMan').oninput = function(){
+      PHONE_MAN = this.value; this.style.borderColor = '';
+      try{ localStorage.setItem('tt_vitrina_phone_man', PHONE_MAN); }catch(e){}
+    };
   }
 
   /* Номер — через Телеграм: человек ничего не набирает, а сервер проверяет подпись. */
   function askPhone(){
-    /* Раньше при любой неудаче кнопка молчала — казалось, что «не нажимается».
-       Теперь видно, что ждём Телеграм, и при неудаче — что случилось. */
+    /* Телеграм на некоторых iPhone вовсе не отвечает на запрос номера: окно
+       не появляется, и пока он «ждёт», второй запрос он не принимает. Поэтому
+       ждём недолго, а при любой неудаче даём вписать номер руками — сразу в
+       карточке, без всплывающих окон. */
     var done = false;
     function busy(on){
       var b = el('phoneBtn'); if (!b) return;
       b.disabled = on; b.style.opacity = on ? '.6' : '';
       var t = b.querySelector('.tx'); if (t) t.textContent = on ? 'Ждём ответ Телеграма…' : 'Поделиться номером из Телеграма';
     }
-    function stop(msg){ if (done) return; done = true; clearTimeout(timer); busy(false); if (msg) say(msg); }
+    function fail(msg){
+      if (done) return; done = true; clearTimeout(timer); busy(false);
+      PHONE_FAIL = msg; drawCart();
+      setTimeout(function(){ var f = el('phMan'); if (f) try{ f.focus(); }catch(e){} }, 50);
+    }
     var timer = setTimeout(function(){
-      stop('Телеграм не ответил. Закройте витрину, откройте снова и нажмите ещё раз. Номер не обязателен — бронь можно оформить и без него.');
-    }, 30000);
+      fail('Телеграм не прислал номер.');
+    }, 12000);
     busy(true);
     try{
       TG.requestContact(function(ok, res){
         if (done) return;
-        if (!ok) return stop('Номер не отправлен. Если передумаете — нажмите ещё раз. Бронь можно оформить и без номера.');
+        if (!ok) return fail('Номер через Телеграм не отправлен.');
         var raw = (res && res.response) || '', u = (res && res.responseUnsafe) || {}, c = u.contact || {};
         if (typeof c === 'string') try{ c = JSON.parse(c); }catch(e){ c = {}; }
         var ph = String(c.phone_number || '').replace(/[^\d]/g, '');
-        if (!raw || !ph) return stop('Телеграм отправил номер боту, но не вернул его сюда. Закройте витрину, откройте снова и нажмите ещё раз. Бронь можно оформить и без номера.');
+        if (!raw || !ph) return fail('Телеграм не вернул номер сюда.');
         done = true; clearTimeout(timer);
-        PHONE = raw; PHONE_SHOW = '+' + ph;
+        PHONE = raw; PHONE_SHOW = '+' + ph; PHONE_FAIL = '';
         try{ localStorage.setItem('tt_vitrina_phone', PHONE); localStorage.setItem('tt_vitrina_phone_show', PHONE_SHOW); }catch(e){}
         drawCart();
       });
     }catch(e){
-      stop('Этот Телеграм не умеет делиться номером — обновите приложение. Бронь можно оформить и без номера.');
+      /* WebAppContactRequested — прошлый запрос так и висит без ответа. */
+      fail(/Requested/.test(String(e && e.message)) ? 'Телеграм не ответил на запрос номера.' : 'Этот Телеграм не умеет делиться номером.');
     }
   }
 
@@ -1061,7 +1079,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         (r.total ? '<div class="sumrow"><span>К оплате при получении</span><b>' + money(r.total) + '</b></div>' : '') +
         '<p class="mini">Получение: <b>' + esc(r.destTitle) + '</b>' + (r.trip ? ', ' + esc(r.trip) : '') + ' · ' + esc(human(r.day)) + '</p>' +
         '<p class="mini">' + esc(r.who) + (r.job || r.work ? ' · ' + esc([r.job, r.work].filter(Boolean).join(', ')) : '') +
-        (r.phone ? ' · ' + esc(r.phone) + ' ✓' : '') + '</p>' +
+        (r.phone ? ' · ' + esc(r.phone) + (/вручную/.test(r.phone) ? '' : ' ✓') : '') + '</p>' +
       '</div>' : '') +
       otherCartsHtml('Осталось оформить') +
       (INTG && !off ? '<button type="button" class="big" id="toMine"><span>Мои брони</span><span class="ar">→</span></button>' : '');
@@ -1254,6 +1272,14 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     }
     if (!JOB){ askJob(); return; }
     if (!WORK){ askWork(); return; }
+    /* Номер вручную необязателен, но если вписан — пусть будет похож на номер. */
+    var pm = INTG && !PHONE ? String(PHONE_MAN || '').replace(/[^\d]/g, '') : '';
+    if (pm && !((pm.length === 10 && pm.charAt(0) === '7') || (pm.length === 11 && /^[78]/.test(pm)))){
+      var f = el('phMan');
+      if (f){ f.style.borderColor = '#9B2C2C'; f.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+      say('Проверьте номер: нужно 10 или 11 цифр, например +7 701 123 45 67. Или сотрите его — номер не обязателен.');
+      return;
+    }
     if (!DEST) DEST = BR;
     var here = sameSpot(DEST, BR);
     /* Убавить бронь можно и днём: это только освобождает продукцию. А вот
@@ -1290,7 +1316,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'book', key: KEY, day: DAY, branch: BR,
                              who: ME, pos: JOB, work: WORK, dest: DEST, trip: here ? '' : TRIP, items: items,
-                             init: INTG ? TG.initData : '', phone: INTG ? PHONE : '' })
+                             init: INTG ? TG.initData : '', phone: INTG ? PHONE : '',
+                             phoneMan: INTG && !PHONE ? PHONE_MAN : '' })
     }).then(function(r){ return r.text(); }).then(function(t){
       var j = null; try{ j = JSON.parse(t); }catch(e){}
       if (!j || j.error) throw new Error((j && j.error) || 'приёмник не ответил');

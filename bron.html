@@ -111,7 +111,8 @@ main{max-width:640px;margin:0 auto;padding:16px}
       '</div>' +
       '<div class="card who"><h2>Для кого</h2><b>' + esc(b.who) + '</b>' +
         (b.pos || b.work ? '<span class="mut">' + esc([b.pos, b.work].filter(Boolean).join(' · ')) + '</span>' : '') +
-        (b.phone ? '<br><a class="tel" href="tel:' + esc(b.phone) + '">📞 ' + esc(b.phone) + ' <span style="font-weight:500;opacity:.8">✓ Телеграм</span></a>' : '') +
+        (b.phone ? '<br><a class="tel" href="tel:+' + String(b.phone).replace(/[^\d]/g, '') + '">📞 ' + esc(String(b.phone).replace(/\s*\(вручную\)/, '')) +
+          ' <span style="font-weight:500;opacity:.8">' + (/вручную/.test(b.phone) ? 'введён вручную' : '✓ Телеграм') + '</span></a>' : '') +
       '</div>' +
       '<div class="card"><h2>Собрать · ' + b.items.length + ' поз.</h2>' +
         b.items.map(function(i){
