@@ -368,8 +368,12 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
      нужно. Хвост адреса (#tgWebAppData…) переносим как есть — в нём подпись. */
   try{
     var sp0 = TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param;
-    /* Переход вкладкой внизу (есть ?k= или ?tg=) — остаёмся на витрине. */
-    if (location.search) sp0 = '';
+    /* Переход вкладкой внизу (есть ?k=, ?tg= или ?c=) — остаёмся на витрине.
+       Только по этим параметрам: Телеграм сам дописывает в адрес
+       ?tgWebAppStartParam=bk1042, и раньше из-за этого кнопка «Отметить:
+       собрано / выдано» открывала витрину вместо страницы брони. */
+    var qs0 = new URLSearchParams(location.search);
+    if (qs0.get('k') || qs0.get('tg') || qs0.get('c')) sp0 = '';
     if (sp0 && /^ph[0-9a-f]{10}$/.test(sp0)){
       location.replace('spisanie.html' + location.search + location.hash);
       return;
@@ -518,6 +522,32 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   var VIEW = 'shops';        // shops | items | cart | done
   var DAY = '', ROWS = [], BOOKS = [], STAFF = [], TRIPS = [];
   var BR = '', CAT = '', Q = '', CART = {}, ME = '', DEST = '', TRIP = '', RES = null;
+  /* Корзины по филиалам: набрали в ТТ1, перешли в ТТ3 — набранное в ТТ1 не
+     пропадает. Бронь всё равно оформляется на каждый филиал отдельно:
+     у каждого своя коробка, свой номер и своё получение. */
+  var CARTS = {};
+  function stashCart(){
+    if (!BR) return;
+    var n = Object.keys(CART).filter(function(k){ return CART[k] > 0; }).length;
+    if (n || EDIT) CARTS[BR] = { cart: CART, edit: EDIT, dest: DEST, trip: TRIP };
+    else delete CARTS[BR];
+  }
+  function otherCarts(){
+    return Object.keys(CARTS).filter(function(b){
+      if (b === BR) return false;
+      var c = CARTS[b].cart; return Object.keys(c).some(function(k){ return c[k] > 0; });
+    }).map(function(b){
+      var c = CARTS[b].cart; return { br: b, n: Object.keys(c).filter(function(k){ return c[k] > 0; }).length };
+    });
+  }
+  function otherCartsHtml(lead){
+    var o = otherCarts(); if (!o.length) return '';
+    return '<div class="card"><h2>' + esc(lead) + '</h2>' + o.map(function(x){
+      return '<button type="button" class="pickBtn" data-shop="' + esc(x.br) + '"><span>' + esc(shopTitle(x.br)) + ' · ' +
+        x.n + ' ' + plural(x.n, 'позиция', 'позиции', 'позиций') + '</span><span class="go">›</span></button>';
+    }).join('<div style="height:8px"></div>') +
+      '<p class="mini">Каждый филиал — отдельная бронь: свой номер и своё получение.</p></div>';
+  }
   /* Номер брони, которую человек сейчас правит, или '' — если бронирует заново.
      Отличать обязательно: «подтвердить» и «сохранить изменения» — разные слова,
      а снять бронь можно только ту, что уже есть. */
@@ -556,10 +586,13 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   /* Вход в филиал: если бронь уже есть — открываем её же, а не пустую корзину.
      Иначе «изменить» выглядело бы как «забронировать ещё раз сверху». */
   function openShop(br){
+    stashCart();
     BR = br; Q = ''; CAT = '';
-    var mb = myBook(br);
+    var mb = myBook(br), kept = CARTS[br];
     CART = {};
-    if (mb){
+    if (kept){
+      CART = kept.cart; EDIT = kept.edit; DEST = kept.dest; TRIP = kept.trip;
+    } else if (mb){
       EDIT = mb.num || '—';
       Object.keys(mb.items).forEach(function(d){ CART[d] = mb.items[d]; });
       DEST = mb.dest || br; TRIP = mb.trip || '';
@@ -592,6 +625,16 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   var OFF = 50;            // скидка сотрудника, %; приходит с сервера
   /* Внутри Телеграма — только когда есть подпись: в браузере TG тоже есть, но пустой. */
   var INTG = !!(TG && TG.initData);
+  /* В Телеграме на iPhone обычные alert() и confirm() не показываются вовсе —
+     кнопка как будто «не нажимается». Поэтому окна — через сам Телеграм. */
+  function say(msg){
+    try{ if (TG && TG.showAlert && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) return TG.showAlert(msg); }catch(e){}
+    try{ alert(msg); }catch(e){}
+  }
+  function sure(q, yes){
+    try{ if (TG && TG.showConfirm && TG.isVersionAtLeast && TG.isVersionAtLeast('6.2')) return TG.showConfirm(q, function(ok){ if (ok) yes(); }); }catch(e){}
+    var ok = false; try{ ok = confirm(q); }catch(e){} if (ok) yes();
+  }
   var BST = {};            // номер брони → статус
   var FOTO = {};           // название → файл фото (foto.json)
   var TAB = 'shop';        // shop | mine
@@ -688,6 +731,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         pics + '<div class="txt"><div class="nm">' + esc(br) + '</div>' +
         '<div class="sub">' + esc(sub) + (rs.length ? ' · ' + esc(s[2]) : '') + '</div>' +
         (mb ? '<div class="mine">Ваша бронь' + (mb.num ? ' №' + esc(mb.num) : '') + (st ? ' · ' + ST_T[st] : '') + '</div>' : '') +
+        (function(){ var k = CARTS[br] && CARTS[br].cart, n = k ? Object.keys(k).filter(function(d){ return k[d] > 0; }).length : 0;
+          return n && !(mb && CARTS[br].edit) ? '<div class="mine">🛒 В корзине ' + n + ' ' + plural(n, 'позиция', 'позиции', 'позиций') + '</div>' : ''; })() +
         '</div>' + (rs.length ? '<div class="go">›</div>' : '') + '</button>';
     }).join('');
 
@@ -769,11 +814,10 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
           if (!j || j.error) throw new Error((j && j.error) || 'нет ответа');
           toast('Бронь №' + num + ' отменена', 'продукция вернулась на витрину');
           MINE_STALE = true; load(true); drawMine();
-        }).catch(function(e){ alert('Не получилось: ' + e.message); });
+        }).catch(function(e){ say('Не получилось: ' + e.message); });
     }
     var q = 'Отменить бронь №' + num + '? Продукция вернётся на витрину.';
-    if (TG && TG.showConfirm) TG.showConfirm(q, function(ok){ if (ok) doIt(); });
-    else if (confirm(q)) doIt();
+    sure(q, doIt);
   }
 
   /* ─── экран 2: продукция филиала ─── */
@@ -929,7 +973,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
           ? '<div class="verified"><div class="vh">✓ ПОДТВЕРЖДЁН ТЕЛЕГРАМОМ</div><div class="vb"><b>' + esc(PHONE_SHOW) + '</b>' +
             '<span class="mini" style="margin:0">филиал позвонит, если что-то не так</span></div></div>'
           : '<button type="button" class="phone" id="phoneBtn"><span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span>' +
-            '<span>Поделиться номером из Телеграма</span></button>' +
+            '<span class="tx">Поделиться номером из Телеграма</span></button>' +
             '<p class="mini">Телеграм сам пришлёт номер вашего аккаунта — набирать не нужно, и филиал знает, что он настоящий.</p>') +
       '</div>' : '') +
 
@@ -944,6 +988,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         (shut ? '<p class="warn">Везут первым рейсом — он приходит к 8:00. Бронь с доставкой открыта с ' +
                 hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) + '. Сейчас можно выбрать «Заберу здесь».</p>' : '') +
       '</div>' +
+      otherCartsHtml('Ещё в корзине') +
       (EDIT ? '<button type="button" class="big gh" id="dropBook">Снять бронь целиком</button><div style="height:12px"></div>' : '');
 
     el('bar').hidden = !items.length;
@@ -953,7 +998,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     el('barBtn').disabled = shut;
     el('cartBtn').style.display = 'none';
 
-    el('me').oninput = function(){ ME = this.value; };
+    el('me').oninput = function(){ ME = this.value; this.style.borderColor = ''; };
     if (el('pickMe')) el('pickMe').onclick = askWho;
     el('pickJob').onclick = askJob;
     el('pickWork').onclick = askWork;
@@ -964,18 +1009,35 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
 
   /* Номер — через Телеграм: человек ничего не набирает, а сервер проверяет подпись. */
   function askPhone(){
+    /* Раньше при любой неудаче кнопка молчала — казалось, что «не нажимается».
+       Теперь видно, что ждём Телеграм, и при неудаче — что случилось. */
+    var done = false;
+    function busy(on){
+      var b = el('phoneBtn'); if (!b) return;
+      b.disabled = on; b.style.opacity = on ? '.6' : '';
+      var t = b.querySelector('.tx'); if (t) t.textContent = on ? 'Ждём ответ Телеграма…' : 'Поделиться номером из Телеграма';
+    }
+    function stop(msg){ if (done) return; done = true; clearTimeout(timer); busy(false); if (msg) say(msg); }
+    var timer = setTimeout(function(){
+      stop('Телеграм не ответил. Закройте витрину, откройте снова и нажмите ещё раз. Номер не обязателен — бронь можно оформить и без него.');
+    }, 30000);
+    busy(true);
     try{
       TG.requestContact(function(ok, res){
-        if (!ok || !res) return;
-        var raw = res.response || '', u = res.responseUnsafe || {}, c = u.contact || {};
+        if (done) return;
+        if (!ok) return stop('Номер не отправлен. Если передумаете — нажмите ещё раз. Бронь можно оформить и без номера.');
+        var raw = (res && res.response) || '', u = (res && res.responseUnsafe) || {}, c = u.contact || {};
         if (typeof c === 'string') try{ c = JSON.parse(c); }catch(e){ c = {}; }
         var ph = String(c.phone_number || '').replace(/[^\d]/g, '');
-        if (!raw || !ph) return;
+        if (!raw || !ph) return stop('Телеграм отправил номер боту, но не вернул его сюда. Закройте витрину, откройте снова и нажмите ещё раз. Бронь можно оформить и без номера.');
+        done = true; clearTimeout(timer);
         PHONE = raw; PHONE_SHOW = '+' + ph;
         try{ localStorage.setItem('tt_vitrina_phone', PHONE); localStorage.setItem('tt_vitrina_phone_show', PHONE_SHOW); }catch(e){}
         drawCart();
       });
-    }catch(e){}
+    }catch(e){
+      stop('Этот Телеграм не умеет делиться номером — обновите приложение. Бронь можно оформить и без номера.');
+    }
   }
 
   /* ─── экран 4: бронь принята ─── */
@@ -1001,8 +1063,9 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
         '<p class="mini">' + esc(r.who) + (r.job || r.work ? ' · ' + esc([r.job, r.work].filter(Boolean).join(', ')) : '') +
         (r.phone ? ' · ' + esc(r.phone) + ' ✓' : '') + '</p>' +
       '</div>' : '') +
+      otherCartsHtml('Осталось оформить') +
       (INTG && !off ? '<button type="button" class="big" id="toMine"><span>Мои брони</span><span class="ar">→</span></button>' : '');
-    if (el('toMine')) el('toMine').onclick = function(){ TAB = 'mine'; MINE_STALE = true; CART = {}; BR = ''; EDIT = ''; go('shops'); };
+    if (el('toMine')) el('toMine').onclick = function(){ TAB = 'mine'; MINE_STALE = true; stashCart(); CART = {}; BR = ''; EDIT = ''; go('shops'); };
     el('bar').hidden = false;
     el('barTxt').innerHTML = '<b>Выбрать ещё</b>вернуться к филиалам';
     el('barGo').textContent = '→';
@@ -1040,7 +1103,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   }
 
   el('back').onclick = function(){
-    if (VIEW === 'items'){ Q = ''; CAT = ''; go('shops'); }
+    if (VIEW === 'items'){ Q = ''; CAT = ''; stashCart(); go('shops'); }
     else if (VIEW === 'cart') go('items');
     else { TAB = 'shop'; go('shops'); }
   };
@@ -1164,9 +1227,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
      один раз: отменённую бронь обратно не вернуть, её разберут другие. */
   function cancelBook(){
     if (!EDIT) return;
-    if (!confirm('Снять бронь' + (EDIT !== '—' ? ' №' + EDIT : '') + ' целиком?\n\n' +
-                 'Продукция вернётся в общий список, и её смогут взять другие.')) return;
-    post([], 'off');
+    sure('Снять бронь' + (EDIT !== '—' ? ' №' + EDIT : '') + ' целиком?\n\n' +
+         'Продукция вернётся в общий список, и её смогут взять другие.', function(){ post([], 'off'); });
   }
 
   /* Ничего не прибавилось и ничего нового не появилось — значит бронь только
@@ -1183,7 +1245,13 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     var items = cartItems();
     if (!items.length) return;
     ME = String(ME || '').replace(/\s+/g, ' ').trim();
-    if (!ME){ alert('Напишите, кто берёт.'); var m = el('me'); if (m) m.focus(); return; }
+    if (!ME){
+      /* Поле имени наверху корзины — его не видно, когда нажимают внизу. */
+      var m = el('me');
+      if (m){ m.style.borderColor = '#9B2C2C'; m.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(function(){ try{ m.focus(); }catch(e){} }, 350); }
+      say('Напишите имя и фамилию — кто берёт.');
+      return;
+    }
     if (!JOB){ askJob(); return; }
     if (!WORK){ askWork(); return; }
     if (!DEST) DEST = BR;
@@ -1192,7 +1260,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
        добавить — нет, филиал уже собрал коробку под первый рейс. Считаем то
        же самое, что и приёмник, чтобы человек узнал об отказе до отправки. */
     if (!here && !bookOpen() && !onlyLess(items)){
-      alert('Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
+      say('Бронь с доставкой открыта с ' + hhmm(BOOK_OPEN) + ' до ' + hhmm(BOOK_CLOSE) +
             ': везут первым рейсом, он приходит к 8:00.\n\n' +
             (EDIT ? 'Сейчас можно только убавить бронь или снять её целиком.'
                   : 'Сейчас можно выбрать «Заберу здесь».'));
@@ -1202,11 +1270,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
 
     /* Разрешение боту писать в личку — чтобы статус брони пришёл сообщением.
        Спрашиваем один раз; ответ «нет» бронь не останавливает. */
-    var asked = ''; try{ asked = localStorage.getItem('tt_vitrina_wa') || ''; }catch(e){}
-    if (INTG && !asked && TG.requestWriteAccess && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9')){
-      try{ localStorage.setItem('tt_vitrina_wa', '1'); }catch(e){}
-      try{ TG.requestWriteAccess(function(){ post(items, EDIT ? 'edit' : 'new'); }); return; }catch(e){}
-    }
+    /* Спрашиваем уже после того, как бронь ушла: если окно Телеграма не
+       откроется или не ответит, бронь от этого не должна застревать. */
     post(items, EDIT ? 'edit' : 'new');
   }
 
@@ -1235,8 +1300,13 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
                        : here ? shopTitle(BR) : shopTitle(DEST),
               trip: here ? '' : TRIP, pos: c.pos, qtyText: cartQty(c),
               items: j.items || [], total: j.total || 0, phone: j.phone || '', branch: BR };
-      CART = {}; EDIT = ''; MINE_STALE = true;
+      CART = {}; EDIT = ''; MINE_STALE = true; delete CARTS[BR];
       go('done');
+      var asked = ''; try{ asked = localStorage.getItem('tt_vitrina_wa') || ''; }catch(e){}
+      if (INTG && !asked && mode !== 'off' && TG.requestWriteAccess && TG.isVersionAtLeast && TG.isVersionAtLeast('6.9')){
+        try{ localStorage.setItem('tt_vitrina_wa', '1'); }catch(e){}
+        setTimeout(function(){ try{ TG.requestWriteAccess(function(){}); }catch(e){} }, 600);
+      }
       load(true);            // тихо обновляем остатки под новым состоянием
     }).catch(function(e){
       btn.disabled = false; el('barGo').textContent = was;
