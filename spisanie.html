@@ -611,7 +611,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     box.className = 'camv'; box.id = 'camv';
     box.innerHTML = '<div class="geo" id="cgeo"></div>' +
       '<video id="cvid" playsinline autoplay muted></video>' +
-      (isDoc ? '<div class="frame"></div><div class="dhint" id="dhint">Накладная целиком в рамке, ровно сверху, без бликов. / Жүкқұжат толық кадрда.</div>' : '') +
+      (isDoc ? '<div class="frame"></div><div class="dhint" id="dhint">Накладная на всю рамку — подойдите ближе, ровно сверху, без бликов и тени. / Жүкқұжат толық кадрда.</div>' : '') +
       '<div class="stamp" id="cst"></div><div class="flash" id="cfl"></div>' +
       '<div class="cbar"><button class="cx" id="cclose">✕ Готово</button>' +
       '<button class="shut" id="cshot" aria-label="Снять" disabled></button><span class="cn" id="ccnt"></span></div>';
@@ -784,7 +784,29 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       s1 += lap; s2 += lap * lap; n++;
     }
     var vr = s2 / n - (s1 / n) * (s1 / n);
-    return { mean: mean, sharp: vr, glare: hi / L.length };
+    /* Какую часть кадра занимает бумага: светлая область по строкам и столбцам. */
+    var all = g.getImageData(0, 0, W, H).data, A = new Float32Array(W * H), hist = new Uint32Array(256);
+    for (var q = 0, m = 0; q < all.length; q += 4, m++){ A[m] = all[q] * 0.299 + all[q + 1] * 0.587 + all[q + 2] * 0.114; hist[A[m] | 0]++; }
+    var acc = 0, p90 = 255; for (var b = 0; b < 256; b++){ acc += hist[b]; if (acc >= A.length * 0.9){ p90 = b; break; } }
+    var thr = Math.max(80, p90 * 0.75), rows = new Uint32Array(H), cols = new Uint32Array(W);
+    for (var yy = 0; yy < H; yy++) for (var xx = 0; xx < W; xx++) if (A[yy * W + xx] > thr){ rows[yy]++; cols[xx]++; }
+    var ry = 0, rx = 0;
+    for (var y2 = 0; y2 < H; y2++) if (rows[y2] > W * 0.15) ry++;
+    for (var x2 = 0; x2 < W; x2++) if (cols[x2] > H * 0.15) rx++;
+    return { mean: mean, sharp: vr, glare: hi / L.length, fill: Math.max(ry / H, rx / W) };
+  }
+  /* Бледную термобумагу и тёмный кадр подтягиваем: растягиваем яркость между 2% и 98%. */
+  function enhance(c){
+    var g = c.getContext('2d'), im = g.getImageData(0, 0, c.width, c.height), d = im.data, hist = new Uint32Array(256), n = d.length / 4;
+    for (var i = 0; i < d.length; i += 4) hist[(d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0]++;
+    var acc = 0, lo = 0, hi = 255;
+    for (var b = 0; b < 256; b++){ acc += hist[b]; if (acc >= n * 0.02){ lo = b; break; } }
+    acc = 0; for (b = 255; b >= 0; b--){ acc += hist[b]; if (acc >= n * 0.02){ hi = b; break; } }
+    if (hi - lo < 40 || hi - lo > 215) return;
+    var lut = new Uint8ClampedArray(256);
+    for (b = 0; b < 256; b++) lut[b] = (b - lo) * 255 / (hi - lo);
+    for (i = 0; i < d.length; i += 4){ d[i] = lut[d[i]]; d[i + 1] = lut[d[i + 1]]; d[i + 2] = lut[d[i + 2]]; }
+    g.putImageData(im, 0, 0);
   }
   function docShot(v){
     if (!v || !v.videoWidth) return;
@@ -795,6 +817,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     if (q.mean < 60) why = 'Темно — включите свет или подойдите к окну.';
     else if (q.glare > 0.18) why = 'Блик на бумаге — наклоните телефон или уберите лампу из кадра.';
     else if (q.sharp < 12) why = 'Размыто — держите телефон неподвижно, коснитесь экрана, чтобы навести резкость.';
+    else if (q.fill < 0.55) why = 'Мелко — подойдите ближе: накладная должна занимать почти всю рамку.';
     S.docTries = (S.docTries || 0) + 1;
     if (why && S.docTries < 3){
       var dh = el('dhint'); if (dh){ dh.textContent = '⚠️ ' + why + ' Снимите ещё раз.'; dh.className = 'dhint bad'; }
@@ -805,6 +828,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var k = Math.min(1, DOC_SIDE / Math.max(w, h)), c = document.createElement('canvas');
     c.width = Math.round(w * k); c.height = Math.round(h * k);
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    enhance(c);
     drawStamp(c, stampLines(ms));
     S.doc = { src: c.toDataURL('image/jpeg', DOC_QUALITY), state: 'reading', read: null, keep: false, tries: (S.doc ? S.doc.tries || 0 : 0),
               m: { t: ms, src: how, h: '', lat: GEO ? GEO.lat : null, lon: GEO ? GEO.lon : null, acc: GEO ? GEO.acc : null, place: geoPlace() } };
