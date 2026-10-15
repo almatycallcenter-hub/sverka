@@ -71,6 +71,18 @@ h2{font-size:15px;font-weight:700;margin:18px 2px 8px;color:var(--mut);
   padding:16px;border-radius:14px;border:2px solid var(--ink);background:var(--card);
   font-size:17px;font-weight:700;margin-top:8px}
 .hint{font-size:14px;color:var(--mut);margin:8px 2px 0}
+.doc{display:flex;gap:12px;align-items:flex-start;background:var(--card);border-radius:14px;padding:10px;border:1px solid var(--line)}
+.doc img{width:84px;height:112px;object-fit:cover;border-radius:10px;flex:0 0 auto;background:#ddd}
+.doc .dt{flex:1;min-width:0;font-size:15px}
+.doc .dt ul{margin:6px 0 0;padding-left:18px}
+.doc .dt li{margin:3px 0}
+.doc .db{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.doc .db button{padding:8px 12px;border-radius:10px;border:1px solid var(--ink);background:var(--card);font-size:14px;font-weight:600}
+.camv .frame{position:absolute;left:9%;right:9%;top:calc(118px + env(safe-area-inset-top));bottom:calc(190px + env(safe-area-inset-bottom));
+  border:3px dashed rgba(255,255,255,.85);border-radius:14px;pointer-events:none;z-index:1}
+.camv .dhint{position:absolute;left:12px;right:12px;top:calc(44px + env(safe-area-inset-top));z-index:2;text-align:center;
+  font-size:15px;font-weight:600;text-shadow:0 1px 3px #000}
+.camv .dhint.bad{color:#ffb4b4}
 textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px solid var(--line);
   border-radius:12px;background:var(--card);resize:vertical}
 .bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);
@@ -133,6 +145,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   'use strict';
   var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
   var MAX_PHOTOS = 6, MAX_SIDE = 1600, QUALITY = 0.72;
+  /* Накладную снимаем крупнее и чище: её читает распознавание текста. */
+  var DOC_SIDE = 2200, DOC_QUALITY = 0.88;
 
   var TG = null;
   try{ TG = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData
@@ -248,14 +262,15 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       S.bag = { daily: S.items }; S.pbag = {}; S.restored = false;
       var last = null;
       function take(dr, legacy){
-        if (!dr || !(dr.photos && dr.photos.length || dr.items && dr.items.length)) return;
+        if (!dr || !(dr.photos && dr.photos.length || dr.items && dr.items.length || dr.doc)) return;
         var k = keyOf(dr.reason || S.daily);
         if (k === 'daily' && sent.length && dr.at < Date.now() - 6 * 3600e3) return;
         if (legacy && k !== 'daily'){   // старый общий черновик — переносим в карман его причины
           try{ localStorage.setItem(draftKey(k), JSON.stringify(dr)); }catch(e){} }
         if (S.pbag[k] && S.pbag[k].at >= dr.at) return;
         if (dr.items) S.bag[k] = dr.items;
-        S.pbag[k] = { photos: (dr.photos || []).map(ph), note: dr.note || '', sub: dr.sub || '', x: dr.x || null, at: dr.at || 0 };
+        S.pbag[k] = { photos: (dr.photos || []).map(ph), note: dr.note || '', sub: dr.sub || '', x: dr.x || null,
+                      doc: k === 'daily' ? (dr.doc || null) : null, at: dr.at || 0 };
         if (!last || dr.at > last.at) last = dr;
         S.restored = true;
       }
@@ -319,12 +334,14 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     } else h += '<button class="add" id="add">＋ Добавить позицию</button>';
     if (needDest()) h += '<div class="hint">«Склад» — расходная на склад по срокам, «Акт» — акт списания на месте.</div>';
 
+    if (isDaily() && (needDoc(S.items) || S.doc)) h += docHtml();
     h += '<h2>Фото / Сурет</h2><div class="shots">' + S.photos.map(function(p, i){
       return '<div class="shot"><img src="' + ph(p).src + '" alt=""><button data-dp="' + i + '" aria-label="Удалить фото">✕</button></div>'; }).join('') + '</div>';
     if (S.photos.length < MAX_PHOTOS)
       h += '<button class="cam" id="cam">📷 ' + (S.photos.length ? 'Ещё фото' : 'Сфотографировать') + '</button>';
     h += '<div class="hint">' + (S.reason === '7-й кофе бесплатно'
       ? 'В кадре — акт списания и карта с отметками. / Кадрда — акт және карта.'
+      : isDaily() ? 'В кадре — продукция. Накладную — отдельным кадром выше. / Кадрда — өнім.'
       : 'В кадре — продукция и накладная или акт. / Кадрда — өнім және құжат.') +
       ' Снимаем только здесь — на фото ставится время и место. / Тек осында түсіреміз.</div>';
 
@@ -377,18 +394,20 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     S.x = pb.x || (r === DR ? { fio: '', pos: '', date: S.day } : null);
     S.reason = r; S.items = S.bag[k] || (S.bag[k] = []);
     S.photos = pb.photos; S.note = pb.note; S.sub = pb.sub || '';
+    S.doc = k === 'daily' ? (pb.doc || null) : null;
+    if (S.doc && S.doc.state === 'reading') setTimeout(docRead, 50);
     if (k !== 'daily'){ if (!S.sub) S.sub = pb.sub = newSub();
       S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
   }
   function stash(){ var k = keyOf(S.reason);
-    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, at: Date.now() }; }
+    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, doc: k === 'daily' ? S.doc : null, at: Date.now() }; }
   function readDraft(m){ try{ return JSON.parse(localStorage.getItem(draftKey(m)) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
     if (!S.branch || S.busy) return;   // во время отправки не пишем — иначе отправленное вернётся черновиком
     var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, x: S.x, at: Date.now() };
-    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos }, d))); }
+    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos, doc: isDaily() ? S.doc : null }, d))); }
     catch(e){ try{ localStorage.setItem(draftKey(), JSON.stringify(d)); }catch(e2){} }   // фото не влезли — хотя бы числа
-    try{ if (TG){ S.photos.length ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
+    try{ if (TG){ (S.photos.length || S.doc) ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
   }
   function dropDraft(k){ try{ localStorage.removeItem(draftKey(k)); }catch(e){}
     try{ TG && TG.disableClosingConfirmation(); }catch(e){} }
@@ -403,7 +422,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     b.textContent = S.busy ? 'Отправляю…' + (S.prog ? ' ' + S.prog : '') :
       !q.length ? 'Добавьте фото' :
       bad.length ? (bad[0].k === keyOf(S.reason) ? ({ 'нет фото': 'Добавьте фото', 'нет позиций': 'Добавьте позицию', 'нет комментария': 'Напишите комментарий',
-                                                   'не указан сотрудник': 'Впишите сотрудника' })[bad[0].problem]
+                                                   'не указан сотрудник': 'Впишите сотрудника', 'нет накладной': 'Снимите накладную',
+                                                   'читаю накладную': 'Читаю накладную…', 'переснимите накладную': 'Переснимите накладную' })[bad[0].problem]
                                                  : bad[0].r + ': ' + bad[0].problem) :
       q.length === 1 && cur ? 'Отправить · ' + cur.n + ' поз. · ' + cur.photos.length + ' фото' :
       q.length === 1 ? 'Отправить «' + q[0].r + '» · ' + q[0].n + ' поз.' :
@@ -443,6 +463,12 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     }
     if (t.id === 'add'){ S.adding = true; return render(); }
     if (t.id === 'cam') return camOpen();
+    if (t.id === 'dcam') return camOpen('doc');
+    if (t.id === 'dkeep'){ if (S.doc) S.doc.keep = true; return render(); }
+    if (t.id === 'ddel'){ S.doc = null; return render(); }
+    if (t.id === 'dretry') return docRead();
+    if ((a = t.getAttribute('data-dadd')) !== null) return docAdd(a === 'all' ? null : +a);
+    if ((a = t.getAttribute('data-dfix')) !== null) return docFix(+a);
   });
   document.addEventListener('change', function(e){
     var a = e.target.getAttribute && e.target.getAttribute('data-q');
@@ -578,22 +604,24 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   document.addEventListener('visibilitychange', function(){
     if (!document.hidden && CAM && GEO_STATE === 'no'){ GEO_STATE = ''; GEO_WHY = ''; geoStart(); } });
 
-  function camOpen(){
-    if (CAM || S.photos.length >= MAX_PHOTOS) return;
+  function camOpen(mode){
+    var isDoc = mode === 'doc';
+    if (CAM || (!isDoc && S.photos.length >= MAX_PHOTOS)) return;
     var box = document.createElement('div');
     box.className = 'camv'; box.id = 'camv';
     box.innerHTML = '<div class="geo" id="cgeo"></div>' +
       '<video id="cvid" playsinline autoplay muted></video>' +
+      (isDoc ? '<div class="frame"></div><div class="dhint" id="dhint">Накладная целиком в рамке, ровно сверху, без бликов. / Жүкқұжат толық кадрда.</div>' : '') +
       '<div class="stamp" id="cst"></div><div class="flash" id="cfl"></div>' +
       '<div class="cbar"><button class="cx" id="cclose">✕ Готово</button>' +
       '<button class="shut" id="cshot" aria-label="Снять" disabled></button><span class="cn" id="ccnt"></span></div>';
     document.body.appendChild(box);
-    CAM = { box: box, stream: null, timer: setInterval(camInfo, 1000) };
+    CAM = { box: box, stream: null, doc: isDoc, timer: setInterval(camInfo, 1000) };
     camInfo();
     var md = navigator.mediaDevices;
     if (!md || !md.getUserMedia){ camFail(''); return geoStart(); }
     md.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' },
-                                             width: { ideal: 1920 }, height: { ideal: 1440 } } })
+                                             width: { ideal: isDoc ? 2560 : 1920 }, height: { ideal: isDoc ? 1920 : 1440 } } })
       .then(function(st){
         if (!CAM){ st.getTracks().forEach(function(t){ t.stop(); }); return; }
         CAM.stream = st;
@@ -655,12 +683,13 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var st = el('cst');
     if (st){ var l = stampLines(srvNow());
       st.innerHTML = '<b>' + esc(l[0]) + '</b>' + l.slice(1).map(function(x){ return '<br>' + esc(x); }).join(''); }
-    var c = el('ccnt'); if (c) c.textContent = S.photos.length + ' из ' + MAX_PHOTOS;
+    var c = el('ccnt'); if (c) c.textContent = CAM.doc ? 'Накладная' : S.photos.length + ' из ' + MAX_PHOTOS;
     var v = el('cvid'), b = el('cshot');
-    if (b) b.disabled = !(v && v.videoWidth) || S.photos.length >= MAX_PHOTOS;
+    if (b) b.disabled = !(v && v.videoWidth) || (!CAM.doc && S.photos.length >= MAX_PHOTOS);
   }
   function camShot(){
     var v = el('cvid');
+    if (CAM && CAM.doc) return docShot(v);
     if (!CAM || !v || !v.videoWidth || S.photos.length >= MAX_PHOTOS) return;
     var ms = srvNow(), k = Math.min(1, MAX_SIDE / Math.max(v.videoWidth, v.videoHeight));
     var c = document.createElement('canvas');
@@ -718,11 +747,13 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   /* Запасной путь: камера телефона. Старый снимок (из галереи) не берём. */
   el('file').addEventListener('change', function(){
     var f = (this.files || [])[0]; this.value = '';
-    if (!f || S.photos.length >= MAX_PHOTOS) return;
+    var forDoc = !!(CAM && CAM.doc);
+    if (!f || (!forDoc && S.photos.length >= MAX_PHOTOS)) return;
     var age = Date.now() - (Number(f.lastModified) || 0);
     if (!(age > -120e3 && age < FRESH_MS))
       return alertMsg('Это фото снято не сейчас. Нужна новая фотография — снимите заново. / Жаңа сурет түсіріңіз.');
     loadImg(f).then(function(img){
+      if (forDoc) return docTake(img, img.width, img.height, srvNow() - Math.max(0, age), 'file');
       var k = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
       var c = document.createElement('canvas');
       c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
@@ -734,6 +765,141 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
 
   function alertMsg(m){ try{ if (TG) return TG.showAlert(m); }catch(e){} alert(m); }
 
+  /* ── Накладная ──────────────────────────────────────────────────────
+     Отдельный кадр. Сначала проверяем на телефоне свет и резкость, потом
+     таблица читает текст и сверяет позиции с тем, что здесь набрано. Что
+     есть в накладной, но нет в списке, можно добавить одной кнопкой. */
+  function needDoc(items){ return (items || []).some(function(i){ return i.dest !== 'akt' && Number(i.qty) > 0; }); }
+  /* Свет и резкость по середине кадра: средняя яркость и разброс «лапласиана». */
+  function quality(src, w, h){
+    var W = 480, H = Math.round(W * h / w), c = document.createElement('canvas');
+    c.width = W; c.height = H;
+    var g = c.getContext('2d'); g.drawImage(src, 0, 0, W, H);
+    var x0 = Math.round(W * 0.15), y0 = Math.round(H * 0.15), cw = Math.round(W * 0.7), ch = Math.round(H * 0.7);
+    var d = g.getImageData(x0, y0, cw, ch).data, L = new Float32Array(cw * ch), sum = 0, hi = 0;
+    for (var i = 0, j = 0; i < d.length; i += 4, j++){ L[j] = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114; sum += L[j]; if (L[j] > 250) hi++; }
+    var mean = sum / L.length, s1 = 0, s2 = 0, n = 0;
+    for (var y = 1; y < ch - 1; y++) for (var x = 1; x < cw - 1; x++){
+      var k = y * cw + x, lap = 4 * L[k] - L[k - 1] - L[k + 1] - L[k - cw] - L[k + cw];
+      s1 += lap; s2 += lap * lap; n++;
+    }
+    var vr = s2 / n - (s1 / n) * (s1 / n);
+    return { mean: mean, sharp: vr, glare: hi / L.length };
+  }
+  function docShot(v){
+    if (!v || !v.videoWidth) return;
+    docTake(v, v.videoWidth, v.videoHeight, srvNow(), 'cam');
+  }
+  function docTake(src, w, h, ms, how){
+    var q = quality(src, w, h), why = '';
+    if (q.mean < 60) why = 'Темно — включите свет или подойдите к окну.';
+    else if (q.glare > 0.18) why = 'Блик на бумаге — наклоните телефон или уберите лампу из кадра.';
+    else if (q.sharp < 12) why = 'Размыто — держите телефон неподвижно, коснитесь экрана, чтобы навести резкость.';
+    S.docTries = (S.docTries || 0) + 1;
+    if (why && S.docTries < 3){
+      var dh = el('dhint'); if (dh){ dh.textContent = '⚠️ ' + why + ' Снимите ещё раз.'; dh.className = 'dhint bad'; }
+      if (how === 'file') alertMsg(why + ' Снимите ещё раз.');
+      try{ TG && TG.HapticFeedback && TG.HapticFeedback.notificationOccurred('error'); }catch(e){}
+      return;
+    }
+    var k = Math.min(1, DOC_SIDE / Math.max(w, h)), c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
+    drawStamp(c, stampLines(ms));
+    S.doc = { src: c.toDataURL('image/jpeg', DOC_QUALITY), state: 'reading', read: null, keep: false, tries: (S.doc ? S.doc.tries || 0 : 0),
+              m: { t: ms, src: how, h: '', lat: GEO ? GEO.lat : null, lon: GEO ? GEO.lon : null, acc: GEO ? GEO.acc : null, place: geoPlace() } };
+    S.docTries = 0;
+    var f = el('cfl'); if (f){ f.style.opacity = '.8'; setTimeout(function(){ f.style.opacity = '0'; }, 60); }
+    setTimeout(camClose, 250);
+    docRead();
+  }
+  function docRead(){
+    var d = S.doc; if (!d) return;
+    d.state = 'reading'; render();
+    api({ action: 'ph_doc', day: S.day, doc: d.src }).then(function(r){
+      if (S.doc !== d) return;
+      if (!r || (r.error && !(r.rows && r.rows.length))){ d.state = 'err'; d.err = (r && r.error) || 'Нет ответа.'; return render(); }
+      d.read = r; d.tries = (d.tries || 0) + 1;
+      d.state = r.readable ? 'ok' : 'bad';
+      render();
+    }).catch(function(){ if (S.doc === d){ d.state = 'err'; d.err = 'Нет связи.'; render(); } });
+  }
+  /* Сверка на телефоне: та же логика, что в таблице. */
+  function docCmp(){
+    var r = S.doc && S.doc.read, out = { ok: 0, onlyDoc: [], onlyList: [], diff: [] };
+    if (!r) return out;
+    var list = {};
+    S.items.forEach(function(it, i){ if (it.dest !== 'akt' && Number(it.qty) > 0) list[nrm(it.dish)] = i; });
+    var seen = {};
+    (r.rows || []).forEach(function(x, j){
+      var k = nrm(x.dish); seen[k] = 1;
+      if (!(k in list)) out.onlyDoc.push(j);
+      else if (Math.abs(Number(S.items[list[k]].qty) - Number(x.qty)) > 1e-9) out.diff.push(j);
+      else out.ok++;
+    });
+    Object.keys(list).forEach(function(k){ if (!seen[k]) out.onlyList.push(list[k]); });
+    return out;
+  }
+  function docAdd(j){
+    var r = S.doc && S.doc.read; if (!r) return;
+    var c = docCmp(), add = j === null ? c.onlyDoc : [j];
+    add.forEach(function(j2){
+      var x = r.rows[j2]; if (!x) return;
+      var ex = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
+      if (ex){ ex.qty = Number(x.qty) || 0; ex.dest = 'sklad'; return; }
+      var cat = ''; S.catalog.some(function(cc){ if (nrm(cc[0]) === nrm(x.dish)){ cat = cc[1]; return true; } });
+      S.items.push({ dish: x.dish, cat: cat, plan: null, qty: Number(x.qty) || 0, dest: 'sklad', kg: isKg(x.dish) });
+    });
+    render();
+  }
+  function docFix(j){
+    var x = S.doc && S.doc.read && S.doc.read.rows[j]; if (!x) return;
+    S.items.forEach(function(i){ if (nrm(i.dish) === nrm(x.dish)) i.qty = Number(x.qty) || 0; });
+    render();
+  }
+  function docHtml(){
+    var d = S.doc, h = '<h2>📄 Накладная на склад / Жүкқұжат</h2>';
+    if (!d){
+      return h + '<button class="cam" id="dcam">📄 Сфотографировать накладную</button>' +
+        '<div class="hint">Положите накладную на ровный стол при хорошем свете. Весь чек — в рамке, текст должен читаться. ' +
+        'Таблица прочитает её и сверит со списком. / Жүкқұжатты анық түсіріңіз.</div>';
+    }
+    var t = '';
+    if (d.state === 'reading') t = '<b>Читаю накладную…</b><div class="pl">Несколько секунд.</div>';
+    else if (d.state === 'err') t = '<b>⚠️ Не получилось прочитать</b><div class="pl">' + esc(d.err || '') + '</div>' +
+      '<div class="db"><button id="dretry">Ещё раз</button><button id="dcam">Переснять</button></div>';
+    else {
+      var r = d.read || {}, c = docCmp(), head = 'Накладная' + (r.num ? ' №' + esc(r.num) : '') + (r.time ? ' от ' + esc(r.time) : '');
+      if (d.state === 'bad'){
+        t = '<b>⚠️ ' + head + ' читается не полностью</b>' +
+          '<div class="pl">Переснимите: ровно сверху, без бликов и тени, весь чек в рамке.' +
+          (r.total ? ' В чеке позиций: ' + r.total + ', прочитано: ' + ((r.rows || []).length + (r.unknown || []).length) + '.' : '') + '</div>' +
+          '<div class="db"><button id="dcam">📄 Переснять</button>' + ((d.tries || 0) >= 2 && !d.keep ? '<button id="dkeep">Оставить это фото</button>' : '') + '</div>' +
+          (d.keep ? '<div class="pl">Оставили как есть — в группе отметим, что сверить вручную.</div>' : '');
+      } else if (!c.onlyDoc.length && !c.onlyList.length && !c.diff.length){
+        t = '<b>✅ ' + head + ': совпадает со списком</b><div class="pl">' + c.ok + ' поз.</div>';
+      } else {
+        t = '<b>⚠️ ' + head + ': есть расхождения</b>';
+        if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладной, но нет в списке:</b></div><ul>' +
+          c.onlyDoc.map(function(j){ var x = r.rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') +
+            ' <button data-dadd="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">＋ В список</button></li>'; }).join('') + '</ul>' +
+          (c.onlyDoc.length > 1 ? '<div class="db"><button data-dadd="all">＋ Добавить все ' + c.onlyDoc.length + '</button></div>' : '');
+        if (c.diff.length) t += '<div class="pl" style="margin-top:6px"><b>Разное количество:</b></div><ul>' +
+          c.diff.map(function(j){ var x = r.rows[j], it = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
+            return '<li>' + esc(x.dish) + ': в накладной ' + r3(x.qty) + ', в списке ' + r3(it ? it.qty : 0) +
+              ' <button data-dfix="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">Как в накладной</button></li>'; }).join('') + '</ul>';
+        if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке «Склад», но нет в накладной:</b></div><ul>' +
+          c.onlyList.map(function(i){ return '<li>' + esc(S.items[i].dish) + ' — ' + r3(S.items[i].qty) + '</li>'; }).join('') + '</ul>' +
+          '<div class="pl">Проверьте: забыли вписать в накладную или это «Акт»?</div>';
+        if ((r.unknown || []).length) t += '<div class="pl" style="margin-top:6px">Не нашла в справочнике: ' +
+          r.unknown.map(function(u){ return '«' + esc(u.raw) + '»'; }).join(', ') + '</div>';
+      }
+      if (d.state === 'ok') t += '<div class="db"><button id="dcam">Переснять</button></div>';
+    }
+    return h + '<div class="doc"><img src="' + d.src + '" alt=""><div class="dt">' + t + '</div></div>' +
+      (d.state === 'reading' ? '' : '<div class="hint"><button id="ddel" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">Убрать фото накладной</button></div>');
+  }
+
   /* Всё, что набрано по разным причинам, — список актов к отправке.
      «По срокам» попадает в список, только когда к нему добавили фото. */
   function acts(){
@@ -744,12 +910,15 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       if (!pb) return;
       var n = items.filter(function(i){ return Number(i.qty) > 0; }).length;
       var photos = pb.photos || [];
-      if (!photos.length && (k === 'daily' || !n)) return;
-      var x = pb.x, note = String(pb.note || '').trim();
+      if (!photos.length && !(k === 'daily' && pb.doc) && (k === 'daily' || !n)) return;
+      var x = pb.x, note = String(pb.note || '').trim(), dc = k === 'daily' ? pb.doc : null;
       var problem = !photos.length ? 'нет фото' : !n ? 'нет позиций' :
+        (k === 'daily' && needDoc(items) && !dc) ? 'нет накладной' :
+        (dc && dc.state === 'reading') ? 'читаю накладную' :
+        (dc && dc.state === 'bad' && !dc.keep) ? 'переснимите накладную' :
         (r === 'Другое' && !note) ? 'нет комментария' :
         (r === DR && !(x && String(x.fio || '').trim())) ? 'не указан сотрудник' : '';
-      out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', problem: problem });
+      out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', doc: dc, problem: problem });
     });
     return out;
   }
@@ -767,6 +936,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var ps = a.photos.map(ph);
     return { action: 'ph_send', day: S.day, items: items, photos: ps.map(function(p){ return p.src; }),
              meta: ps.map(function(p){ return p.m || {}; }), reason: a.r, note: fullNote(a),
+             doc: daily && a.doc ? a.doc.src : '', docMeta: daily && a.doc ? a.doc.m : null,
              sub: daily ? '' : (a.sub || newSub()) };
   }
 
