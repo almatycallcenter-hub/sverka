@@ -1982,7 +1982,7 @@ function applySpr(list){
       SPR_GAPS.push(r[0]);
     }
     SPR[k] = { name: r[0], srok: srok, forma: r[2] || '',
-               skidka: r[3] || '', kat: r[4] || '' };
+               skidka: r[3] || '', kat: r[4] || '', spis: r[5] || '' };
   });
   Object.keys(SPR).forEach(function(k){
     if (k.indexOf('кусоч') < 0) return;
@@ -8336,13 +8336,21 @@ function cntText(picked, box){
   return t;
 }
 
+/* Кто попадает в список, решают колонки справочника «Участвует в скидке» и
+   «Участвует в списании»: «Нет» — не показываем, «Да» — показываем всегда.
+   Пустая ячейка — прежнее правило: витринная продукция со сроком, без свечей,
+   леденцов и напитков. */
+function takes(flag, sp){
+  var f = S(flag).trim().toLowerCase();
+  if (f === 'нет') return false;
+  if (f === 'да') return true;
+  return !!sp.srok && grpOf(catOf(sp.name)) !== 'не еда';
+}
 function zayList(){
-  // только витринная продукция со сроком: свечи и напитки на уценку не уходят
   var wh = $('zWh') ? $('zWh').value : '';
   return Object.keys(SPR).filter(function(k){
     var sp = SPR[k];
-    if (!sp.srok || sp.skidka === 'Нет') return false;
-    if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    if (!takes(sp.skidka, sp)) return false;
     if (!madeAt(k, wh)) return false;
     return true;
   });
@@ -8663,8 +8671,7 @@ function offList(){
   var wh = $('oWh') ? $('oWh').value : '';
   return Object.keys(SPR).filter(function(k){
     var sp = SPR[k];
-    if (!sp.srok) return false;
-    if (grpOf(catOf(sp.name)) === 'не еда') return false;
+    if (!takes(sp.spis, sp)) return false;
     if (!madeAt(k, wh)) return false;
     return true;
   });
