@@ -1904,6 +1904,7 @@ function loadDB(){
      поэтому работает и без интернета — с тем набором, что успел скачаться. */
   if (DB.ref && DB.ref.spr && DB.ref.spr.length) applySpr(DB.ref.spr);
   if (DB.ref && DB.ref.weight && typeof applyWeights === 'function') applyWeights(DB.ref.weight);
+  if (DB.ref && DB.ref.cnt && typeof applyCnt === 'function') applyCnt(DB.ref.cnt);
   if (DB.ref && DB.ref.syn)
     Object.keys(DB.ref.syn).forEach(function(k){ DB.syn[k] = DB.ref.syn[k]; });
 }
@@ -4940,6 +4941,11 @@ function renderHist(){
 }
 
 /* ═════════ быстрые периоды ═════════ */
+/* День списка. Вечером — завтрашний. После полуночи телефон уже живёт
+   новым днём, и «завтра» превращалось в послезавтра: список на сегодня
+   уходил на другой день. До полудня показываем сегодняшний — если приём на
+   него закрыт, приёмник так и скажет, а не запишет молча не туда. */
+function listDay(){ return new Date().getHours() < 12 ? isoToday() : shift(isoToday(), 1); }
 function isoToday(){
   var d = new Date();
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
@@ -8256,12 +8262,26 @@ function applyWeights(list){
   WEIGHT_K = {};
   list.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
 }
-function isKg(k){ return !!WEIGHT_K[k]; }
+/* Как считать — колонка «Как считать» листа «Справочник»: шт, половинки,
+   «половинки, сотрудникам целыми» (рулет режут и пишут 0,5, а выкупают
+   целым), кг. Приходит вместе со справочником; где ячейка пуста или ответа
+   ещё не было — прежнее правило ниже. */
+var CNT = {};
+function applyCnt(list){
+  if (!Array.isArray(list) || !list.length) return;
+  CNT = {};
+  list.forEach(function(x){ if (x && x[0]) CNT[nrm(x[0])] = x[1]; });
+}
+applyCnt(DB.ref && DB.ref.cnt);
+function isKg(k){ return CNT[k] ? CNT[k] === 'kg' : !!WEIGHT_K[k]; }
 
 /* Целые торты режут на половинки — это единственные позиции, где дробь не про
    вес. Кусочки идут отдельными наименованиями и считаются штуками. */
-var HALF_KAT = { 'Торттар': 1, 'Кіші торттар': 1 };
-function isHalf(k){ return !isKg(k) && !!HALF_KAT[S(SPR[k] && SPR[k].kat)]; }
+var HALF_KAT = { 'Торттар': 1, 'Кіші торттар': 1, 'Рулеттер': 1 };
+function isHalf(k){
+  if (CNT[k]) return CNT[k] === 'half' || CNT[k] === 'half1';
+  return !isKg(k) && !!HALF_KAT[S(SPR[k] && SPR[k].kat)];
+}
 function unitOf(k){ return isKg(k) ? 'кг' : 'шт'; }
 function stepOf(k){ return isKg(k) ? 0.1 : isHalf(k) ? 0.5 : 1; }
 function canFrac(k){ return isKg(k) || isHalf(k); }
@@ -9339,6 +9359,7 @@ async function refPull(silent){
     if (!spr.length) throw new Error('в таблице нет листа «Справочник» или он пуст');
     DB.ref = { spr: spr, syn: syn, ts: new Date().toISOString() };
     if (Array.isArray(res.weight) && res.weight.length){ DB.ref.weight = res.weight; applyWeights(res.weight); }
+    if (Array.isArray(res.cnt) && res.cnt.length){ DB.ref.cnt = res.cnt; applyCnt(res.cnt); }
     applySpr(spr);
     Object.keys(syn).forEach(function(k){ DB.syn[k] = syn[k]; });
     saveDB(); reresolveList(); refresh(); refStatus();
@@ -10281,7 +10302,7 @@ $('a0Go').onclick = function(){
       /* Завтра, а не сегодня: филиал вечером отмечает то, что попадёт под скидку
          на следующий день. Совпадение этой даты с днём продаж — то, на чём
          держится вся сверка списка с чеками. */
-      if (!el('zDay').value) el('zDay').value = shift(isoToday(), 1);
+      if (!el('zDay').value) el('zDay').value = listDay();
       var c = (typeof apiCfg === 'function') ? apiCfg() : {};
       /* Филиалу дали ссылку со своим складом. Сверять названия текстом нельзя:
          в ведомости «TT8 Qaratau склад» латиницей, а в ссылке легко написать
@@ -10311,7 +10332,7 @@ $('a0Go').onclick = function(){
     if (p === 'off'){
       /* Тот же приём, что и на уценке: день списания — завтрашний, филиал берём
          из ссылки. Экран другой, а логика «чей это телефон» — общая. */
-      if (!el('oDay').value) el('oDay').value = shift(isoToday(), 1);
+      if (!el('oDay').value) el('oDay').value = listDay();
       var co = (typeof apiCfg === 'function') ? apiCfg() : {};
       if (co.wh){
         var so = el('oWh'), k;

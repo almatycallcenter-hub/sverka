@@ -462,9 +462,22 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
                 'Көкнәр қосылған тоқаш'];
   var WEIGHT_K = {};
   WEIGHT.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
-  var HALF_KAT = { 'торттар': 1, 'кіші торттар': 1 };
-  function isKg(dish){ return !!WEIGHT_K[nrm(dish)]; }
-  function isHalf(dish, cat){ return !isKg(dish) && !!HALF_KAT[nrm(cat)]; }
+  /* Как считать — из колонки «Как считать» листа «Справочник» (приходит в
+     ответе витрины): шт, половинки, «половинки, сотрудникам целыми», кг.
+     Пока ответа нет — прежнее правило по категории. Рулет филиал режет и
+     пишет 0,5, но сотрудник берёт его только целым. */
+  var CNT = {};
+  var HALF_KAT = { 'торттар': 1, 'кіші торттар': 1 }, WHOLE_KAT = { 'рулеттер': 1 };
+  function cntOf(dish, cat){
+    var c = CNT[nrm(dish)];
+    if (c) return c;
+    if (WEIGHT_K[nrm(dish)]) return 'kg';
+    if (cat === undefined){ var r = rowOf(dish); cat = r ? r.cat : ''; }
+    return HALF_KAT[nrm(cat)] ? 'half' : WHOLE_KAT[nrm(cat)] ? 'half1' : 'pc';
+  }
+  function isKg(dish){ var c = CNT[nrm(dish)]; return c ? c === 'kg' : !!WEIGHT_K[nrm(dish)]; }
+  function isHalf(dish, cat){ return cntOf(dish, cat) === 'half'; }
+  function wholeOnly(dish, cat){ var c = cntOf(dish, cat); return c === 'pc' || c === 'half1'; }
   function unitOf(dish){ return isKg(dish) ? 'кг' : 'шт'; }
   function stepOf(dish, cat){ return isKg(dish) ? 0.5 : isHalf(dish, cat) ? 0.5 : 1; }
 
@@ -568,7 +581,12 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     });
     return t;
   }
-  function leftOf(br, dish, have){ return Math.max(0, have - takenOf(br, dish)); }
+  /* Что осталось взять. Для «только целыми» половинка в остатке не в счёт:
+     полрулета в списке филиала сотруднику не выдают. */
+  function leftOf(br, dish, have){
+    var l = Math.max(0, have - takenOf(br, dish));
+    return wholeOnly(dish) ? Math.floor(l + 1e-9) : l;
+  }
   /* Своя бронь в этом филиале на этот день. Берём из того же ответа, что и
      остатки, — отдельный запрос с телефона это лишняя секунда ожидания. */
   function myBook(br){
@@ -1408,6 +1426,9 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
     /* Весовые позиции — из таблицы (лист «Настройки»), если пришли. */
     if (res && Array.isArray(res.weight) && res.weight.length){
       WEIGHT_K = {}; res.weight.forEach(function(n){ WEIGHT_K[nrm(n)] = 1; });
+    }
+    if (res && Array.isArray(res.cnt) && res.cnt.length){
+      CNT = {}; res.cnt.forEach(function(x){ if (x && x[0]) CNT[nrm(x[0])] = x[1]; });
     }
     var now = new Date(), today = iso(now);
     var tm = new Date(now.getTime()); tm.setDate(tm.getDate() + 1);
