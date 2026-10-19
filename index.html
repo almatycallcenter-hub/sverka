@@ -3170,32 +3170,139 @@ function match50(){
      встрять кто угодно: другое перемещение той же позиции, другой покупатель.
      Мы по-прежнему показываем, кто вероятнее всего забрал, но называем это
      возможной связью, а не фактом. */
-  var byMove = {}, rows = [], keyed = [];
+  var byMove = {}, keyed = [];
+  /* Брони сотрудников из таблицы: №, кто, статус. Таблица отдаёт их вместе с
+     заявкой в цех (flowPull) — вкладка сама подтягивает их за выбранный период.
+     Бронь привязываем к строке по филиалу, блюду и дню, а если покупатель
+     известен — ещё и по фамилии. Отменённые брони не показываем. */
+  var BKS = ((DB.flow || {}).book || []).map(function(r){
+    var b = baseOf(nrm(r[2]));
+    return { d: S(r[0]), br: S(r[1]), k: b.k, name: S(r[2]), q: round3(N(r[3]) * b.f),
+             who: S(r[4]), num: S(r[6]), st: S(r[7]), used: false, paid: false };
+  }).filter(function(x){ return x.d && x.k && x.st !== 'cancel'; });
+  function brSame(a, b){ return !a || !b || sameBranch(a, b) || sameBranch(b, a); }
+  function bkTake(k, br, d, who, near){
+    for (var i = 0; i < BKS.length; i++){
+      var x = BKS[i];
+      if (x.used || x.k !== k || !brSame(x.br, br)) continue;
+      if (near){ if (x.d > d || daysBetween(x.d, d) > MATCH50_WINDOW) continue; }
+      else if (x.d !== d) continue;
+      if (who && !whoSame(who, x.who)) continue;
+      x.used = true; return x;
+    }
+    return null;
+  }
+  function add(iso, br, cells, bk){
+    var r = cells.slice(0, 4)
+      .concat(bk ? ['№' + (bk.num || '—'), bk.who || '—', M50_BK[bk.st] || '—'] : ['', '', ''])
+      .concat(cells.slice(4));
+    r.iso = iso; r.br = br; r.bk = bk || null;
+    keyed.push([iso, r]);
+  }
+  // 1) накладная → кто выкупил (и его бронь)
   moves.forEach(function(m){
     var txt = m.buyers.map(function(b){
       return b.who + ' (' + ru(b.d) +
-             (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') +
-             (b.d === m.d ? '' : ', возможно') + ')';
+        (Math.abs(b.q - m.q) > 1e-9 ? ', ' + round3(b.q) : '') +
+        (b.d === m.d ? '' : ', возможно') + ')';
     }).join('; ');
     byMove[m.wh + '|' + m.d + '|' + m.k] = txt;
-    if (m.buyers.length)
-      m.buyers.forEach(function(b){
-        keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q),
-                   b.d === m.d ? '' : M50_MAYBE, '']]);
-      });
-    if (m.left > 1e-9)
-      keyed.push([m.d, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
-                 'покупатель не найден', '']]);
+    m.buyers.forEach(function(b){
+      var bk = bkTake(m.k, m.wh, m.d, b.who) || bkTake(m.k, m.wh, b.d, b.who, true);
+      if (bk) bk.paid = true;
+      add(m.d, m.wh, [ru(m.d), m.wh, m.name, round3(m.q), b.who, ru(b.d), round3(b.q),
+        b.d === m.d ? '' : M50_MAYBE, ''], bk);
+    });
   });
+  // 2) оплата со скидкой 50% без накладной
   sales.forEach(function(sl){
-    if (sl.left > 1e-9)
-      keyed.push([sl.d, ['—', '—', sl.name, '—', sl.who, ru(sl.d), round3(sl.left),
-                 'продажа со скидкой 50% без расходной накладной на склад 50%',
-                 sourceHint(sl.k, sl.d, sl.left)]]);
+    if (sl.left <= 1e-9) return;
+    // склад 50% — это цех, филиала у такой продажи нет; его подскажет бронь
+    var bk = bkTake(sl.k, '', sl.d, sl.who, true);
+    if (bk) bk.paid = true;
+    add(sl.d, bk ? bk.br : '', ['—', bk && bk.br || '—', sl.name, '—', sl.who, ru(sl.d), round3(sl.left),
+      'продажа со скидкой 50% без расходной накладной на склад 50%',
+      sourceHint(sl.k, sl.d, sl.left)], bk);
+  });
+  // 3) накладная есть, оплаты нет — чья это была бронь
+  moves.forEach(function(m){
+    if (m.left <= 1e-9) return;
+    var any = false, bk;
+    while ((bk = bkTake(m.k, m.wh, m.d, ''))){
+      any = true;
+      add(m.d, m.wh, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', '—', m50BkNote(bk), ''], bk);
+    }
+    if (!any) add(m.d, m.wh, [ru(m.d), m.wh, m.name, round3(m.q), '—', '—', round3(m.left),
+      'покупатель не найден', ''], null);
+  });
+  // 4) бронь без накладной и без оплаты
+  BKS.forEach(function(x){
+    if (x.used) return;
+    x.used = true;
+    add(x.d, x.br, [ru(x.d), x.br || '—', x.name, '—', '—', '—', '—', m50BkNote(x), ''], x);
   });
   keyed.sort(function(a, b){ return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0; });
-  rows = keyed.map(function(x){ return x[1]; });
-  return { byMove: byMove, rows: rows };
+  return { byMove: byMove, rows: keyed.map(function(x){ return x[1]; }), books: BKS.length };
+}
+/* Статус брони из листа «Статусы броней». */
+var M50_BK = { 'new': 'новая', ready: 'собрана', done: 'выдана' };
+function m50BkNote(x){
+  return x.st === 'done' ? 'выдано, но не оплачено'
+       : (x.st === 'new' || x.st === 'ready') ? 'не выдано' : 'не оплачено';
+}
+/* Один и тот же человек: в брони пишут как удобно («Әлия Нарлан», «Нарлан А.»),
+   в iiko — ФИО полностью. Достаточно совпадения одного слова длиннее двух букв
+   (или первых пяти букв — окончания бывают разные). */
+function whoSame(a, b){
+  var A = nrm(a).split(/[\s.,]+/).filter(function(w){ return w.length > 2; });
+  var B = nrm(b).split(/[\s.,]+/).filter(function(w){ return w.length > 2; });
+  return A.some(function(w){ return B.some(function(v){
+    return v === w || (w.length > 4 && v.length > 4 && v.slice(0, 5) === w.slice(0, 5)); }); });
+}
+/* Вкладка «Путь на склад 50%» показывает только выбранный период и филиал. */
+function m50Base(){
+  var m = MATCH50 || match50();
+  var f = D($('dFrom').value), t = D($('dTo').value), wh = $('branch').value;
+  return m.rows.filter(function(r){
+    if (f && r.iso && r.iso < f) return false;
+    if (t && r.iso && r.iso > t) return false;
+    // строка без филиала (продажа в цехе без брони) видна только во «всех филиалах»
+    if (wh && (!r.br || (!sameBranch(r.br, wh) && !sameBranch(wh, r.br)))) return false;
+    return true;
+  });
+}
+/* Брони за период подтягиваем из таблицы один раз на период. */
+var M50_PULL = '', M50_NOTE = '';
+function m50Pull(){
+  var f = D($('dFrom').value), t = D($('dTo').value);
+  if (!f || !t || typeof flowPull !== 'function') return;
+  if (M50_PULL === f + '|' + t) return;
+  M50_PULL = f + '|' + t;
+  M50_NOTE = 'Подтягиваю брони сотрудников из таблицы…';
+  flowPull(f, t).then(function(why){
+    M50_NOTE = why === 'нет ключа'
+      ? 'Брони не подтянуты: войдите с ролью «админ» (или задайте ключ администратора на странице «Списки филиалов»).'
+      : '';
+    MATCH50 = match50();
+    if (VIEW === 'm50') render('m50');
+  }).catch(function(e){
+    M50_NOTE = 'Брони не подтянуты: ' + (e && e.message || e);
+    if (VIEW === 'm50') render('m50');
+  });
+}
+/* Счётчики над таблицей — по броням, которые попали в строки. */
+function m50Kpi(rows){
+  var seen = [], paid = 0, gu = 0, ng = 0;
+  rows.forEach(function(r){
+    var b = r.bk; if (!b || seen.indexOf(b) >= 0) return; seen.push(b);
+    if (b.paid) paid++; else if (b.st === 'done') gu++; else ng++;
+  });
+  var h = M50_NOTE ? '<div class="hint" style="margin:0 0 8px">' + esc(M50_NOTE) + '</div>' : '';
+  return h + '<div class="kpi" style="margin-bottom:12px">' +
+    '<div><span>Броней сотрудников</span><b>' + seen.length + '</b></div>' +
+    '<div><span>Оплачено</span><b style="color:var(--okT)">' + paid + '</b></div>' +
+    '<div><span>Выдано, но не оплачено</span><b style="color:var(--badT)">' + gu + '</b></div>' +
+    '<div><span>Не выдано</span><b style="color:var(--naT)">' + ng + '</b></div></div>';
 }
 function round3(x){ return Math.round(x * 1000) / 1000; }
 
@@ -3283,8 +3390,9 @@ function repVal(r, i){ return i === BR_COL ? S(r.br) : r.v[i]; }
 // FROST, CHK0, COMPACT — считаются в repSchema() из REP_COLS
 var TOT_HEAD = ['День','Заявлено позиций','Совпало позиций','Расхождений','Скидка без заявки'];
 var LIST_HEAD = ['Дата','Филиал','Как написал филиал','Кол-во','Позиция справочника','Пометка'];
-var M50_HEAD = ['Дата расхода','Филиал','Блюдо','Кол-во по накладной',
-                'Покупатель','Дата покупки','Кол-во выкуплено','Замечание',
+var M50_HEAD = ['Дата','Филиал','Блюдо','Кол-во по накладной',
+                'Бронь','Кто бронировал','Статус брони',
+                'Покупатель (оплата)','Дата покупки','Кол-во выкуплено','Замечание',
                 'Откуда могла уйти (по недостаче)'];
 
 /* бөрек, самса, шығыс самсасы — время разморозки в учёте не фиксируется */
@@ -3378,7 +3486,7 @@ function fillChkFilter(view){
   if (view === 'list')
     DB.list.forEach(function(r){ var v = S(r[5]); if (v) est[v] = 1; });
   else if (view === 'm50')
-    ((MATCH50 || {}).rows || []).forEach(function(r){ var v = S(r[7]); if (v) est[v] = 1; });
+    ((MATCH50 || {}).rows || []).forEach(function(r){ var v = S(r[10]); if (v) est[v] = 1; });
   else (REPORT ? REPORT.rep : []).forEach(function(r){
     CHK_IDX.forEach(function(i){ var v = S(r.v[i]); if (v) est[v] = 1; });
   });
@@ -3425,6 +3533,11 @@ function detailHtml(v){
 }
 
 function render(view){
+  /* Заголовок — по вкладке: из меню «Путь на склад 50%» попадают сюда же. */
+  var PT = { rep: ['Отчёт по дням', ''], tot: ['Итоги по дням', ''], list: ['Список филиала', ''],
+             m50: ['Путь на склад 50%', 'накладная → бронь сотрудника → оплата'] }[view || VIEW];
+  if (PT && $('pg-rep') && $('pg-rep').classList.contains('on') && $('pgTitle')){
+    $('pgTitle').textContent = PT[0]; if ($('pgSub')) $('pgSub').textContent = PT[1]; }
   VIEW = view || VIEW;
   view = VIEW;
   var h = '', o = $('out');
@@ -3486,25 +3599,27 @@ function render(view){
     h += '</tbody></table>';
 
   } else if (view === 'm50'){
-    var m = MATCH50 || match50();
+    MATCH50 || match50();
+    m50Pull();
+    var baseM = m50Base();
     var qM = nrm($('q').value), cM = $('fChk').value;
-    var rowsM = m.rows.filter(function(r){
-      if (cM && S(r[7]) !== cM) return false;
-      return !qM || nrm(r[2]).indexOf(qM) >= 0 || nrm(r[4]).indexOf(qM) >= 0;
+    var rowsM = baseM.filter(function(r){
+      if (cM && S(r[10]) !== cM) return false;
+      return !qM || nrm(r[2]).indexOf(qM) >= 0 || nrm(r[5]).indexOf(qM) >= 0 || nrm(r[7]).indexOf(qM) >= 0;
     });
-    h = '<table><thead><tr>' + M50_HEAD.map(function(t, i){
-          return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.m50,i)+'</th>'; }).join('') +
-        '</tr></thead><tbody>';
+    h = m50Kpi(rowsM) + '<table><thead><tr>' + M50_HEAD.map(function(t, i){
+      return '<th class="srt" data-s="'+i+'">'+t+arrow(SORT.m50,i)+'</th>'; }).join('') +
+      '</tr></thead><tbody>';
     applySort(rowsM, SORT.m50, byIdx).forEach(function(r){
-      var warn = !!r[7];
+      var warn = !!r[10];
       h += '<tr' + (warn ? ' class="badrow"' : '') + '>' + r.map(function(v, i){
-        var val = (v === '' || v == null) ? '' : (i===7 ? chipHtml(v) : esc(v));
-        return '<td class="' + (i===2||i===4||i===7||i===8 ? 'name' : '') +
-               (i===8 ? ' guess' : '') +
-               '" data-l="' + esc(M50_HEAD[i]) + '">' + val + '</td>'; }).join('') + '</tr>';
+        var val = (v === '' || v == null) ? '' : (i===10 ? chipHtml(v) : esc(v));
+        return '<td class="' + (i===2||i===5||i===7||i===10||i===11 ? 'name' : '') +
+          (i===11 ? ' guess' : '') +
+          '" data-l="' + esc(M50_HEAD[i]) + '">' + val + '</td>'; }).join('') + '</tr>';
     });
     h += '</tbody></table>';
-    $('cnt').textContent = 'строк: ' + rowsM.length + ' из ' + m.rows.length;
+    $('cnt').textContent = 'строк: ' + rowsM.length + ' из ' + baseM.length;
 
   } else {
     /* Одна и та же выборка нужна и для таблицы, и для обработчиков «Запомнить»:
@@ -3628,8 +3743,9 @@ $('btnBuild').onclick = function(){
           (k.prNa ? ', ' + k.prNa + ' не отследить' : '') + '</span>'
         : '<b style="color:var(--badT)">' + k.prBad + '</b><span>требуют разбора из ' +
           (k.prOk + k.prBad + k.prNa) + '</span>') + '</div>';
-    document.querySelectorAll('.tabs button').forEach(function(x,i){ x.classList.toggle('on', i===0); });
-    render('rep');
+    var keepV = (VIEW === 'tot' || VIEW === 'list' || VIEW === 'm50') ? VIEW : 'rep';
+    document.querySelectorAll('#cardOut .tabs button').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-v') === keepV); });
+    render(keepV);
     histAdd({ ts: new Date().toISOString(), kind: 'rep', wh: REPORT.wh, from: f, to: t,
               list: k.list, ok: k.ok, bad: k.bad, noList: k.noList, pct: pct });
     msg('m3','Готово: ' + REPORT.rep.length + ' строк. Движения в выгрузке по ' + ru(REPORT.movLast) +
@@ -3761,9 +3877,9 @@ function listRowsF(){
 }
 function m50RowsF(){
   var q = nrm($('q').value), c = $('fChk').value;
-  return (MATCH50 || match50()).rows.filter(function(r){
-    if (c && S(r[7]) !== c) return false;
-    return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0;
+  return m50Base().filter(function(r){
+    if (c && S(r[10]) !== c) return false;
+    return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[5]).indexOf(q) >= 0 || nrm(r[7]).indexOf(q) >= 0;
   });
 }
 function fltOn(){
@@ -3795,7 +3911,7 @@ $('btnXlsx').onclick = function(){
   var listSrc = (on && VIEW === 'list') ? listRowsF()
               : DB.list.filter(function(r){ return REPORT.all || r[1] === REPORT.wh; })
                        .sort(function(a,b){ return a[0] < b[0] ? -1 : 1; });
-  var m50Src  = (on && VIEW === 'm50')  ? m50RowsF() : (MATCH50 || match50()).rows;
+  var m50Src  = (on && VIEW === 'm50')  ? m50RowsF() : m50Base();
   /* В сетевом отчёте колонка «Филиал» есть и в файле — иначе строки одного дня
      от разных точек в Excel уже не разделить. */
   var hd = ORD.map(function(i){ return REP_HEAD[i]; });
@@ -3810,7 +3926,7 @@ $('btnXlsx').onclick = function(){
     { name: 'Итоги по дням', head: TOT_HEAD, rows: REPORT.tot },
     { name: mark('Список филиала', VIEW === 'list'), head: LIST_HEAD, rows: listRows },
     { name: mark('Путь на склад 50%', VIEW === 'm50'), head: M50_HEAD, rows: m50Src,
-      style: function(v, i){ return i === 7 && S(v) ? 3 : 0; } }
+      style: function(v, i){ return i === 10 && S(v) ? 3 : 0; } }
   ]);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
