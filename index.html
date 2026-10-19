@@ -4944,7 +4944,12 @@ function chrono(dFrom, dTo){
        по остальным скидкам (10%, 50% сотрудникам, бонусы, акции) — сколько
        недополучили по чеку */
     var money = (price ? L * price + D20 * price * 0.2 : 0) + OM;
-    var discShare = onShelf ? dDisc / onShelf : 0;
+    /* Доля дней со скидкой — от дней, когда позиция БЫЛА в филиале: и когда к вечеру
+       осталась, и когда её распродали за день (выпечка 24 ч почти всегда так).
+       Раньше делили только на дни с остатком на вечер — у ходовой выпечки их
+       два-три, и выходило 300–500%. */
+    var inBr = onShelf + stop;
+    var discShare = inBr ? Math.min(1, dDisc / inBr) : 0;
     var stopShare = onShelf ? stop / days.length : 0;
     var lossShare = P > 1e-9 ? L / P : 0, todo = '';
     if (P > 1e-9 && S_ < 1e-9)                      todo = 'не продаётся — перевезти';
