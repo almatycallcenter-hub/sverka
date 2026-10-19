@@ -676,10 +676,127 @@
     .quick{font-size:11.5px}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+  /* ── фильтр с выбором нескольких значений ── */
+  .ms{position:relative;display:block;width:100%}
+  .ms.msFlt{display:inline-block;width:auto;max-width:230px}
+  .ms > select{display:none !important}
+  .msBtn{width:100%;text-align:left;padding:7px 26px 7px 10px;border-radius:8px;border:1px solid var(--bd);
+    background:var(--card);color:inherit;font:inherit;font-size:13px;box-shadow:var(--sh);cursor:pointer;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:relative;font-weight:400}
+  .msBtn::after{content:'▾';position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--mut)}
+  .ms.msFlt .msBtn{font-size:12.5px;padding:6px 24px 6px 9px;min-width:150px}
+  .msBtn.on{border-color:var(--acc);box-shadow:inset 0 0 0 1px var(--acc)}
+  .msPop{display:none;position:absolute;z-index:60;top:calc(100% + 4px);left:0;min-width:100%;max-width:320px;
+    max-height:320px;overflow:auto;background:var(--card);border:1px solid var(--bd);border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.14);padding:6px}
+  .ms.open .msPop{display:block}
+  .msPop label{display:flex !important;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;
+    font-size:13px;white-space:nowrap;border:0 !important;background:none !important;margin:0}
+  .msPop label:hover{background:var(--row, rgba(0,0,0,.04)) !important}
+  .msPop label.msAll{border-bottom:1px solid var(--bd) !important;border-radius:6px 6px 0 0;margin-bottom:4px}
+  .msPop input{width:auto;margin:0}
 </style>
 <!-- Мини-приложение Телеграма: филиал открывает вечерние списки кнопкой в своей группе.
      Вне Телеграма скрипт ничего не делает. -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+/* ═════════ Фильтры с выбором нескольких значений ═════════
+   Обычный <select> прячем внутрь, рядом рисуем кнопку со списком галочек:
+   можно выбрать одно, два, три значения — или ничего (тогда «все»).
+   Выбранное лежит в sel.__ms; msV(id) отдаёт массив или null («все»).
+   .value у такого списка по-прежнему работает: одно значение — оно само,
+   несколько — пусто. Поэтому старый код, который только перерисовывает
+   варианты, ничего не ломает. */
+var MS_PROTO = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+function msEl(id){ return typeof id === 'string' ? document.getElementById(id) : id; }
+function msV(id){
+  var s = msEl(id); if (!s) return null;
+  if (s.__ms) return s.__ms.length ? s.__ms.slice() : null;
+  var v = MS_PROTO.get.call(s); return v ? [v] : null;
+}
+/* true — значение НЕ проходит фильтр (выбрано что-то, и v среди выбранного нет) */
+function msNo(a, v){ return !!a && a.indexOf(S(v)) < 0; }
+function msSet(id, arr){
+  var s = msEl(id); if (!s) return;
+  if (typeof arr === 'string') arr = arr ? [arr] : [];
+  if (!s.__msOn){ MS_PROTO.set.call(s, arr && arr.length === 1 ? arr[0] : ''); return; }
+  s.__ms = (arr || []).map(String).filter(Boolean);
+  msSync(s);
+}
+function msSync(s){
+  MS_PROTO.set.call(s, s.__ms.length === 1 ? s.__ms[0] : '');
+  msPaint(s);
+}
+function msAllLabel(s){
+  var o = s.options[0];
+  return s.__msAll || (o && o.value === '' ? o.textContent : 'все');
+}
+function msPaint(s){
+  var box = s.__msBox; if (!box) return;
+  var btn = box.firstChild, pop = box.childNodes[1], sel = s.__ms;
+  var all = msAllLabel(s);
+  btn.textContent = !sel.length ? all : sel.length === 1 ? sel[0]
+    : sel.length === 2 ? sel.join(', ') : sel[0] + ' и ещё ' + (sel.length - 1);
+  btn.title = sel.length ? sel.join(', ') : all;
+  btn.classList.toggle('on', sel.length > 0);
+  var vals = [];
+  for (var i = 0; i < s.options.length; i++){
+    var v = s.options[i].value; if (v !== '' && vals.indexOf(v) < 0) vals.push(v); }
+  sel.forEach(function(v){ if (vals.indexOf(v) < 0) vals.push(v); });
+  var h = '<label class="msAll"><input type="checkbox" data-v=""' + (sel.length ? '' : ' checked') + '> ' + esc(all) + '</label>';
+  vals.forEach(function(v){
+    h += '<label><input type="checkbox" data-v="' + esc(v) + '"' + (sel.indexOf(v) >= 0 ? ' checked' : '') + '> ' + esc(v) + '</label>'; });
+  pop.innerHTML = h;
+}
+function msFire(s){
+  ['input', 'change'].forEach(function(t){ s.dispatchEvent(new Event(t, { bubbles: true })); });
+}
+function msMake(id){
+  var s = msEl(id); if (!s || s.__msOn) return;
+  s.__msOn = 1; if (s.options.length) s.__msAll = msAllLabel(s);
+  var v0 = MS_PROTO.get.call(s); s.__ms = v0 ? [v0] : [];
+  var box = document.createElement('div');
+  box.className = 'ms' + (s.classList.contains('flt') ? ' msFlt' : '');
+  box.innerHTML = '<button type="button" class="msBtn"></button><div class="msPop"></div>';
+  s.parentNode.insertBefore(box, s); box.appendChild(s);
+  s.__msBox = box;
+  /* значение, записанное в .value кодом, — это выбор одного (или сброс) */
+  Object.defineProperty(s, 'value', { configurable: true,
+    get: function(){ return MS_PROTO.get.call(this); },
+    set: function(v){
+      v = v == null ? '' : String(v);
+      // «вернули то же, что прочитали» после перерисовки — выбор не трогаем
+      if (v === '' && this.__ms.length > 1){ msSync(this); return; }
+      this.__ms = v ? [v] : []; msSync(this);
+    } });
+  var btn = box.firstChild, pop = box.childNodes[1];
+  btn.onclick = function(e){
+    e.stopPropagation();
+    var open = !box.classList.contains('open');
+    document.querySelectorAll('.ms.open').forEach(function(x){ x.classList.remove('open'); });
+    if (open){ msPaint(s); box.classList.add('open'); }
+  };
+  pop.onclick = function(e){ e.stopPropagation(); };
+  pop.onchange = function(e){
+    var cb = e.target; if (!cb || cb.type !== 'checkbox') return;
+    var v = cb.getAttribute('data-v');
+    if (v === '') s.__ms = [];
+    else if (cb.checked){ if (s.__ms.indexOf(v) < 0) s.__ms.push(v); }
+    else s.__ms = s.__ms.filter(function(x){ return x !== v; });
+    msSync(s); msFire(s);
+  };
+  /* варианты перерисовали — перерисуем галочки; спрятали список — прячем и кнопку */
+  new MutationObserver(function(){
+    box.style.display = s.style.display === 'none' ? 'none' : '';
+    msPaint(s);
+  }).observe(s, { childList: true, attributes: true, attributeFilter: ['style', 'class'] });
+  box.style.display = s.style.display === 'none' ? 'none' : '';
+  msPaint(s);
+}
+document.addEventListener('click', function(){
+  document.querySelectorAll('.ms.open').forEach(function(x){ x.classList.remove('open'); });
+});
+</script>
 <script>
 /* Открыли из Телеграма кнопкой «Отправить списки» (startapp=ls…): входом служит
    сам Телеграм — приёмник проверяет подпись и что человек в группе филиала. */
@@ -3029,8 +3146,8 @@ function build(wh, dFrom, dTo){
    расчёт: филиал — не просто фильтр, у каждого свой приход, свои остатки и свой
    ФИФО, и считать их в одной куче нельзя. Итоги по дням при этом суммируем,
    иначе одна и та же дата шла бы десятью строками подряд. */
-function buildAll(dFrom, dTo){
-  var bs = branches();
+function buildAll(dFrom, dTo, only){
+  var bs = only && only.length ? only : branches();
   if (!bs.length) throw new Error('Нет филиалов — загрузите товарную ведомость.');
   var rep = [], kpi = { list:0, ok:0, bad:0, noList:0, prOk:0, prBad:0, prNa:0 };
   var byDay = {}, movLast = '', posLast = '';
@@ -3057,7 +3174,7 @@ function buildAll(dFrom, dTo){
          : a.name < b.name ? -1 : 1;
   });
   return { rep: rep, tot: tot, kpi: kpi, movLast: movLast, posLast: posLast,
-           wh: 'все филиалы', all: true };
+           wh: only && only.length ? only.join(', ') : 'все филиалы', all: true };
 }
 
 /** Концепция в продажах («TT8 Qaratau») и склад («TT8 Qaratau склад») — одно и то же. */
@@ -3267,12 +3384,12 @@ function whoSame(a, b){
 /* Вкладка «Путь на склад 50%» показывает только выбранный период и филиал. */
 function m50Base(){
   var m = MATCH50 || match50();
-  var f = D($('dFrom').value), t = D($('dTo').value), wh = $('branch').value;
+  var f = D($('dFrom').value), t = D($('dTo').value), wh = msV('branch');
   return m.rows.filter(function(r){
     if (f && r.iso && r.iso < f) return false;
     if (t && r.iso && r.iso > t) return false;
     // строка без филиала (продажа в цехе без брони) видна только во «всех филиалах»
-    if (wh && (!r.br || (!sameBranch(r.br, wh) && !sameBranch(wh, r.br)))) return false;
+    if (wh && (!r.br || !wh.some(function(w){ return sameBranch(r.br, w) || sameBranch(w, r.br); }))) return false;
     return true;
   });
 }
@@ -3512,11 +3629,11 @@ function fillChkFilter(view){
 
 function rowsFiltered(){
   var q = nrm($('q').value), bad = $('onlyBad').checked, vList = $('onlyList').checked;
-  var chk = $('fChk').value;
+  var chk = msV('fChk');
   return REPORT.rep.filter(function(r){
     if (q && nrm(r.name).indexOf(q) < 0 && nrm(S(r.br)).indexOf(q) < 0) return false;
     // пометка ищется в любой из трёх проверок — так строка находится, где бы она ни стояла
-    if (chk && !CHK_IDX.some(function(i){ return S(r.v[i]) === chk; })) return false;
+    if (chk && !CHK_IDX.some(function(i){ return chk.indexOf(S(r.v[i])) >= 0; })) return false;
     // «только из списка филиала» — позиция, которую филиал сам заявил на уценку.
     // «Продукция с ожидаемой 20% скидкой»; пусто значит не заявляли.
     if (vList && S(r.v[RC.list]) === '') return false;
@@ -3612,9 +3729,9 @@ function render(view){
     MATCH50 || match50();
     m50Pull();
     var baseM = m50Base();
-    var qM = nrm($('q').value), cM = $('fChk').value;
+    var qM = nrm($('q').value), cM = msV('fChk');
     var rowsM = baseM.filter(function(r){
-      if (cM && S(r[10]) !== cM) return false;
+      if (msNo(cM, r[10])) return false;
       return !qM || nrm(r[2]).indexOf(qM) >= 0 || nrm(r[5]).indexOf(qM) >= 0 || nrm(r[7]).indexOf(qM) >= 0;
     });
     h = m50Kpi(rowsM) + '<table><thead><tr>' + M50_HEAD.map(function(t, i){
@@ -3634,9 +3751,9 @@ function render(view){
   } else {
     /* Одна и та же выборка нужна и для таблицы, и для обработчиков «Запомнить»:
        раньше она считалась дважды и при фильтре строки бы разъехались. */
-    var qL = nrm($('q').value), cL = $('fChk').value;
+    var qL = nrm($('q').value), cL = msV('fChk');
     var sorted = DB.list.filter(function(r){
-      if (cL && S(r[5]) !== cL) return false;
+      if (msNo(cL, r[5])) return false;
       return !qL || nrm(r[2]).indexOf(qL) >= 0 || nrm(r[1]).indexOf(qL) >= 0;
     }).sort(function(a,b){
       return a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : (a[2] < b[2] ? -1 : 1); });
@@ -3730,14 +3847,14 @@ document.querySelectorAll('.tabs button').forEach(function(b){
 });
 
 $('btnBuild').onclick = function(){
-  var wh = $('branch').value;
+  var whs = msV('branch'), wh = whs && whs.length === 1 ? whs[0] : '';
   var f = D($('dFrom').value), t = D($('dTo').value);
   if (!branches().length)
     return msg('m3','Сначала загрузите товарную ведомость — из неё берутся филиалы.','err');
   if (!f || !t) return msg('m3','Укажите период в формате дд.мм.гггг','err');
   try{
     // пустое значение в списке — это «все филиалы», а не «филиал не выбран»
-    REPORT = withDisc(wh ? build(wh, f, t) : buildAll(f, t));
+    REPORT = withDisc(wh ? build(wh, f, t) : buildAll(f, t, whs));
     $('cardOut').style.display = '';
     var k = REPORT.kpi, pct = k.list ? Math.round(k.ok / k.list * 100) : 0;
     $('kpi').innerHTML =
@@ -3879,16 +3996,16 @@ function makeXlsx(sheets){
    учётом поиска и фильтров, остальные листы целиком. Иначе человек фильтрует
    18 строк, жмёт «Скачать» и получает файл на 560. */
 function listRowsF(){
-  var q = nrm($('q').value), c = $('fChk').value;
+  var q = nrm($('q').value), c = msV('fChk');
   return DB.list.filter(function(r){
-    if (c && S(r[5]) !== c) return false;
+    if (msNo(c, r[5])) return false;
     return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[1]).indexOf(q) >= 0;
   }).sort(function(a,b){ return a[0] < b[0] ? -1 : 1; });
 }
 function m50RowsF(){
-  var q = nrm($('q').value), c = $('fChk').value;
+  var q = nrm($('q').value), c = msV('fChk');
   return m50Base().filter(function(r){
-    if (c && S(r[10]) !== c) return false;
+    if (msNo(c, r[10])) return false;
     return !q || nrm(r[2]).indexOf(q) >= 0 || nrm(r[5]).indexOf(q) >= 0 || nrm(r[7]).indexOf(q) >= 0;
   });
 }
@@ -3940,7 +4057,7 @@ $('btnXlsx').onclick = function(){
   ]);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  var suffix = (on && $('fChk').value) ? ' — ' + $('fChk').value : (on ? ' — фильтр' : '');
+  var suffix = (on && msV('fChk')) ? ' — ' + msV('fChk').join(', ') : (on ? ' — фильтр' : '');
   a.download = ('Сверка 20% ' + REPORT.wh + suffix).replace(/[\\/:*?"<>|]/g,'') + '.xlsx';
   a.style.display = 'none';
   document.body.appendChild(a); a.click();
@@ -3970,7 +4087,7 @@ function expRun(){
   if (!DB.mov.length) return msg('m9','Сначала загрузите выгрузки iiko — без движений считать нечего.','err');
   var T = D($('eDay').value);
   if (!T) return msg('m9','Укажите дату уценки.','err');
-  var one = $('eWh').value, ws = one ? [one] : branches();
+  var one = msV('eWh'), ws = one ? one : branches();
   var all = { day: T, miss: [], extra: [], diff: [], ok: 0, blind: {}, last: '' };
   ws.forEach(function(wh){
     var c = expCheck(wh, T);
@@ -3991,7 +4108,7 @@ function expRun(){
   var byWh = function(a, b){ return a.wh < b.wh ? -1 : a.wh > b.wh ? 1
                                   : (a.name < b.name ? -1 : 1); };
   all.miss.sort(byWh); all.extra.sort(byWh); all.diff.sort(byWh);
-  all.one = !!one;
+  all.one = !!(one && one.length === 1);
   /* Последний день выгрузки всегда неполный: акты реализации за него ещё
      закрываются, и расход выглядит меньше, чем был. Остаток от этого завышается,
      и «филиал не заявил» раздувается на ровном месте. Молчать об этом нельзя. */
@@ -5315,7 +5432,7 @@ function dynDrill(code){
   var parts, title, sub, byQty = kind === 'whQ' || kind === 'dayQ', showWh = true, showName = true;
   // столбик посчитан с фильтром — и разбор его тоже с фильтром, иначе суммы не сойдутся
   var F = fltState(), fOk = function(inf){ return fltPass(inf.wh, inf.cat, inf.name, F); };
-  var fTxt = fltAny(F) ? ' · фильтр: ' + $('fRoute').value + ' ' + $('fWh').value + ' ' + $('fCat').value +
+  var fTxt = fltAny(F) ? ' · фильтр: ' + (msV('fRoute') || []).join(', ') + ' ' + (msV('fWh') || []).join(', ') + ' ' + (msV('fCat') || []).join(', ') +
              ($('qC').value.trim() ? ' «' + $('qC').value.trim() + '»' : '') : '';
   fTxt = fTxt.replace(/\s+/g, ' ');
   if (kind === 'whQ' || kind === 'whM'){
@@ -5443,20 +5560,20 @@ function routeOf(wh){ return (DB.routes && DB.routes[wh]) || '— вне мар�
    Одна и та же на всех вкладках — выбрали ТТ4 и «Торты» на «Позициях»,
    перешли на «Динамику» или «Нормы» — там уже ТТ4 и торты. */
 function fltState(){
-  return { q: nrm($('qC').value), r: $('fRoute').value, w: $('fWh').value, c: $('fCat').value };
+  return { q: nrm($('qC').value), r: msV('fRoute'), w: msV('fWh'), c: msV('fCat') };
 }
 function fltAny(F){ return !!(F.q || F.r || F.w || F.c); }
 function fltText(F){
   return [F.r, F.w, F.c, F.q ? '«' + $('qC').value.trim() + '»' : ''].filter(Boolean).map(esc).join(', ');
 }
 function fltWh(wh, F){
-  if (F.r && routeOf(wh) !== F.r) return false;
-  return !F.w || wh === F.w;
+  if (msNo(F.r, routeOf(wh))) return false;
+  return !msNo(F.w, wh);
 }
 /* name — блюдо (или несколько строк через «|», например тип скидки) */
 function fltPass(wh, cat, name, F){
   if (!fltWh(wh, F)) return false;
-  if (F.c && cat !== F.c) return false;
+  if (msNo(F.c, cat)) return false;
   if (!F.q) return true;
   return nrm(name).indexOf(F.q) >= 0 || nrm(wh).indexOf(F.q) >= 0;
 }
@@ -5480,7 +5597,8 @@ function fillFilters(view){
     all = (DB.kxs || []).map(function(r){ return { wh: whK(r[1]), kind: kxKind(r[3], r[2]) }; });
   }
   if (view === 'kxc') all = kxcData(CHRONO.from, CHRONO.to).map(function(x){ return { wh: x.wh, kind: x.kind }; });
-  if (view === 'pos' && $('onlyMove').checked)
+  var allC = all;   // категории — из всех строк: выпечку можно выбрать, даже когда она спрятана галочкой
+  if (view === 'pos' && $('onlyMove').checked && !msV('fCat'))
     all = all.filter(function(r){ return movableCat(r[P_CAT]); });
   var get = (view === 'kx' || view === 'kxc')
     ? { rt: function(r){ return routeOf(r.wh); }, wh: function(r){ return r.wh; }, cat: function(r){ return r.kind; } }
@@ -5489,13 +5607,15 @@ function fillFilters(view){
     : { rt: function(r){ return routeOf(r[P_WH]); }, wh: function(r){ return r[P_WH]; },
         cat: function(r){ return r[P_CAT]; } };
   var iTodo = view === 'trio' ? 17 : P_TODO;
-  var cur = { fRoute: $('fRoute').value, fWh: $('fWh').value, fCat: $('fCat').value };
+  var cur = { fRoute: msV('fRoute'), fWh: msV('fWh'), fCat: msV('fCat') };
   var opt = { fRoute: {}, fWh: {}, fCat: {} };
   all.forEach(function(r){
     var rt = get.rt(r), wh = get.wh(r), cat = get.cat(r);
-    if ((!cur.fWh || wh === cur.fWh) && (!cur.fCat || cat === cur.fCat)) opt.fRoute[rt] = 1;
-    if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fCat || cat === cur.fCat)) opt.fWh[wh] = 1;
-    if ((!cur.fRoute || rt === cur.fRoute) && (!cur.fWh || wh === cur.fWh)) opt.fCat[cat] = 1;
+    if (!msNo(cur.fWh, wh) && !msNo(cur.fCat, cat)) opt.fRoute[rt] = 1;
+    if (!msNo(cur.fRoute, rt) && !msNo(cur.fCat, cat)) opt.fWh[wh] = 1;
+      });
+  allC.forEach(function(r){
+    if (!msNo(cur.fRoute, get.rt(r)) && !msNo(cur.fWh, get.wh(r))) opt.fCat[get.cat(r)] = 1;
   });
   // пометки «Что делать» — отдельным списком, он не зависит от трёх других фильтров
   var todoCur = $('fTodo').value, todoSet = {};
@@ -5513,12 +5633,12 @@ function fillFilters(view){
   Object.keys(opt).forEach(function(id){
     var vals = Object.keys(opt[id]).filter(Boolean).sort();
     // выбранное значение оставляем в списке, даже если другие фильтры его сузили
-    if (cur[id] && vals.indexOf(cur[id]) < 0) vals.push(cur[id]);
+    (cur[id] || []).forEach(function(v){ if (vals.indexOf(v) < 0) vals.push(v); });
     var el = $(id);
     el.innerHTML = '<option value="">' + label[id] + '</option>' +
       vals.map(function(v){ return '<option value="' + esc(v) + '"' +
-        (v === cur[id] ? ' selected' : '') + '>' + esc(v) + '</option>'; }).join('');
-    el.value = cur[id];
+        '>' + esc(v) + '</option>'; }).join('');
+    msSet(el, cur[id]);
     el.classList.toggle('on', !!cur[id]);
   });
 }
@@ -5799,9 +5919,9 @@ function kpiCRender(view){
   var F = fltState(), on = fltAny(F);
   var pos = (CHRONO.pos || []).filter(function(r){ return fltPass(r[P_WH], r[P_CAT], r[P_DISH], F); });
   var pair = (CHRONO.pair || []).filter(function(r){
-    if (F.r && r[0] !== F.r && routeOf(r[2]) !== F.r && routeOf(r[6]) !== F.r) return false;
-    if (F.w && r[2] !== F.w && r[6] !== F.w) return false;
-    if (F.c && dishCat(r[1]) !== F.c) return false;
+    if (F.r && msNo(F.r, r[0]) && msNo(F.r, routeOf(r[2])) && msNo(F.r, routeOf(r[6]))) return false;
+    if (F.w && msNo(F.w, r[2]) && msNo(F.w, r[6])) return false;
+    if (msNo(F.c, dishCat(r[1]))) return false;
     return !F.q || nrm(r[1]).indexOf(F.q) >= 0 || nrm(r[2]).indexOf(F.q) >= 0 || nrm(r[6]).indexOf(F.q) >= 0;
   });
   var L = 0, M = 0, whL = {};
@@ -5848,25 +5968,25 @@ function renderChrono(view){
   if (view === 'kxc'){ renderKxChrono(); return; }
 
   var q = nrm($('qC').value), head, rows, st;
-  var fR = $('fRoute').value, fW = $('fWh').value, fC = $('fCat').value, fT = $('fTodo').value;
+  var fR = msV('fRoute'), fW = msV('fWh'), fC = msV('fCat'), fT = msV('fTodo');
   // выпечку возить между филиалами смысла нет — срок 24 ч; по умолчанию прячем
-  var dvizh = $('onlyMove').checked;
+  var dvizh = $('onlyMove').checked && !fC;   // выбрали категорию — показываем её, даже выпечку
   if (view === 'trio'){
     head = TRIO_HEAD; st = SORT.trio;
     rows = (CHRONO.trio || []).filter(function(r){
-      if (fR && r[0] !== fR) return false;
-      if (fW && r[4] !== fW) return false;
-      if (fC && r[2] !== fC) return false;
-      if (fT && S(r[17]) !== fT) return false;
+      if (fR && msNo(fR, r[0])) return false;
+      if (fW && msNo(fW, r[4])) return false;
+      if (fC && msNo(fC, r[2])) return false;
+      if (fT && msNo(fT, S(r[17]))) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[4]).indexOf(q) >= 0; });
   } else if (view === 'pos'){
     head = POS_HEAD; st = SORT.pos;
     rows = CHRONO.pos.filter(function(r){
       if (dvizh && !movableCat(r[P_CAT])) return false;
-      if (fR && routeOf(r[P_WH]) !== fR) return false;
-      if (fW && r[P_WH] !== fW) return false;
-      if (fC && r[P_CAT] !== fC) return false;
-      if (fT && S(r[P_TODO]) !== fT) return false;
+      if (fR && msNo(fR, routeOf(r[P_WH]))) return false;
+      if (fW && msNo(fW, r[P_WH])) return false;
+      if (fC && msNo(fC, r[P_CAT])) return false;
+      if (fT && msNo(fT, S(r[P_TODO]))) return false;
       // «есть что делать» — это ровно непустая колонка «Что делать»
       if ($('onlyAlarm').checked && !S(r[P_TODO])) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[0]).indexOf(q) >= 0; });
@@ -5875,9 +5995,9 @@ function renderChrono(view){
     rows = CHRONO.pair.filter(function(r){
       if ($('onlyRoute').checked && (!r[0] || r[0] === '— вне маршрутов —')) return false;
       // пара проходит, если под фильтр подходит любая из двух точек
-      if (fR && r[0] !== fR && routeOf(r[2]) !== fR && routeOf(r[6]) !== fR) return false;
-      if (fW && r[2] !== fW && r[6] !== fW) return false;
-      if (fC && dishCat(r[1]) !== fC) return false;
+      if (fR && msNo(fR, r[0]) && msNo(fR, routeOf(r[2])) && msNo(fR, routeOf(r[6]))) return false;
+      if (fW && msNo(fW, r[2]) && msNo(fW, r[6])) return false;
+      if (fC && msNo(fC, dishCat(r[1]))) return false;
       return !q || nrm(r[1]).indexOf(q) >= 0 || nrm(r[2]).indexOf(q) >= 0 || nrm(r[6]).indexOf(q) >= 0; });
   }
   rows = applySort(rows, st, byIdx);
@@ -7012,7 +7132,7 @@ function renderNorms(){
   }
   var qIsWh = F.q && Object.keys(CHRONO.byWh || {}).some(function(w){ return nrm(w).indexOf(F.q) >= 0; });
   var shown = ids.filter(function(id){
-    if (F.c && NORM_SEGS[id].cats.indexOf(F.c) < 0) return false;
+    if (F.c && !F.c.some(function(c){ return NORM_SEGS[id].cats.indexOf(c) >= 0; })) return false;
     return qIsWh || segQ(id);
   });
 
@@ -7062,7 +7182,7 @@ function renderNorms(){
   var whs = {};
   // плитки филиалов — все филиалы маршрута; выбранный филиал подсвечен, клик по плитке выбирает его
   shown.forEach(function(id){ Object.keys(NORM_SEGS[id].wh).forEach(function(w){
-    if (!F.r || routeOf(w) === F.r) whs[w] = 1; }); });
+    if (!msNo(F.r, routeOf(w))) whs[w] = 1; }); });
   var whList = Object.keys(whs).sort();
   var rows = [], sumWh = {};
   shown.forEach(function(id){
@@ -7084,14 +7204,14 @@ function renderNorms(){
     '<div class="kpi" style="margin-bottom:10px">' + whList.filter(function(w){ return sumWh[w]; }).map(function(w){
       var s = sumWh[w];
       return '<div class="normWh" data-w="' + esc(w) + '" style="cursor:pointer' +
-        (w === F.w ? ';outline:2px solid var(--acc,#3b82f6)' : '') + '"><span>' + esc(w) + '</span><b style="color:var(--' +
+        (F.w && F.w.indexOf(w) >= 0 ? ';outline:2px solid var(--acc,#3b82f6)' : '') + '"><span>' + esc(w) + '</span><b style="color:var(--' +
         (s.bad ? 'badT' : s.na ? 'naT' : 'okT') + ')">' + (s.bad ? s.bad + ' выше нормы' : s.na ? s.na + ' на грани' :
         'в норме') + '</b><span>' + (s.money >= 1 ? 'сверх нормы ≈ ' + fmtT(s.money) : 'сверх нормы — 0 ₸') +
         '</span></div>'; }).join('') + '</div>' +
     '<div class="wrapT"><table><thead><tr><th class="name">Филиал</th><th class="name">Группа</th><th>Приход</th>' +
     '<th>Списание: факт / норма</th><th>Уценка: факт / норма</th><th>Пустая витрина: факт / норма</th>' +
     '<th>Сверх нормы, шт</th><th>Сверх нормы, ₸</th></tr></thead><tbody>';
-  rows.filter(function(r){ return !F.w || r.w === F.w; })
+  rows.filter(function(r){ return !msNo(F.w, r.w); })
       .sort(function(x, y){ return x.w.localeCompare(y.w, 'ru') || (normSortKey(x.id) < normSortKey(y.id) ? -1 : 1); })
       .forEach(function(r){
     var n = normOf(r.id);
@@ -7353,12 +7473,13 @@ $('qC').oninput = function(){ renderChrono(); };
 $('dayClose').onclick = closeDays;
 $('dayModal').onclick = function(e){ if (e.target === this) closeDays(); };
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDays(); });
+['fRoute','fWh','fCat','fTodo','fChk','hWh','hCat','bkWh','eWh','branch'].forEach(msMake);
 ['fRoute','fWh','fCat','fTodo'].forEach(function(id){
   $(id).onchange = function(){ renderChrono(); }; });
 $('onlyMove').onchange = function(){ renderChrono(); };
 $('fClear').onclick = function(){
-  $('fRoute').value = ''; $('fWh').value = ''; $('fCat').value = '';
-  $('fTodo').value = ''; $('qC').value = ''; $('onlyAlarm').checked = false;
+  msSet('fRoute', []); msSet('fWh', []); msSet('fCat', []);
+  msSet('fTodo', []); $('qC').value = ''; $('onlyAlarm').checked = false;
   renderChrono();
 };
 $('onlyRoute').onchange = function(){ renderChrono(); };
@@ -7501,8 +7622,8 @@ function heatPass(r, flt, whOf, gp){
   if (flt.q && k.indexOf(flt.q) < 0) return '';
   var wh = whOf(r[1]);
   if (heatSkip(k, wh)) return '';
-  if (flt.wh && wh !== flt.wh) return '';
-  if (flt.cat && heatCat(k, r[2]) !== flt.cat) return '';
+  if (msNo(flt.wh, wh)) return '';
+  if (msNo(flt.cat, heatCat(k, r[2]))) return '';
   return wh;
 }
 /* Штуки или деньги. «Сумма без скидки» лежит в самой строке, поэтому потеря
@@ -7668,7 +7789,7 @@ function baselineStats(from, flt, weeks){
 }
 
 function heatOptions(){
-  return { q: nrm($('qH').value), wh: $('hWh').value, cat: $('hCat').value,
+  return { q: nrm($('qH').value), wh: msV('hWh'), cat: msV('hCat'),
            gp: $('hGp').checked, money: $('hMoney').checked };
 }
 
@@ -8293,7 +8414,7 @@ document.querySelectorAll('#tabsH button').forEach(function(b){
   };
 });
 $('hClear').onclick = function(){
-  $('qH').value = ''; $('hWh').value = ''; $('hCat').value = '';
+  $('qH').value = ''; msSet('hWh', []); msSet('hCat', []);
   $('hGp').checked = true; $('hDelta').checked = false;
   $('hMoney').checked = false; $('hAnom').checked = false;
   if (HEAT){ fillHeatFilters(); renderHeat(); }
@@ -9336,13 +9457,13 @@ function bkaAgo(t){
 }
 var BKA_ST = { 'new': ['Новая', '#1f2d4d'], ready: ['Собрана', '#E39B2F'], done: ['Выдана', '#2C6B3F'], cancel: ['Отменена', '#A12C2C'] };
 function bkaRender(){
-  var all = bkaList(), wh = $('bkWh').value, q = String($('bkQ').value || '').trim().toLowerCase();
+  var all = bkaList(), wh = msV('bkWh'), q = String($('bkQ').value || '').trim().toLowerCase();
   var whs = {}; all.forEach(function(b){ whs[b.branch] = 1; });
   var sel = $('bkWh'), cur = sel.value;
   sel.innerHTML = '<option value="">Все филиалы</option>' + Object.keys(whs).sort().map(function(w){
     return '<option' + (w === cur ? ' selected' : '') + '>' + esc(w) + '</option>'; }).join('');
   var vis = all.filter(function(b){
-    if (wh && b.branch !== wh) return false;
+    if (msNo(wh, b.branch)) return false;
     if (q && (String(b.num) + ' ' + b.who + ' ' + b.items.map(function(i){ return i.dish; }).join(' ')).toLowerCase().indexOf(q) < 0) return false;
     return true;
   });
