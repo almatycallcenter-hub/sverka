@@ -958,6 +958,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="off" class="brOnly"><span class="ic">🗑️</span>Списание завтра</a>
       <div class="navsec">Сверка</div>
       <a data-page="in"><span class="ic">📦</span>Приёмка списаний</a>
+      <a data-page="tr"><span class="ic">📷</span>Обучение фото</a>
       <a data-page="bk"><span class="ic">🛍️</span>Брони сотрудников</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
@@ -1495,6 +1496,51 @@ document.addEventListener('DOMContentLoaded', function(){
       </section>
 
       <!-- ─── История ──────────────────────────────────── -->
+      <!-- ─── Обучение фото ───────────────────────────── -->
+      <section class="page wide" id="pg-tr">
+        <style>
+          .trBrs{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+          .trBr{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+          .trBrN{font-size:11.5px;color:var(--mut);font-weight:400}
+          .trAuto{color:var(--okT)}
+          .trGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin:12px 0}
+          .trCard{border:1px solid var(--bd);border-radius:10px;padding:6px;display:flex;flex-direction:column;gap:6px;position:relative}
+          .trCard img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--bd)}
+          .trCard select{width:100%;font-size:12.5px}
+          .trCard.trNeed{border-color:var(--badT)}
+          .trCard.trDone{opacity:.75}
+          .trTag{position:absolute;top:10px;left:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:2px 7px;border-radius:6px}
+          .trTag.trOk,.trTag.trAuto{background:#1f9d55;color:#fff}
+          .trName{font-size:12.5px;font-weight:600}
+          .trBar{height:8px;border-radius:4px;background:var(--bd);min-width:90px;overflow:hidden}
+          .trBar i{display:block;height:100%;background:var(--naT)} .trBar i.full{background:var(--okT)}
+        </style>
+        <div class="card">
+          <h2>Загрузить фото списания</h2>
+          <p class="lead">Выберите день, когда фотографировали списание, и филиал. Если в списке списания филиала на этот день одна продукция — все фото подпишутся ею сами. Если позиций несколько — на каждом фото выберите, что на нём. Фото уходят на Google Диск в папку «Сверка — обучение фото», по папке на позицию.</p>
+          <div class="row">
+            <div><label class="lbl">День фото</label><input type="date" id="trDay"></div>
+            <button id="trLoad">Показать списки</button>
+          </div>
+          <div class="msg" id="mTr"></div>
+          <div id="trBr"></div>
+        </div>
+        <div class="card" id="trWork" style="display:none">
+          <h2 id="trWh"></h2>
+          <p class="lead" id="trList"></p>
+          <div class="row"><div><label class="lbl">Фото (можно сразу несколько)</label><input type="file" id="trFiles" accept="image/*" multiple></div></div>
+          <div class="trGrid" id="trGrid"></div>
+          <div class="row"><button id="trSave" disabled>Сохранить на Диск</button></div>
+          <div class="msg" id="mTr2"></div>
+        </div>
+        <div class="card">
+          <h2>Сколько фото набралось</h2>
+          <p class="lead">Чтобы распознавание уверенно узнавало позицию, нужно около 30 разных фото. Когда по ходовым позициям наберётся — обучим модель.</p>
+          <div class="row"><button class="sec" id="trStatBtn">Обновить</button></div>
+          <div id="trStat"></div>
+        </div>
+      </section>
+
       <!-- ─── Качество данных ───────────────────────────── -->
       <section class="page wide" id="pg-dq">
         <div class="card">
@@ -10625,6 +10671,7 @@ $('a0Go').onclick = function(){
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
+    tr:  ['Обучение фото','фото списания с подписью — для распознавания продукции'],
     dq:  ['Качество данных','полнота выгрузок и сверка с ведомостью iiko'],
     wk:  ['Отчёт за неделю','итоги понедельника: деньги, потери, решения'],
     up:  ['Выгрузки iiko','четыре файла из iiko'],
@@ -10664,6 +10711,7 @@ $('a0Go').onclick = function(){
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
     if (p === 'hist' && typeof renderHist === 'function') renderHist();
     if (p === 'dq' && typeof dqRender === 'function') dqRender();
+    if (p === 'tr' && typeof trInit === 'function') trInit();
     if (p === 'up' && typeof kassaSync === 'function') kassaSync(false);
     if (p === 'bk' && typeof bkaLoad === 'function') bkaLoad();
     if (typeof showFresh === 'function') showFresh();
@@ -12162,6 +12210,195 @@ async function kassaSync(manual){
       ' Чеки на этом компьютере загружать заново не нужно.', 'ok');
   }catch(e){ kassaMsg('Диск недоступен: ' + (e.message || e), manual ? 'err' : ''); }
   KASSA_BUSY = false;
+}
+
+/* ═════════ Обучение фото ═════════
+   Админ загружает фото списания. Если в списке списания филиала на этот день
+   одна продукция — фото подписывается ею само. Если позиций несколько — админ
+   выбирает, что на фото, из этого же списка. Подписанные фото уходят на Диск,
+   по папке на позицию: из них потом учится распознавание продукции. */
+var TR = { day: '', rows: [], wh: '', list: [], cards: [], seq: 0, busy: false };
+var TR_GOAL = 30;
+function trEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function trMsg(id, t, c){ var e = document.getElementById(id); if (e){ e.className = 'msg ' + (c || ''); e.innerHTML = t; } }
+function trRu(d){ return String(d || '').split('-').reverse().join('.'); }
+function trQty(q){ return (Math.round(Number(q) * 100) / 100) + ''; }
+
+async function trLoad(){
+  var d = (document.getElementById('trDay') || {}).value;
+  if (!d) return trMsg('mTr', 'Укажите день, когда фотографировали списание.', 'err');
+  trMsg('mTr', 'Загружаю списки списания за ' + trRu(d) + '…', 'wait');
+  try{
+    var r = await wkApi('inbox', { day: d });
+    if (!r || !r.ok) throw new Error((r && r.error) || 'нет ответа');
+    TR.day = d; TR.rows = r.rows || [];
+    trBranches();
+    trMsg('mTr', TR.rows.length ? 'Выберите филиал.' : 'За ' + trRu(d) + ' списков списания нет. Можно выбрать филиал вручную ниже.', TR.rows.length ? 'ok' : 'wait');
+  }catch(e){ trMsg('mTr', 'Не загрузилось: ' + trEsc(e.message || e), 'err'); }
+}
+function trBranches(){
+  var by = {};
+  TR.rows.forEach(function(r){ (by[r.branch] = by[r.branch] || []).push(r); });
+  var html = Object.keys(by).sort().map(function(wh){
+    var n = by[wh].length;
+    return '<button class="sec trBr" data-trwh="' + trEsc(wh) + '">' + trEsc(wh) +
+      '<span class="trBrN ' + (n === 1 ? 'trAuto' : '') + '">' + (n === 1 ? '1 позиция · подпишется само' : n + ' позиций') + '</span></button>';
+  }).join('');
+  html += '<button class="sec trBr" data-trwh="">Филиала нет в списке<span class="trBrN">выберу позицию сама</span></button>';
+  document.getElementById('trBr').innerHTML = '<div class="trBrs">' + html + '</div>';
+}
+function trOpen(wh){
+  if (!wh){
+    wh = (prompt('Название филиала (как в iiko):', '') || '').trim();
+    if (!wh) return;
+  }
+  TR.wh = wh; TR.cards = [];
+  var agg = {};
+  TR.rows.filter(function(r){ return r.branch === wh; }).forEach(function(r){ agg[r.dish] = (agg[r.dish] || 0) + (Number(r.qty) || 0); });
+  TR.list = Object.keys(agg).map(function(k){ return { dish: k, qty: agg[k] }; });
+  document.getElementById('trWork').style.display = '';
+  document.getElementById('trWh').textContent = wh + ' · ' + trRu(TR.day);
+  document.getElementById('trList').innerHTML = TR.list.length
+    ? 'Список списания: ' + TR.list.map(function(x){ return trEsc(x.dish) + ' — ' + trQty(x.qty) + ' шт'; }).join('; ') +
+      (TR.list.length === 1 ? '. <b class="trAuto">Все фото подпишутся «' + trEsc(TR.list[0].dish) + '» сами.</b>' : '. На каждом фото выберите, что на нём.')
+    : 'Списка списания у этого филиала за этот день нет — выберите позицию на каждом фото.';
+  document.getElementById('trFiles').value = '';
+  trGrid(); trMsg('mTr2', '', '');
+  document.getElementById('trWork').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function trHash(buf){
+  var h = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(h)).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('').slice(0, 16);
+}
+async function trShrink(file){
+  var bmp = await createImageBitmap(file), k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  var c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  if (bmp.close) bmp.close();
+  return c.toDataURL('image/jpeg', 0.82);
+}
+async function trAdd(files){
+  files = Array.prototype.slice.call(files || []).filter(function(f){ return /^image\//.test(f.type); });
+  if (!files.length) return;
+  var have = {}; TR.cards.forEach(function(c){ have[c.h] = 1; });
+  var skip = 0;
+  for (var i = 0; i < files.length; i++){
+    trMsg('mTr2', 'Готовлю фото ' + (i + 1) + ' из ' + files.length + '…', 'wait');
+    try{
+      var h = await trHash(await files[i].arrayBuffer());
+      if (have[h]){ skip++; continue; } have[h] = 1;
+      var img = await trShrink(files[i]);
+      var one = TR.list.length === 1;
+      TR.cards.push({ i: ++TR.seq, h: h, img: img, dish: one ? TR.list[0].dish : '', qty: one ? TR.list[0].qty : 0,
+                      src: one ? 'auto' : 'manual', st: '' });
+    }catch(e){ skip++; }
+  }
+  trGrid();
+  var todo = TR.cards.filter(function(c){ return !c.st && !c.dish; }).length;
+  trMsg('mTr2', 'Добавлено фото: ' + TR.cards.length + (skip ? ', пропущено ' + skip + ' (повтор или не картинка)' : '') +
+    (todo ? '. Не подписано: ' + todo + '.' : '. Все подписаны — можно сохранять.'), todo ? 'wait' : 'ok');
+}
+function trOptions(c){
+  var o = '<option value="">— что на фото? —</option>';
+  TR.list.forEach(function(x){ o += '<option value="' + trEsc(x.dish) + '"' + (c.dish === x.dish ? ' selected' : '') + '>' + trEsc(x.dish) + ' (' + trQty(x.qty) + ' шт)</option>'; });
+  var inList = TR.list.some(function(x){ return x.dish === c.dish; });
+  if (c.dish && !inList) o += '<option value="' + trEsc(c.dish) + '" selected>' + trEsc(c.dish) + '</option>';
+  o += '<option value="@other">другая позиция…</option><option value="@skip">не подходит — не сохранять</option>';
+  return o;
+}
+function trGrid(){
+  var g = document.getElementById('trGrid'); if (!g) return;
+  g.innerHTML = TR.cards.map(function(c){
+    var tag = c.st === 'ok' ? '<span class="trTag trOk">✓ на Диске</span>'
+      : c.st === 'dup' ? '<span class="trTag">уже было на Диске</span>'
+      : c.st === 'skip' ? '<span class="trTag">не сохраняем</span>'
+      : c.src === 'auto' && c.dish ? '<span class="trTag trAuto">подписано само</span>' : '';
+    var sel = c.st ? '<div class="trName">' + trEsc(c.dish || '—') + '</div>'
+      : '<select data-trsel="' + c.i + '">' + trOptions(c) + '</select>';
+    return '<div class="trCard' + (c.st ? ' trDone' : '') + (!c.st && !c.dish ? ' trNeed' : '') + '"><img src="' + c.img + '" alt="">' + tag + sel + '</div>';
+  }).join('');
+  var left = TR.cards.filter(function(c){ return !c.st && c.dish; }).length;
+  var b = document.getElementById('trSave'); if (b){ b.disabled = !left || TR.busy; b.textContent = left ? 'Сохранить на Диск (' + left + ')' : 'Сохранить на Диск'; }
+}
+function trPick(i, v){
+  var c = TR.cards.find(function(x){ return x.i === i; }); if (!c) return;
+  if (v === '@skip'){ c.st = 'skip'; }
+  else if (v === '@other'){
+    var nm = (prompt('Название позиции, как в справочнике:', '') || '').trim();
+    if (nm){
+      var k = typeof nrm === 'function' ? nrm(nm) : nm;
+      if (typeof SPR !== 'undefined' && SPR[k]) nm = SPR[k].name;
+      c.dish = nm; c.qty = 0; c.src = 'manual';
+    }
+  } else {
+    var x = TR.list.find(function(y){ return y.dish === v; });
+    c.dish = v; c.qty = x ? x.qty : 0; c.src = 'manual';
+  }
+  trGrid();
+  var todo = TR.cards.filter(function(y){ return !y.st && !y.dish; }).length;
+  trMsg('mTr2', todo ? 'Не подписано: ' + todo + '.' : 'Все подписаны — можно сохранять.', todo ? 'wait' : 'ok');
+}
+async function trSave(){
+  if (TR.busy) return;
+  var todo = TR.cards.filter(function(c){ return !c.st && c.dish; });
+  if (!todo.length) return;
+  TR.busy = true; trGrid();
+  var ok = 0, dup = 0, fail = '';
+  for (var i = 0; i < todo.length && !fail; i += 3){
+    trMsg('mTr2', 'Сохраняю на Диск: ' + Math.min(i + 3, todo.length) + ' из ' + todo.length + '…', 'wait');
+    var part = todo.slice(i, i + 3), j = null;
+    for (var t = 1; t <= 3 && !j; t++){
+      try{
+        j = await wkApi('tr_put', { items: part.map(function(c){ return { i: c.i, h: c.h, d: TR.day, branch: TR.wh, dish: c.dish, qty: c.qty, src: c.src, img: c.img }; }) });
+        if (!j || !j.ok) throw new Error((j && j.error) || 'не сохранилось');
+      }catch(e){ j = null; if (t === 3) fail = e.message || String(e); else await new Promise(function(r){ setTimeout(r, 2000 * t); }); }
+    }
+    if (!j) break;
+    (j.saved || []).forEach(function(id){ var c = TR.cards.find(function(x){ return x.i === id; }); if (c){ c.st = 'ok'; ok++; } });
+    (j.dup || []).forEach(function(id){ var c = TR.cards.find(function(x){ return x.i === id; }); if (c){ c.st = 'dup'; dup++; } });
+    trGrid();
+  }
+  TR.busy = false; trGrid();
+  trMsg('mTr2', fail ? 'Сохранено ' + ok + ', дальше не получилось: ' + trEsc(fail) + '. Нажмите «Сохранить» ещё раз — сохранённые не повторятся.'
+    : 'Сохранено на Диск: ' + ok + ' фото' + (dup ? ', ещё ' + dup + ' там уже были' : '') + '.', fail ? 'err' : 'ok');
+  trStat();
+}
+async function trStat(){
+  var box = document.getElementById('trStat'); if (!box) return;
+  box.innerHTML = '<div class="h">Считаю фото на Диске…</div>';
+  try{
+    var j = await wkApi('tr_stat', {});
+    if (!j || !j.ok) throw new Error((j && j.error) || 'нет ответа');
+    var rows = j.rows || [], ready = rows.filter(function(r){ return r[1] >= TR_GOAL; }).length;
+    var tot = rows.reduce(function(s, r){ return s + r[1]; }, 0);
+    box.innerHTML = rows.length
+      ? '<p class="lead">Всего фото: <b>' + tot + '</b> по ' + rows.length + ' позициям. Готово к обучению (' + TR_GOAL + '+ фото): <b>' + ready + '</b>.' +
+        (j.url ? ' <a href="' + trEsc(j.url) + '" target="_blank" rel="noopener">Папка на Диске</a>' : '') + '</p>' +
+        '<div class="wrapT"><table><thead><tr><th>Позиция</th><th class="n">Фото</th><th class="n">из них само</th><th>До ' + TR_GOAL + '</th></tr></thead><tbody>' +
+        rows.map(function(r){
+          var p = Math.min(100, Math.round(r[1] / TR_GOAL * 100));
+          return '<tr><td>' + trEsc(r[0]) + '</td><td class="n">' + r[1] + '</td><td class="n">' + r[2] + '</td>' +
+            '<td><div class="trBar"><i style="width:' + p + '%" class="' + (p >= 100 ? 'full' : '') + '"></i></div></td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<p class="lead">На Диске пока нет ни одного фото.</p>';
+  }catch(e){ box.innerHTML = '<div class="msg err">Не получилось посчитать: ' + trEsc(e.message || e) + '</div>'; }
+}
+document.addEventListener('click', function(e){
+  var t = e.target;
+  if (t.closest('#trLoad')) return trLoad();
+  if (t.closest('#trSave')) return trSave();
+  if (t.closest('#trStatBtn')) return trStat();
+  var b = t.closest('[data-trwh]'); if (b) return trOpen(b.getAttribute('data-trwh'));
+});
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.id === 'trFiles') return trAdd(t.files);
+  if (t.hasAttribute && t.hasAttribute('data-trsel')) return trPick(Number(t.getAttribute('data-trsel')), t.value);
+});
+function trInit(){
+  var dd = document.getElementById('trDay');
+  if (dd && !dd.value){ var n = new Date(); n.setMinutes(n.getMinutes() - n.getTimezoneOffset()); dd.value = n.toISOString().slice(0, 10); }
+  trStat();
 }
 
 /* ═════════ Страница «Качество данных» ═════════ */
