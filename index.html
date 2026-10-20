@@ -1516,8 +1516,20 @@ document.addEventListener('DOMContentLoaded', function(){
           .trBar i{display:block;height:100%;background:var(--naT)} .trBar i.full{background:var(--okT)}
         </style>
         <div class="card">
-          <h2>Загрузить фото списания</h2>
-          <p class="lead">Выберите день, когда фотографировали списание, и филиал. Если в списке списания филиала на этот день одна продукция — все фото подпишутся ею сами. Если позиций несколько — на каждом фото выберите, что на нём. Фото уходят на Google Диск в папку «Сверка — обучение фото», по папке на позицию.</p>
+          <h2>Фото из мини-приложения</h2>
+          <p class="lead">Утренние фото списания сами попадают сюда. Если в отправке филиала одна позиция — фото уже подписано. Если позиций несколько — выберите под фото, что на нём. Накладную и посторонние снимки отметьте «не подходит».</p>
+          <div class="row"><button class="sec" id="trTodoBtn">Обновить</button></div>
+          <div id="trTodoBox"></div>
+          <details class="tip" style="margin-top:12px"><summary>Взять прошлые фото из мини-приложения</summary>
+            <p>Фото, отправленные раньше, лежат в папке «Списание — фото». Сайт перенесёт их в обучение: по два дня за раз, примерно минута на день. Повторы не создаются — можно запускать сколько угодно раз.</p>
+            <div class="row"><div><label class="lbl">С какого дня</label><input type="date" id="trFrom" value="2026-10-01"></div>
+              <button id="trBackBtn">Взять прошлые фото</button></div>
+            <div class="msg" id="mTrB"></div>
+          </details>
+        </div>
+        <div class="card">
+          <h2>Загрузить фото вручную</h2>
+          <p class="lead">Для старых фото, например из WhatsApp-группы. Выберите день и филиал: если в списке списания филиала на этот день одна продукция — фото подпишутся ею сами, если несколько — выберите на каждом фото, что на нём.</p>
           <div class="row">
             <div><label class="lbl">День фото</label><input type="date" id="trDay"></div>
             <button id="trLoad">Показать списки</button>
@@ -12373,6 +12385,7 @@ async function trStat(){
     var tot = rows.reduce(function(s, r){ return s + r[1]; }, 0);
     box.innerHTML = rows.length
       ? '<p class="lead">Всего фото: <b>' + tot + '</b> по ' + rows.length + ' позициям. Готово к обучению (' + TR_GOAL + '+ фото): <b>' + ready + '</b>.' +
+        (j.todo ? ' Ждут подписи: <b>' + j.todo + '</b>.' : '') +
         (j.url ? ' <a href="' + trEsc(j.url) + '" target="_blank" rel="noopener">Папка на Диске</a>' : '') + '</p>' +
         '<div class="wrapT"><table><thead><tr><th>Позиция</th><th class="n">Фото</th><th class="n">из них само</th><th>До ' + TR_GOAL + '</th></tr></thead><tbody>' +
         rows.map(function(r){
@@ -12398,8 +12411,88 @@ document.addEventListener('change', function(e){
 function trInit(){
   var dd = document.getElementById('trDay');
   if (dd && !dd.value){ var n = new Date(); n.setMinutes(n.getMinutes() - n.getTimezoneOffset()); dd.value = n.toISOString().slice(0, 10); }
-  trStat();
+  trStat(); trTodo();
 }
+/* ── Фото из мини-приложения: подписать те, где в отправке несколько позиций ── */
+var TRT = { items: [], total: 0, pick: {} };
+async function trTodo(){
+  var box = document.getElementById('trTodoBox'); if (!box) return;
+  box.innerHTML = '<div class="h">Загружаю фото из мини-приложения…</div>';
+  try{
+    var j = await wkApi('tr_todo', {});
+    if (!j || !j.ok) throw new Error((j && j.error) || 'нет ответа');
+    TRT.items = j.items || []; TRT.total = j.total || 0; TRT.pick = {};
+    trTodoRender();
+  }catch(e){ box.innerHTML = '<div class="msg err">Не загрузилось: ' + trEsc(e.message || e) + '</div>'; }
+}
+function trTodoRender(){
+  var box = document.getElementById('trTodoBox'); if (!box) return;
+  if (!TRT.items.length){ box.innerHTML = '<p class="lead trAuto">Всё подписано — разбирать нечего.</p>'; return; }
+  box.innerHTML = '<p class="lead">Ждут подписи: <b>' + TRT.total + '</b> фото' + (TRT.total > TRT.items.length ? ' (показаны первые ' + TRT.items.length + ')' : '') + '.</p>' +
+    '<div class="trGrid">' + TRT.items.map(function(x){
+      var p = TRT.pick[x.id] || {}, list = (x.items || []).filter(function(y){ return Number(y[1]) > 0; });
+      var o = '<option value="">— что на фото? —</option>' + list.map(function(y){
+        return '<option value="' + trEsc(y[0]) + '"' + (p.dish === y[0] ? ' selected' : '') + '>' + trEsc(y[0]) + ' (' + trQty(y[1]) + ' шт)</option>'; }).join('') +
+        '<option value="@skip"' + (p.skip ? ' selected' : '') + '>не подходит — убрать</option>';
+      return '<div class="trCard' + (p.dish || p.skip ? '' : ' trNeed') + '"><img src="' + x.img + '" alt="">' +
+        '<div class="trName">' + trEsc(x.branch) + ' · ' + trRu(x.d) + '</div><select data-trtodo="' + trEsc(x.id) + '">' + o + '</select></div>';
+    }).join('') + '</div>' +
+    '<div class="row"><button id="trTodoSave"' + (Object.keys(TRT.pick).length ? '' : ' disabled') + '>Сохранить подписи (' + Object.keys(TRT.pick).length + ')</button></div><div class="msg" id="mTrT"></div>';
+}
+function trTodoPick(id, v){
+  var x = TRT.items.find(function(y){ return y.id === id; }); if (!x) return;
+  if (!v) delete TRT.pick[id];
+  else if (v === '@skip') TRT.pick[id] = { skip: 1 };
+  else { var it = (x.items || []).find(function(y){ return y[0] === v; }); TRT.pick[id] = { dish: v, qty: it ? it[1] : 0 }; }
+  trTodoRender();
+}
+async function trTodoSave(){
+  var ids = Object.keys(TRT.pick); if (!ids.length) return;
+  var b = document.getElementById('trTodoSave'); if (b) b.disabled = true;
+  trMsg('mTrT', 'Сохраняю подписи…', 'wait');
+  try{
+    var j = await wkApi('tr_label', { items: ids.map(function(id){ var p = TRT.pick[id]; return { id: id, dish: p.dish || '', qty: p.qty || 0, skip: p.skip ? 1 : 0 }; }) });
+    if (!j || !j.ok) throw new Error((j && j.error) || 'не сохранилось');
+    await trTodo(); trStat();
+  }catch(e){ trMsg('mTrT', 'Не сохранилось: ' + trEsc(e.message || e), 'err'); if (b) b.disabled = false; }
+}
+/* Прошлые фото из мини-приложения — по два дня за запрос, чтобы не упереться в лимит времени Google. */
+var TR_BACK_BUSY = false;
+async function trBack(){
+  if (TR_BACK_BUSY) return;
+  var from = (document.getElementById('trFrom') || {}).value, now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  var to = now.toISOString().slice(0, 10);
+  if (!from) return trMsg('mTrB', 'Укажите, с какого дня брать.', 'err');
+  TR_BACK_BUSY = true;
+  var d = new Date(from + 'T00:00:00Z'), end = new Date(to + 'T00:00:00Z'), added = 0, fail = '';
+  while (d <= end && !fail){
+    var a = d.toISOString().slice(0, 10), e2 = new Date(d); e2.setUTCDate(e2.getUTCDate() + 1);
+    var b = (e2 > end ? end : e2).toISOString().slice(0, 10);
+    trMsg('mTrB', 'Беру фото за ' + trRu(a) + (b !== a ? '–' + trRu(b) : '') + '… Добавлено: ' + added + '. Не закрывайте страницу.', 'wait');
+    var j = null;
+    for (var t = 1; t <= 2 && !j; t++){
+      try{ j = await wkApi('tr_back', { from: a, to: b }); if (!j || !j.ok) throw new Error((j && j.error) || 'нет ответа'); }
+      catch(x){ j = null; if (t === 2) fail = x.message || String(x); }
+    }
+    if (j) added += j.added || 0;
+    d.setUTCDate(d.getUTCDate() + 2);
+  }
+  TR_BACK_BUSY = false;
+  trMsg('mTrB', fail ? 'Добавлено ' + added + ' фото, дальше не получилось: ' + trEsc(fail) + '. Нажмите ещё раз — уже взятые не повторятся.'
+    : 'Готово: добавлено ' + added + ' фото. Те, где в отправке одна позиция, уже подписаны; остальные — в «Подписать» выше.', fail ? 'err' : 'ok');
+  trTodo(); trStat();
+}
+document.addEventListener('click', function(e){
+  var t = e.target;
+  if (t.closest('#trTodoSave')) return trTodoSave();
+  if (t.closest('#trTodoBtn')) return trTodo();
+  if (t.closest('#trBackBtn')) return trBack();
+});
+document.addEventListener('change', function(e){
+  var t = e.target;
+  if (t.hasAttribute && t.hasAttribute('data-trtodo')) return trTodoPick(t.getAttribute('data-trtodo'), t.value);
+});
 
 /* ═════════ Страница «Качество данных» ═════════ */
 function dqRender(){
