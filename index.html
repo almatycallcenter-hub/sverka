@@ -695,6 +695,59 @@
   .msPop label:hover{background:var(--row, rgba(0,0,0,.04)) !important}
   .msPop label.msAll{border-bottom:1px solid var(--bd) !important;border-radius:6px 6px 0 0;margin-bottom:4px}
   .msPop input{width:auto;margin:0}
+  /* ── Отчёт за неделю ── */
+  .wkHead{margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45}
+  .wkKpi>div small{color:var(--mut);font-size:11.5px}
+  .wkD{display:block;font-size:12px;color:var(--mut);font-weight:500}
+  .wkD.bad{color:var(--badT)} .wkD.ok{color:var(--okT)}
+  td .wkD{display:inline}
+  .wkLead{margin:0 0 10px}
+  .wkFun{display:flex;flex-direction:column;gap:6px}
+  .wkFr{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 56px;gap:10px;align-items:center;font-size:13px}
+  .wkFr.all{margin-top:6px;padding-top:8px;border-top:1px solid var(--bd);font-weight:600}
+  .wkFn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wkFb{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--row,#f3f3f0)}
+  .wkFb i{display:block;height:100%}
+  .wkFb i+i{box-shadow:inset 1px 0 0 var(--card,#fff)}
+  .wkFv{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .wkLeg{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:12.5px;color:var(--mut)}
+  .wkLeg span{display:inline-flex;align-items:center;gap:6px}
+  .wkLeg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+  .wkSvg{width:100%;max-width:640px;height:auto;display:block}
+  .wkSvg text{font-size:11px;fill:var(--mut)}
+  .wkSvg .g{stroke:var(--bd);stroke-width:1}
+  .wkSvg .m{stroke:var(--mut);stroke-dasharray:4 4;stroke-width:1}
+  .wkSvg .q{font-size:11px;fill:var(--mut);font-style:italic}
+  .wkSvg .ax{font-size:11.5px;fill:var(--txt)}
+  .wkSvg .pt{fill:var(--acc);stroke:var(--card,#fff);stroke-width:2}
+  .wkSvg .lb{font-size:11.5px;fill:var(--txt)}
+  .wkPar{display:flex;flex-direction:column;gap:4px}
+  .wkPr{display:grid;grid-template-columns:minmax(140px,260px) minmax(0,1fr) 90px 52px;gap:10px;align-items:center;font-size:13px}
+  .wkPn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wkPb{height:12px;background:var(--row,#f3f3f0);border-radius:4px;overflow:hidden}
+  .wkPb i{display:block;height:100%;background:var(--badT)}
+  .wkPv,.wkPc{text-align:right;font-variant-numeric:tabular-nums}
+  .wkPc{color:var(--mut);font-size:12px}
+  .wkHm{display:grid;gap:3px;font-variant-numeric:tabular-nums;overflow-x:auto}
+  .wkHm .h{font-size:11.5px;color:var(--mut);text-align:center}
+  .wkHm .rn{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
+  .wkHm .c{height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600}
+  @media (max-width:640px){
+    .wkFr{grid-template-columns:minmax(0,1fr) 50px}.wkFb{grid-column:1 / -1;grid-row:2}
+    .wkPr{grid-template-columns:minmax(0,1fr) 80px 46px}.wkPb{display:none}
+  }
+  @media print{ .noprint{display:none} .card{break-inside:avoid} }
+  .wkSvg .lb{paint-order:stroke;stroke:var(--card,#fff);stroke-width:3px;stroke-linejoin:round}
+  .wkTr{display:grid;grid-template-columns:minmax(120px,190px) minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:13px;padding:3px 0}
+  .wkTr svg{width:100%;height:30px;display:block}
+  .wkTr .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+  .wkDec{display:flex;flex-direction:column;gap:6px}
+  .wkDec .r{display:grid;grid-template-columns:minmax(0,1fr) 150px 110px 130px;gap:8px;align-items:center;font-size:13px;
+    border:1px solid var(--bd);border-radius:10px;padding:8px 10px}
+  .wkDec .r.done{opacity:.65}
+  .wkDecAdd{display:grid;grid-template-columns:minmax(0,1fr) 150px 140px auto;gap:8px;margin-top:10px}
+  @media (max-width:640px){ .wkDec .r,.wkDecAdd{grid-template-columns:minmax(0,1fr)} .wkTr{grid-template-columns:minmax(0,1fr) 60px} .wkTr svg{grid-column:1 / -1;grid-row:2} }
+
 </style>
 <!-- Мини-приложение Телеграма: филиал открывает вечерние списки кнопкой в своей группе.
      Вне Телеграма скрипт ничего не делает. -->
@@ -892,6 +945,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <div class="navsec">Аналитика</div>
+      <a data-page="wk"><span class="ic">🗓️</span>Отчёт за неделю</a>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <a data-page="chr" data-tab="pos"><span class="ic">📈</span>Хронология</a>
       <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
@@ -1421,6 +1475,23 @@ document.addEventListener('DOMContentLoaded', function(){
       </section>
 
       <!-- ─── История ──────────────────────────────────── -->
+      <!-- ─── Отчёт за неделю ───────────────────────────── -->
+      <section class="page wide" id="pg-wk">
+        <div class="card noprint">
+          <h2 id="wkTitle">Отчёт за неделю</h2>
+          <p class="lead">Неделя с понедельника по воскресенье, в сравнении с прошлой. Потери — по цене продажи.</p>
+          <div class="row" style="margin-top:10px;align-items:flex-end">
+            <div style="flex:0 0 200px"><label class="lbl">Неделя (любой её день)</label><input type="date" id="wkMon"></div>
+            <div style="flex:0 0 auto"><button id="btnWeek">Посчитать</button></div>
+            <div style="flex:0 0 auto"><button class="sec" id="btnWeekSave">Сохранить неделю в таблицу</button></div>
+            <div style="flex:0 0 auto"><button class="sec" id="btnWeekPrint">Печать / PDF</button></div>
+          </div>
+          <div class="msg" id="mW"></div>
+        </div>
+        <div id="outW"></div>
+      </section>
+      
+
       <!-- ─── Что должно истечь ────────────────────────── -->
       <section class="page wide" id="pg-exp">
         <div class="card noprint">
@@ -5152,7 +5223,7 @@ function histAdd(rec){
   saveDB();
 }
 var HIST_HEAD = ['Когда собрали','Что','Филиал','Период','Заявлено','Совпало',
-                 'Расхождений','Доля совпавших','Потери, шт','Потери, ₸'];
+                 'Расхождений','Доля совпавших','Не продано, шт','Потери, ₸'];
 function renderHist(){
   var o = $('outH'), h = DB.hist || [];
   if (!h.length){
@@ -5356,7 +5427,7 @@ function renderDyn(){
     $('cntC').textContent = ''; return;
   }
   h += chartDays(DAYS.map(function(d){ return { d: d.d, v: d.loss }; }),
-                    'Потери по дням, шт', 'шт', 'dayQ');
+                    'Не продано по дням, шт', 'шт', 'dayQ');
   if (unitMoney)
     h += chartDays(DAYS.map(function(d){ return { d: d.d, v: d.money }; }),
                    'Потери по дням, ₸', '₸', 'dayM');
@@ -10516,6 +10587,7 @@ $('a0Go').onclick = function(){
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
+    wk:  ['Отчёт за неделю','итоги понедельника: деньги, потери, решения'],
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     zay: ['20-50% жеңілдік өнімдері','что завтра уходит по скидке'],
@@ -11275,6 +11347,438 @@ function selfTestHtml(res){
     document.getElementById('stOut').innerHTML = selfTestHtml(res);
   };
 })();
+</script>
+
+<script>
+/* ═════════ Отчёт за неделю (понедельник) ═════════
+   Неделя — с понедельника по воскресенье. Всё считается из тех же выгрузок iiko,
+   что и остальные страницы (DB.mov — движения, DB.s20 — продажи со скидкой 20%),
+   и сравнивается с прошлой неделей. Деньги — по цене продажи: себестоимости в iiko нет.
+   Страница ничего не меняет в данных; «Сохранить неделю» отправляет итоги в таблицу. */
+var WK = null;                      // последний расчёт: { cur, prev, mon, sun }
+var WK_LOSS = { sp: 1, vz: 1, f50: 0.5, s20: 0.2 };   // какая доля цены теряется
+function wkEl(id){ return document.getElementById(id); }
+function wkMsg(t, kind){ if (typeof msg === 'function') msg('mW', t, kind); else { var m = wkEl('mW'); if (m) m.textContent = t; } }
+var WK_DOW = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+function wkIso(d){ return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function wkDate(s){ var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function wkAdd(s, n){ var d = wkDate(s); d.setDate(d.getDate() + n); return wkIso(d); }
+/* понедельник недели, в которую попадает дата */
+function wkMonday(s){ var d = wkDate(s), k = (d.getDay() + 6) % 7; d.setDate(d.getDate() - k); return wkIso(d); }
+/* последняя ПОЛНАЯ неделя: в понедельник это прошлая неделя */
+function wkLastFull(){ return wkAdd(wkMonday(wkIso(new Date())), -7); }
+function wkRu(s){ var p = String(s).split('-'); return p[2] + '.' + p[1]; }
+function wkMoney(x){ x = Math.round(x || 0); return String(x).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+function wkK(x){ x = x || 0; return Math.abs(x) >= 1e6 ? (x / 1e6).toFixed(2).replace('.', ',') + ' млн ₸'
+  : Math.abs(x) >= 1e3 ? Math.round(x / 1e3) + ' тыс ₸' : Math.round(x) + ' ₸'; }
+function wkPct(x){ return (x == null || !isFinite(x)) ? '—' : (Math.round(x * 1000) / 10).toString().replace('.', ',') + '%'; }
+function wkEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+/* ── источники данных сайта (всё через эти функции — проще проверить и заменить) ── */
+function wkBranches(){ return (typeof branches === 'function' ? branches() : []).filter(function(w){ return !/доставк/i.test(w); }); }
+function wkBranchOf(conc, list){
+  if (!conc) return '';
+  for (var i = 0; i < list.length; i++)
+    if (typeof sameBranch === 'function' && (sameBranch(conc, list[i]) || sameBranch(list[i], conc))) return list[i];
+  return '';
+}
+/* Цена позиции — полная, из чеков со скидкой 20% (сумма без скидки ÷ штуки), как в «Хронологии».
+   Позиции, которых ни разу не продавали по 20%, цены не имеют. */
+var WK_PR = null;
+function wkPrice(name){
+  if (!WK_PR) WK_PR = (typeof priceMap === 'function') ? priceMap() : {};
+  var k = nrm(name), b = (typeof baseOf === 'function') ? baseOf(k).k : k;
+  return WK_PR[k] > 0 ? WK_PR[k] : (WK_PR[b] > 0 ? WK_PR[b] : 0);
+}
+function wkCat(name){
+  try{ var sp = SPR[nrm(name)]; if (sp && sp.kat) return sp.kat; }catch(e){}
+  try{ if (typeof dishCat === 'function') return dishCat(name) || 'прочее'; }catch(e){}
+  return 'прочее';
+}
+
+/* ── расчёт одной недели ── */
+function wkCalc(mon){
+  WK_PR = null;
+  var sun = wkAdd(mon, 6), BR = wkBranches();
+  var by = {}, dish = {}, day = {}, noPrice = {}, seenDay = {}, s20Day = {};
+  function cell(o, k){ return o[k] || (o[k] = { prih: 0, sold: 0, s20: 0, f50: 0, vz: 0, sp: 0, gross: 0, rev: 0, loss: 0 }); }
+  function add(o, f, q, price){
+    o[f] += q;
+    if (f === 'prih') o.gross += q * price;
+    if (f === 'sold') o.rev += q * price;
+    if (WK_LOSS[f]) o.loss += q * price * WK_LOSS[f];
+  }
+  (DB.mov || []).forEach(function(r){
+    var d = r[0]; if (!d || d < mon || d > sun) return;
+    var wh = r[1]; if (BR.indexOf(wh) < 0) return;
+    var t = r[3], q = N(r[4]); if (!q) return;
+    var f = /^prihod_|^prigotovlenie$/.test(t) ? 'prih' : t === 'realiz' ? 'sold' : t === 'perem_50' ? 'f50'
+          : t === 'vozvrat_srok' ? 'vz' : t === 'spisanie' ? 'sp' : '';
+    if (!f) return;
+    seenDay[wh + '|' + d] = 1;
+    var name = S(r[2]), price = wkPrice(name);
+    if (!price) noPrice[name] = 1;
+    var dk = (wkDate(d).getDay() + 6) % 7;
+    add(cell(by, wh), f, q, price);
+    add(cell(dish, name), f, q, price);
+    add(cell(day, wh + '|' + dk), f, q, price);
+  });
+  (DB.s20 || []).forEach(function(r){
+    var d = r[0]; if (!d || d < mon || d > sun) return;
+    var wh = wkBranchOf(S(r[1]), BR); if (!wh) return;
+    var q = N(r[3]); if (!q) return;
+    s20Day[wh + '|' + d] = 1;
+    var name = S(r[2]), price = wkPrice(name), dk = (wkDate(d).getDay() + 6) % 7;
+    if (!price) noPrice[name] = 1;
+    // проданное по 20% уже в «продано» — выручку уменьшаем на скидку, а потерю считаем
+    [cell(by, wh), cell(dish, name), cell(day, wh + '|' + dk)].forEach(function(o){
+      o.s20 += q; o.rev -= q * price * 0.2; o.loss += q * price * WK_LOSS.s20; });
+  });
+  /* стоп — из «Хронологии»: дни, когда позицию распродали до нуля, к дням в филиале */
+  var stop = {};
+  try{
+    var pos = chrono(mon, sun), H = POS_HEAD;
+    var iW = H.indexOf('Филиал'), iSt = H.indexOf('Дней в стопе'), iOn = H.indexOf('Дней на витрине');
+    pos.forEach(function(r){
+      var wh = r[iW]; if (BR.indexOf(wh) < 0) return;
+      var o = stop[wh] || (stop[wh] = { st: 0, all: 0 });
+      o.st += N(r[iSt]); o.all += N(r[iSt]) + N(r[iOn]);
+    });
+  }catch(e){}
+  var tot = cell({}, 't');
+  BR.forEach(function(w){ var o = by[w]; if (!o) return;
+    Object.keys(tot).forEach(function(k){ tot[k] += o[k]; }); });
+  var missing = [];
+  BR.forEach(function(w){
+    var miss = [];
+    for (var i = 0; i < 7; i++){ var d = wkAdd(mon, i); if (!seenDay[w + '|' + d]) miss.push(wkRu(d)); }
+    if (miss.length) missing.push({ wh: w, days: miss });
+  });
+  return { mon: mon, sun: sun, branches: BR, by: by, dish: dish, day: day, tot: tot, stop: stop,
+           noPrice: Object.keys(noPrice).sort(), missing: missing };
+}
+/* доля потерь от стоимости прихода */
+function wkShare(o){ return o && o.gross > 0 ? o.loss / o.gross : null; }
+function wkStop(W, wh){ var s = W.stop[wh]; return s && s.all ? s.st / s.all : null; }
+function wkDelta(a, b, money, short){
+  if (a == null || b == null || !isFinite(a) || !isFinite(b)) return '';
+  var d = a - b; if (Math.abs(d) < 1e-9) return '<span class="wkD">без изменений</span>';
+  var up = d > 0, txt = money ? (up ? '+' : '−') + wkK(Math.abs(d))
+    : (up ? '+' : '−') + (Math.round(Math.abs(d) * 1000) / 10).toString().replace('.', ',') + ' п.п.';
+  return '<span class="wkD ' + (up ? 'bad' : 'ok') + '">' + txt + (short ? '' : ' к прошлой неделе') + '</span>';
+}
+
+/* ── «Главное в 5 строках» ── */
+function wkHeadline(W, P){
+  var out = [], t = W.tot, pt = P.tot;
+  var dl = pt.loss ? (t.loss - pt.loss) / pt.loss : null;
+  out.push('Потери выручки за неделю — <b>' + wkK(t.loss) + '</b> (' + wkPct(wkShare(t)) + ' стоимости прихода)' +
+    (dl == null ? '' : ', ' + (dl > 0 ? 'больше' : 'меньше') + ' прошлой недели на ' + wkPct(Math.abs(dl))) + '.');
+  var rk = W.branches.filter(function(w){ return W.by[w] && W.by[w].gross > 0; })
+    .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
+  if (rk.length){
+    var w0 = rk[0], wl = rk[rk.length - 1];
+    out.push('Больше всех теряет <b>' + wkEsc(w0) + '</b> — ' + wkPct(wkShare(W.by[w0])) +
+      ', меньше всех <b>' + wkEsc(wl) + '</b> — ' + wkPct(wkShare(W.by[wl])) + '.');
+  }
+  var ds = Object.keys(W.dish).sort(function(a, b){ return W.dish[b].loss - W.dish[a].loss; });
+  if (ds.length){
+    var top3 = ds.slice(0, 3), s3 = top3.reduce(function(s, k){ return s + W.dish[k].loss; }, 0);
+    out.push('Три позиции дают ' + wkPct(t.loss ? s3 / t.loss : null) + ' потерь: ' +
+      top3.map(function(k){ return '<b>' + wkEsc(k) + '</b> (' + wkK(W.dish[k].loss) + ')'; }).join(', ') + '.');
+  }
+  var st = W.branches.filter(function(w){ return wkStop(W, w) != null; })
+    .sort(function(a, b){ return wkStop(W, b) - wkStop(W, a); });
+  if (st.length){
+    var sh = W.branches.map(function(w){ return wkShare(W.by[w]); }).filter(function(v){ return v != null; }).sort(function(a, b){ return a - b; });
+    var medS = sh.length ? sh[sh.length >> 1] : 0, s0 = wkShare(W.by[st[0]]);
+    out.push('Чаще всего пустая витрина в <b>' + wkEsc(st[0]) + '</b> — ' + wkPct(wkStop(W, st[0])) + ' дней с позицией. ' +
+      (s0 != null && s0 <= medS ? 'Потери там ниже середины по сети — заявку можно увеличить.'
+                               : 'При этом и потери выше середины по сети — заявка не попадает в спрос по позициям.'));
+  }
+  if (W.missing.length) out.push('Неполные данные: ' + W.missing.length + ' фил. без выгрузки за часть дней — ' +
+    'цифры по ним занижены.');
+  else if (W.noPrice.length) out.push('Нет цены у ' + W.noPrice.length + ' позиций — их потери в тенге не посчитаны.');
+  return out;
+}
+
+/* ── рисунки (SVG, в цветах сайта) ── */
+var WK_SEG = [ // куда ушла стоимость прихода
+  { k: 'full', t: 'продано по полной цене', c: 'var(--okT,#0a6f0a)' },
+  { k: 's20',  t: 'уценка 20%',            c: '#e3a008' },
+  { k: 'f50',  t: 'склад 50%',             c: '#ea7a3d' },
+  { k: 'vz',   t: 'возврат по сроку',      c: '#c2410c' },
+  { k: 'sp',   t: 'списание',              c: 'var(--badT,#b02a2a)' }
+];
+function wkFunnel(W){
+  var rows = W.branches.filter(function(w){ return W.by[w] && W.by[w].prih > 0; })
+    .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
+  if (!rows.length) return '<p class="hint">Нет прихода за неделю.</p>';
+  var h = '<div class="wkFun">';
+  rows.concat(['__all']).forEach(function(w){
+    var o = w === '__all' ? W.tot : W.by[w];
+    var full = Math.max(0, o.sold - o.s20), seg = { full: full, s20: o.s20, f50: o.f50, vz: o.vz, sp: o.sp };
+    var sum = full + o.s20 + o.f50 + o.vz + o.sp || 1;
+    h += '<div class="wkFr' + (w === '__all' ? ' all' : '') + '"><span class="wkFn">' + (w === '__all' ? 'Вся сеть' : wkEsc(w)) +
+      '</span><span class="wkFb">' + WK_SEG.map(function(s){
+        var p = seg[s.k] / sum; if (p <= 0) return '';
+        return '<i style="width:' + (p * 100).toFixed(2) + '%;background:' + s.c + '" title="' + s.t + ': ' +
+          (Math.round(seg[s.k] * 10) / 10) + ' шт (' + wkPct(p) + ')"></i>'; }).join('') +
+      '</span><span class="wkFv">' + wkPct((sum - full) / sum) + '</span></div>';
+  });
+  h += '</div><div class="wkLeg">' + WK_SEG.map(function(s){
+    return '<span><i style="background:' + s.c + '"></i>' + s.t + '</span>'; }).join('') +
+    '<span class="hint">справа — доля, ушедшая не по полной цене</span></div>';
+  return h;
+}
+function wkScatter(W){
+  var pts = W.branches.map(function(w){ return { w: w, x: wkStop(W, w), y: wkShare(W.by[w]) }; })
+    .filter(function(p){ return p.x != null && p.y != null; });
+  if (pts.length < 2) return '<p class="hint">Для сравнения нужно хотя бы два филиала с данными за неделю.</p>';
+  var Wd = 560, Hd = 330, L = 52, R = 16, T = 16, B = 44;
+  var mx = Math.max(0.05, Math.max.apply(null, pts.map(function(p){ return p.x; })) * 1.15);
+  var my = Math.max(0.05, Math.max.apply(null, pts.map(function(p){ return p.y; })) * 1.15);
+  var X = function(v){ return L + v / mx * (Wd - L - R); }, Y = function(v){ return Hd - B - v / my * (Hd - T - B); };
+  var med = function(a){ a = a.slice().sort(function(p, q){ return p - q; }); var m = a.length >> 1;
+    return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  var mxv = med(pts.map(function(p){ return p.x; })), myv = med(pts.map(function(p){ return p.y; }));
+  var s = '<svg viewBox="0 0 ' + Wd + ' ' + Hd + '" class="wkSvg" role="img" aria-label="Потери и пустая витрина по филиалам">';
+  [0, 0.5, 1].forEach(function(f){
+    s += '<line x1="' + L + '" x2="' + (Wd - R) + '" y1="' + Y(my * f) + '" y2="' + Y(my * f) + '" class="g"/>' +
+      '<text x="' + (L - 6) + '" y="' + (Y(my * f) + 4) + '" text-anchor="end">' + wkPct(my * f) + '</text>' +
+      '<text x="' + X(mx * f) + '" y="' + (Hd - B + 16) + '" text-anchor="middle">' + wkPct(mx * f) + '</text>';
+  });
+  s += '<line x1="' + X(mxv) + '" x2="' + X(mxv) + '" y1="' + T + '" y2="' + (Hd - B) + '" class="m"/>' +
+       '<line x1="' + L + '" x2="' + (Wd - R) + '" y1="' + Y(myv) + '" y2="' + Y(myv) + '" class="m"/>';
+  s += '<text x="' + (L + 6) + '" y="' + (T + 12) + '" class="q">заказывают с запасом</text>' +
+       '<text x="' + (Wd - R - 6) + '" y="' + (T + 12) + '" class="q" text-anchor="end">разбаланс</text>' +
+       '<text x="' + (Wd - R - 6) + '" y="' + (Hd - B - 8) + '" class="q" text-anchor="end">заказывают мало</text>' +
+       '<text x="' + (L + 6) + '" y="' + (Hd - B - 8) + '" class="q">в балансе</text>';
+  s += '<text x="' + ((L + Wd - R) / 2) + '" y="' + (Hd - 6) + '" text-anchor="middle" class="ax">пустая витрина, % дней с позицией</text>' +
+       '<text transform="translate(14,' + ((T + Hd - B) / 2) + ') rotate(-90)" text-anchor="middle" class="ax">потери, % стоимости прихода</text>';
+  /* подписи не должны налезать друг на друга: занятые прямоугольники запоминаем */
+  var boxes = [];
+  pts.sort(function(a, b){ return a.y - b.y; }).forEach(function(p){
+    var short = String(p.w).replace(/\s*склад\s*/i, '').trim(), w = short.length * 6.4 + 4;
+    var cx = X(p.x), cy = Y(p.y), lx = cx + 9, ly = cy + 4;
+    if (lx + w > Wd - R) lx = cx - 9 - w;
+    var tries = [0, -14, 14, -28, 28];
+    for (var i = 0; i < tries.length; i++){
+      var y = cy + 4 + tries[i], hit = boxes.some(function(b){ return lx < b.x + b.w && lx + w > b.x && y - 10 < b.y && y > b.y - 10; });
+      if (!hit){ ly = y; break; }
+    }
+    boxes.push({ x: lx, y: ly, w: w });
+    s += '<g><circle cx="' + cx + '" cy="' + cy + '" r="6" class="pt"><title>' + wkEsc(p.w) + ': потери ' +
+      wkPct(p.y) + ', пустая витрина ' + wkPct(p.x) + '</title></circle>' +
+      (Math.abs(ly - cy - 4) > 1 ? '<line x1="' + cx + '" y1="' + cy + '" x2="' + (lx > cx ? lx - 2 : lx + w) + '" y2="' + (ly - 4) + '" class="g"/>' : '') +
+      '<text x="' + lx + '" y="' + ly + '" class="lb">' + wkEsc(short) + '</text></g>';
+  });
+  return s + '</svg><p class="hint">Линии — середина по сети. Вверху слева — потери высокие, а витрина почти не пустеет: ' +
+    'заявку можно уменьшить. Внизу справа — потерь мало, но часто пусто: заявку стоит увеличить.</p>';
+}
+function wkPareto(W){
+  var ds = Object.keys(W.dish).filter(function(k){ return W.dish[k].loss > 0; })
+    .sort(function(a, b){ return W.dish[b].loss - W.dish[a].loss; });
+  if (!ds.length) return '<p class="hint">Потерь в тенге нет (или нет цен).</p>';
+  var all = ds.reduce(function(s, k){ return s + W.dish[k].loss; }, 0), cum = 0, n80 = 0;
+  ds.forEach(function(k, i){ cum += W.dish[k].loss; if (!n80 && cum / all >= 0.8) n80 = i + 1; });
+  var top = ds.slice(0, 15), max = W.dish[top[0]].loss;
+  var h = '<p class="wkLead"><b>' + n80 + ' из ' + ds.length + '</b> позиций дают 80% потерь — работать в первую очередь с ними.</p><div class="wkPar">';
+  cum = 0;
+  top.forEach(function(k){
+    var o = W.dish[k]; cum += o.loss;
+    h += '<div class="wkPr"><span class="wkPn" title="' + wkEsc(k) + '">' + wkEsc(k) + '</span><span class="wkPb"><i style="width:' +
+      (o.loss / max * 100).toFixed(1) + '%"></i></span><span class="wkPv">' + wkK(o.loss) +
+      '</span><span class="wkPc">' + wkPct(cum / all) + '</span></div>';
+  });
+  return h + '</div><p class="hint">Справа — накопленная доля всех потерь недели.</p>';
+}
+function wkHeat(W){
+  var rows = W.branches.filter(function(w){ return W.by[w]; }), max = 0;
+  rows.forEach(function(w){ for (var i = 0; i < 7; i++){ var o = W.day[w + '|' + i]; if (o && o.loss > max) max = o.loss; } });
+  if (!max) return '<p class="hint">Нет потерь по дням.</p>';
+  var h = '<div class="wkHm" style="grid-template-columns:minmax(120px,1.4fr) repeat(7,minmax(44px,1fr))"><span></span>' +
+    WK_DOW.map(function(d, i){ return '<span class="h">' + d + ' ' + wkRu(wkAdd(W.mon, i)) + '</span>'; }).join('');
+  rows.forEach(function(w){
+    h += '<span class="rn">' + wkEsc(w) + '</span>';
+    for (var i = 0; i < 7; i++){
+      var o = W.day[w + '|' + i], v = o ? o.loss : 0, a = v / max;
+      h += '<span class="c" style="background:color-mix(in srgb,var(--badT,#b02a2a) ' + Math.round(a * 85) +
+        '%,var(--card,#fff))' + (a > 0.55 ? ';color:#fff' : '') + '" title="' + wkEsc(w) + ', ' + WK_DOW[i] + ': ' +
+        wkMoney(v) + '">' + (v ? wkK(v).replace(' ₸', '') : '·') + '</span>';
+    }
+  });
+  return h + '</div><p class="hint">Потери в тенге по дням недели. Тёмная клетка — день, в который филиал заказывает с запасом.</p>';
+}
+function wkBranchTable(W, P){
+  var rows = W.branches.filter(function(w){ return W.by[w]; })
+    .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
+  var h = '<div class="wrapT"><table><thead><tr><th>Филиал</th><th>Приход</th><th>Потери выручки</th><th>Доля потерь</th>' +
+    '<th>к прошлой неделе</th><th>Пустая витрина</th><th>к прошлой неделе</th></tr></thead><tbody>';
+  rows.forEach(function(w){
+    var o = W.by[w], p = P.by[w], s = wkShare(o), ps = wkShare(p), st = wkStop(W, w), pst = wkStop(P, w);
+    h += '<tr><td class="name">' + wkEsc(w) + '</td><td>' + wkK(o.gross) + '</td><td>' + wkK(o.loss) + '</td><td><b>' +
+      wkPct(s) + '</b></td><td>' + wkDelta(s, ps, false, true) + '</td><td>' + wkPct(st) + '</td><td>' + wkDelta(st, pst, false, true) + '</td></tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+function wkQuality(W){
+  var h = '';
+  if (W.missing.length) h += '<p><b>Нет выгрузки за дни:</b></p><ul>' + W.missing.map(function(m){
+    return '<li>' + wkEsc(m.wh) + ' — ' + m.days.join(', ') + '</li>'; }).join('') + '</ul>';
+  if (W.noPrice.length) h += '<p><b>Нет цены (' + W.noPrice.length + '):</b> ' + W.noPrice.slice(0, 30).map(wkEsc).join(', ') +
+    (W.noPrice.length > 30 ? ' и ещё ' + (W.noPrice.length - 30) : '') +
+    '. Цена берётся из чеков со скидкой 20%: этих позиций там ещё не было, поэтому в тенге они не посчитаны.</p>';
+  return h || '<p>Данные за неделю полные: выгрузки есть за все дни, цены есть у всех позиций.</p>';
+}
+function wkKpis(W, P){
+  var t = W.tot, p = P.tot;
+  function tile(label, val, delta, sub){
+    return '<div><span>' + label + '</span><b>' + val + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + delta + '</div>'; }
+  function netStop(X){ var st = 0, all = 0; Object.keys(X.stop).forEach(function(w){ st += X.stop[w].st; all += X.stop[w].all; });
+    return all ? st / all : null; }
+  return '<div class="kpi wkKpi">' +
+    tile('Потери выручки', wkK(t.loss), p.loss ? wkDelta(t.loss, p.loss, true) : '', 'по цене продажи') +
+    tile('Доля потерь', wkPct(wkShare(t)), wkDelta(wkShare(t), wkShare(p)), 'от стоимости прихода') +
+    tile('Выручка', wkK(t.rev), '', 'по цене продажи, со скидками') +
+    tile('Пустая витрина', wkPct(netStop(W)), wkDelta(netStop(W), netStop(P)), 'дней с позицией') +
+    '</div>';
+}
+
+/* ── страница ── */
+function wkRender(){
+  var o = wkEl('outW'); if (!o) return;
+  if (!WK){ o.innerHTML = ''; return; }
+  var W = WK.cur, P = WK.prev;
+  wkEl('wkTitle').textContent = 'Неделя ' + wkRu(W.mon) + ' — ' + wkRu(W.sun);
+  o.innerHTML =
+    '<div class="card"><h2>Главное</h2><ol class="wkHead">' + wkHeadline(W, P).map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>' +
+      wkKpis(W, P) + '</div>' +
+    '<div class="card"><h2>Куда ушла продукция</h2><p class="lead">Вся стоимость прихода недели по цене продажи — сколько продано по полной цене, а сколько ушло в уценку, на склад 50%, в возврат и списание.</p>' + wkFunnel(W) + '</div>' +
+    '<div class="card"><h2>Потери против пустой витрины</h2><p class="lead">Две стороны одной заявки: много заказали — растут потери, мало — пустеет витрина.</p>' + wkScatter(W) + '</div>' +
+    '<div class="card"><h2>Филиалы</h2>' + wkBranchTable(W, P) + '</div>' +
+    '<div class="card"><h2>Позиции, на которых теряем больше всего</h2>' + wkPareto(W) + '</div>' +
+    '<div class="card"><h2>Потери по дням недели</h2>' + wkHeat(W) + '</div>' +
+    '<div class="card"><h2>Доля потерь за 8 недель</h2>' + wkTrend(W) + '</div>' +
+    '<div class="card"><h2>Качество данных</h2>' + wkQuality(W) + '</div>' +
+    '<div class="card"><h2>Решения на неделю</h2><p class="lead">3–5 действий с ответственным. Через неделю здесь же отмечаем, выполнены ли решения прошлой недели.</p>' + wkDecHtml(W) + '</div>';
+  wkDecBind();
+}
+function wkRun(){
+  var mon = wkEl('wkMon').value ? wkMonday(wkEl('wkMon').value) : wkLastFull();
+  wkEl('wkMon').value = mon;
+  if (!(DB.mov || []).length){ wkMsg('Сначала загрузите выгрузки iiko.', 'err'); return; }
+  wkMsg('Считаю…', 'wait');
+  setTimeout(function(){
+    try{
+      WK = { cur: wkCalc(mon), prev: wkCalc(wkAdd(mon, -7)) };
+      wkRender();
+      wkMsg('', '');
+      wkLoadHist().then(wkRender);
+    }catch(e){ wkMsg('Не посчиталось: ' + (e.message || e), 'err'); }
+  }, 20);
+}
+
+/* ── история недель и решения: лежат в Google-таблице (лист «Итоги недель», «Решения недели»),
+   чтобы не зависеть от браузера. Без ключа администратора страница просто их не показывает. ── */
+var WK_HIST = null, WK_DEC = null;
+function wkRows(W){
+  return W.branches.filter(function(w){ return W.by[w]; }).map(function(w){
+    var o = W.by[w];
+    return [W.mon, w, Math.round(o.gross), Math.round(o.rev), Math.round(o.loss), wkShare(o), wkStop(W, w),
+            Math.round(o.s20), Math.round(o.f50), Math.round(o.vz), Math.round(o.sp)];
+  });
+}
+function wkApi(action, data){
+  var c = (typeof apiCfg === 'function') ? apiCfg() : {};
+  data = data || {}; data.key = c.read || '';
+  return apiCall(action, data);
+}
+function wkLoadHist(){
+  return wkApi('week_list', {}).then(function(j){
+    if (j && j.ok){ WK_HIST = j.rows || []; WK_DEC = j.dec || []; }
+  }).catch(function(){});
+}
+function wkSave(){
+  if (!WK) return;
+  wkMsg('Сохраняю неделю в таблицу…', 'wait');
+  wkApi('week_save', { mon: WK.cur.mon, rows: wkRows(WK.cur) }).then(function(j){
+    if (!j || !j.ok) throw new Error((j && j.error) || 'таблица не ответила');
+    wkMsg('Неделя ' + wkRu(WK.cur.mon) + ' — ' + wkRu(WK.cur.sun) + ' сохранена в таблицу.', 'ok');
+    return wkLoadHist().then(wkRender);
+  }).catch(function(e){ wkMsg('Не сохранилось: ' + (e.message || e), 'err'); });
+}
+/* доля потерь по филиалу за последние 8 сохранённых недель + текущая */
+function wkTrend(W){
+  if (!WK_HIST || !WK_HIST.length) return '<p class="hint">История появится после того, как неделю сохранят в таблицу ' +
+    '(кнопка «Сохранить неделю»). Каждую неделю — одна точка.</p>';
+  var weeks = {}, data = {};
+  WK_HIST.forEach(function(r){ weeks[r[0]] = 1; (data[r[1]] = data[r[1]] || {})[r[0]] = N(r[5]); });
+  W.branches.forEach(function(w){ if (W.by[w]) (data[w] = data[w] || {})[W.mon] = wkShare(W.by[w]); });
+  weeks[W.mon] = 1;
+  var ws = Object.keys(weeks).sort().slice(-9), max = 0;
+  Object.keys(data).forEach(function(w){ ws.forEach(function(k){ var v = data[w][k]; if (v > max) max = v; }); });
+  if (!max) max = 0.1;
+  var h = '<div class="wkTr" style="font-size:11.5px;color:var(--mut)"><span></span><span>' + wkRu(ws[0]) + ' … ' +
+    wkRu(ws[ws.length - 1]) + '</span><span class="v" style="font-weight:400">эта неделя</span></div>';
+  W.branches.filter(function(w){ return data[w]; }).forEach(function(w){
+    var pts = [], vw = 200, vh = 30;
+    ws.forEach(function(k, i){ var v = data[w][k]; if (v == null) return;
+      pts.push([(ws.length > 1 ? i / (ws.length - 1) : 0.5) * (vw - 8) + 4, vh - 4 - v / max * (vh - 8)]); });
+    var last = pts[pts.length - 1];
+    h += '<div class="wkTr"><span class="wkFn">' + wkEsc(w) + '</span><svg viewBox="0 0 ' + vw + ' ' + vh +
+      '" preserveAspectRatio="none"><polyline points="' + pts.map(function(p){ return p.join(','); }).join(' ') +
+      '" fill="none" stroke="var(--acc)" stroke-width="1.6" vector-effect="non-scaling-stroke"/>' +
+      '</svg><span class="v">' + wkPct(data[w][W.mon]) + '</span></div>';
+  });
+  return h + '<p class="hint">Доля потерь от стоимости прихода по неделям. Одна шкала для всех филиалов.</p>';
+}
+/* решения недели: что делаем, кто, к какому сроку; на следующей неделе — отметка, выполнено ли */
+function wkDecHtml(W){
+  if (!WK_DEC) return '<p class="hint">Решения хранятся в таблице — войдите с ролью «админ», чтобы их видеть и добавлять.</p>';
+  var prevMon = wkAdd(W.mon, -7);
+  var mine = WK_DEC.filter(function(d){ return d.mon === W.mon || (d.mon === prevMon); });
+  var h = '<div class="wkDec">';
+  if (!mine.length) h += '<p class="hint">Решений на эту и прошлую неделю пока нет.</p>';
+  mine.forEach(function(d){
+    h += '<div class="r' + (d.status === 'выполнено' ? ' done' : '') + '"><span>' + (d.mon === prevMon ? '<small class="hint">с прошлой недели · </small>' : '') +
+      wkEsc(d.text) + '</span><span>' + wkEsc(d.who || '—') + '</span><span>' + (d.due ? wkRu(d.due) : '—') +
+      '</span><select data-dec="' + d.id + '">' + ['в работе', 'выполнено', 'не выполнено'].map(function(s){
+        return '<option' + (s === d.status ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></div>';
+  });
+  return h + '</div><div class="wkDecAdd"><input type="text" id="wkDecT" placeholder="Решение: что делаем (например, ТТ3 — заявку на рулеты −2 шт)">' +
+    '<input type="text" id="wkDecW" placeholder="Кто отвечает"><input type="text" id="wkDecD" placeholder="Срок, дд.мм" maxlength="5" inputmode="numeric"><button id="wkDecB">Добавить</button></div>';
+}
+/* «дд.мм» -> ГГГГ-ММ-ДД в году недели; всё остальное — пусто */
+function wkDue(t, mon){
+  var m = /^(\d{1,2})[.\/-](\d{1,2})$/.exec(String(t || '').trim()); if (!m) return '';
+  var y = +String(mon).slice(0, 4), d = +m[1], mo = +m[2]; if (mo < 1 || mo > 12 || d < 1 || d > 31) return '';
+  return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+}
+function wkDecBind(){
+  var b = wkEl('wkDecB'); if (b) b.onclick = function(){
+    var t = wkEl('wkDecT').value.trim(); if (!t) return;
+    wkApi('week_dec', { op: 'add', mon: WK.cur.mon, text: t, who: wkEl('wkDecW').value.trim(), due: wkDue(wkEl('wkDecD').value, WK.cur.mon) })
+      .then(function(j){ if (!j || !j.ok) throw new Error((j && j.error) || ''); return wkLoadHist(); })
+      .then(wkRender).catch(function(e){ wkMsg('Решение не сохранилось: ' + (e.message || e), 'err'); });
+  };
+  document.querySelectorAll('#outW select[data-dec]').forEach(function(s){
+    s.onchange = function(){
+      wkApi('week_dec', { op: 'status', id: this.getAttribute('data-dec'), status: this.value })
+        .then(wkLoadHist).then(wkRender).catch(function(){});
+    };
+  });
+}
+
+/* Отчёт за неделю — кнопки */
+(function(){
+  var b = document.getElementById('btnWeek'); if (!b) return;
+  b.onclick = wkRun;
+  document.getElementById('btnWeekSave').onclick = wkSave;
+  document.getElementById('btnWeekPrint').onclick = function(){ window.print(); };
+})();
+
 </script>
 
 </body>
