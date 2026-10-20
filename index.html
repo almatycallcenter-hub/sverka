@@ -696,6 +696,7 @@
   .msPop label.msAll{border-bottom:1px solid var(--bd) !important;border-radius:6px 6px 0 0;margin-bottom:4px}
   .msPop input{width:auto;margin:0}
   /* ── Отчёт за неделю ── */
+  .kassa-ok{color:var(--okT)} .kassa-err{color:var(--badT)}
   .wkB{color:var(--mut);font-size:11.5px;font-weight:400;white-space:nowrap}
   .wkOk{color:var(--okT)} .wkNa{color:var(--naT)} .wkBad{color:var(--badT)}
   .wkSm{font-size:12px;max-width:340px;white-space:normal}
@@ -1014,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', function(){
                 Даёт и час выхода в стоп, и продажи со скидкой 20% — отдельный файл 20% больше не нужен.
                 <b>Тип скидки при выгрузке не фильтруйте</b>, нужны все.</div>
               <input type="file" id="fCheki" accept=".xlsx"></div>
+        <div class="f"><label>Касса на Google Диске</label><div class="h" id="kassaSt">Чеки сами сохраняются на Диск после загрузки. На другом компьютере их не нужно загружать заново — достаточно товарного отчёта и ведомости.</div><button class="sec" id="btnKassa" type="button" onclick="kassaSync(true)">Сверить с Диском</button></div>
             <div class="f"><label>Продажи со скидкой 50%</label>
               <div class="h">С колонкой «В кредит на...» — кто из сотрудников выкупил</div>
               <input type="file" id="fProd50" accept=".xlsx"></div>
@@ -2588,6 +2590,7 @@ $('btnLoad').onclick = async function(){
         }catch(e){}
         if (!rch.times.length) problems.push('В «' + f.name + '» не нашлось продаж со временем.');
         else { mergeRows('cheki', rch.times);
+               if (typeof KASSA_NEW !== 'undefined') KASSA_NEW = KASSA_NEW.concat(rch.times.map(function(r){ return r[0]; }));
                done.push('продажи по чекам: ' + rch.times.length + ' позиций со временем'); }
         if (rch.s20.length){ mergeRows('s20', rch.s20);
           done.push('продажи 20%: ' + rch.s20.length + ' строк (из этого же файла)'); }
@@ -2641,6 +2644,7 @@ $('btnLoad').onclick = async function(){
     if (!done.length && !problems.length) msg('m1','Ни один файл не выбран.','err');
     else {
       saveDB();
+      if (typeof kassaPushNew === 'function') kassaPushNew();
       msg('m1', (done.length ? 'Готово.<br>' + done.join('<br>') : '') +
         (problems.length ? '<br><br><b>На что обратить внимание:</b><br>• ' +
           problems.join('<br>• ') : ''),
@@ -10660,6 +10664,7 @@ $('a0Go').onclick = function(){
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
     if (p === 'hist' && typeof renderHist === 'function') renderHist();
     if (p === 'dq' && typeof dqRender === 'function') dqRender();
+    if (p === 'up' && typeof kassaSync === 'function') kassaSync(false);
     if (p === 'bk' && typeof bkaLoad === 'function') bkaLoad();
     if (typeof showFresh === 'function') showFresh();
     if (p === 'chr'){
@@ -12067,6 +12072,75 @@ function wkRender(){
     '<div class="card"><h2>Качество данных</h2>' + wkQuality(W) + '</div>' +
     '<div class="card"><h2>Решения на неделю</h2><p class="lead">3–5 действий с ответственным. Через неделю здесь же отмечаем, выполнены ли решения прошлой недели.</p>' + wkDecHtml(W) + '</div>';
   wkDecBind();
+}
+
+/* ═════════ Касса на Google Диске ═════════
+   «Продажи по чекам» после закрытия смены не меняются. Сайт сохраняет разобранные
+   строки на Диск (по файлу на день, без ФИО и ИИН), а на другом компьютере скачивает
+   их обратно — загружать заново нужно только товарный отчёт и ведомость. */
+var KASSA_KEYS = ['cheki', 'full', 's20', 'dsc', 'disc', 'kxs'], KASSA_BUSY = false, KASSA_NEW = [];
+function kassaMsg(t, cls){ var e = document.getElementById('kassaSt'); if (e){ e.innerHTML = t; e.className = 'h' + (cls ? ' kassa-' + cls : ''); } }
+function kassaLocalDays(){ var s = {}; (DB.cheki || []).forEach(function(r){ s[r[0]] = 1; }); return s; }
+function kassaBundles(days){
+  var want = {}, out = {};
+  days.forEach(function(d){ want[d] = 1; out[d] = {}; });
+  KASSA_KEYS.forEach(function(k){ (DB[k] || []).forEach(function(r){ if (want[r[0]]) (out[r[0]][k] = out[r[0]][k] || []).push(r); }); });
+  return days.map(function(d){ return { d: d, data: out[d] }; });
+}
+async function kassaPush(days){
+  days = days.slice().sort(); var ok = 0;
+  DB.kassaV = DB.kassaV || {};
+  for (var i = 0; i < days.length; i += 5){
+    if (days.length > 5) kassaMsg('Сохраняю на Диск: ' + Math.min(i + 5, days.length) + ' из ' + days.length + ' дн.…');
+    var j = await wkApi('kassa_put', { days: kassaBundles(days.slice(i, i + 5)) });
+    if (!j || !j.ok) throw new Error((j && j.error) || 'не сохранилось');
+    (j.saved || []).forEach(function(d){ DB.kassaV[d] = Date.now(); ok++; });
+  }
+  return ok;
+}
+function kassaPushNew(){
+  var s = {}; KASSA_NEW.forEach(function(d){ s[d] = 1; }); KASSA_NEW = [];
+  var days = Object.keys(s); if (!days.length) return;
+  kassaMsg('Сохраняю на Диск: ' + days.length + ' дн.…');
+  kassaPush(days).then(function(n){ saveDB(); kassaMsg('Сохранено на Диск: ' + n + ' дн. (' + days.sort()[0].split('-').reverse().join('.') +
+    (days.length > 1 ? ' — ' + days[days.length - 1].split('-').reverse().join('.') : '') + ').', 'ok'); })
+    .catch(function(e){ kassaMsg('Не сохранилось на Диск: ' + (e.message || e) + '. Нажмите «Сверить с Диском» позже.', 'err'); });
+}
+async function kassaSync(manual){
+  if (KASSA_BUSY) return; KASSA_BUSY = true;
+  try{
+    if (typeof DBREADY !== 'undefined') try{ await DBREADY; }catch(e){}
+    kassaMsg('Сверяю с Диском…');
+    var j = await wkApi('kassa_list', {});
+    if (!j || !j.ok) throw new Error((j && j.error) || 'нет ответа');
+    DB.kassaV = DB.kassaV || {};
+    var drive = {}; (j.days || []).forEach(function(x){ drive[x[0]] = x[1]; });
+    var local = kassaLocalDays();
+    var need = Object.keys(drive).filter(function(d){ return !local[d] || (DB.kassaV[d] && DB.kassaV[d] < drive[d]); }).sort(), got = 0;
+    for (var i = 0; i < need.length; i += 10){
+      kassaMsg('Скачиваю кассу с Диска: ' + Math.min(i + 10, need.length) + ' из ' + need.length + ' дн.…');
+      var g = await wkApi('kassa_get', { days: need.slice(i, i + 10) });
+      if (!g || !g.ok) throw new Error((g && g.error) || 'не скачалось');
+      (g.items || []).forEach(function(it){
+        if (!it.data) return;
+        KASSA_KEYS.forEach(function(k){
+          DB[k] = (DB[k] || []).filter(function(r){ return r[0] !== it.d; }).concat(it.data[k] || []);
+        });
+        DB.kassaV[it.d] = it.ts; got++;
+      });
+    }
+    /* в браузере есть дни, которых нет на Диске — сохраним их туда (так уходит и вся прежняя история) */
+    /* дни, что уже были в браузере до Диска, считаем совпадающими с Диском */
+    Object.keys(drive).forEach(function(d){ if (local[d] && !DB.kassaV[d]) DB.kassaV[d] = drive[d]; });
+    var up = Object.keys(local).filter(function(d){ return !drive[d]; }).sort(), sent = 0;
+    if (up.length){ kassaMsg('Сохраняю на Диск: ' + up.length + ' дн.…'); sent = await kassaPush(up); }
+    if (got || sent) saveDB();
+    if (got && typeof refresh === 'function') refresh();
+    var all = Object.keys(drive).length + sent;
+    kassaMsg('На Диске касса за ' + all + ' дн.' + (got ? ' Скачано сюда: ' + got + '.' : '') + (sent ? ' Сохранено сейчас: ' + sent + '.' : '') +
+      ' Чеки на этом компьютере загружать заново не нужно.', 'ok');
+  }catch(e){ kassaMsg('Диск недоступен: ' + (e.message || e), manual ? 'err' : ''); }
+  KASSA_BUSY = false;
 }
 
 /* ═════════ Страница «Качество данных» ═════════ */
