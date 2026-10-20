@@ -12106,6 +12106,12 @@ function kassaPushNew(){
     (days.length > 1 ? ' — ' + days[days.length - 1].split('-').reverse().join('.') : '') + ').', 'ok'); })
     .catch(function(e){ kassaMsg('Не сохранилось на Диск: ' + (e.message || e) + '. Нажмите «Сверить с Диском» позже.', 'err'); });
 }
+async function kassaUnzip(b64){
+  var bin = atob(b64), u = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  var txt = await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(txt);
+}
 async function kassaSync(manual){
   if (KASSA_BUSY) return; KASSA_BUSY = true;
   try{
@@ -12116,25 +12122,40 @@ async function kassaSync(manual){
     DB.kassaV = DB.kassaV || {};
     var drive = {}; (j.days || []).forEach(function(x){ drive[x[0]] = x[1]; });
     var local = kassaLocalDays();
-    var need = Object.keys(drive).filter(function(d){ return !local[d] || (DB.kassaV[d] && DB.kassaV[d] < drive[d]); }).sort(), got = 0;
-    for (var i = 0; i < need.length; i += 10){
-      kassaMsg('Скачиваю кассу с Диска: ' + Math.min(i + 10, need.length) + ' из ' + need.length + ' дн.…');
-      var g = await wkApi('kassa_get', { days: need.slice(i, i + 10) });
-      if (!g || !g.ok) throw new Error((g && g.error) || 'не скачалось');
-      (g.items || []).forEach(function(it){
-        if (!it.data) return;
+    var need = Object.keys(drive).filter(function(d){ return !local[d] || (DB.kassaV[d] && DB.kassaV[d] < drive[d]); }).sort(), got = 0, fail = '';
+    var gz = typeof DecompressionStream === 'function';
+    for (var i = 0; i < need.length && !fail; i += 5){
+      kassaMsg('Скачиваю кассу с Диска: ' + Math.min(i + 5, need.length) + ' из ' + need.length + ' дн.… Не закрывайте страницу.');
+      var g = null, tries = 0;
+      while (!g && tries < 3){
+        tries++;
+        try{ g = await wkApi('kassa_get', { days: need.slice(i, i + 5), gz: gz ? 1 : 0 }); if (!g || !g.ok) throw new Error((g && g.error) || 'не скачалось'); }
+        catch(e){ g = null; if (tries >= 3) fail = e.message || String(e); else await new Promise(function(r){ setTimeout(r, 2000 * tries); }); }
+      }
+      if (!g) break;
+      for (var n = 0; n < (g.items || []).length; n++){
+        var it = g.items[n], data = it.data;
+        if (!data && it.gz){ try{ data = await kassaUnzip(it.gz); }catch(e){ data = null; } }
+        if (!data) continue;
         KASSA_KEYS.forEach(function(k){
-          DB[k] = (DB[k] || []).filter(function(r){ return r[0] !== it.d; }).concat(it.data[k] || []);
+          DB[k] = (DB[k] || []).filter(function(r){ return r[0] !== it.d; }).concat(data[k] || []);
         });
         DB.kassaV[it.d] = it.ts; got++;
-      });
+      }
+      saveDB();   // скачанное не пропадёт, даже если связь оборвётся на следующей пачке
+    }
+    if (fail){
+      if (got && typeof refresh === 'function') refresh();
+      kassaMsg('Скачано ' + got + ' из ' + need.length + ' дн., дальше связь оборвалась (' + fail + '). ' +
+        'Остальное докачается, когда снова откроете эту страницу или нажмёте «Сверить с Диском».', manual ? 'err' : '');
+      KASSA_BUSY = false; return;
     }
     /* в браузере есть дни, которых нет на Диске — сохраним их туда (так уходит и вся прежняя история) */
     /* дни, что уже были в браузере до Диска, считаем совпадающими с Диском */
     Object.keys(drive).forEach(function(d){ if (local[d] && !DB.kassaV[d]) DB.kassaV[d] = drive[d]; });
     var up = Object.keys(local).filter(function(d){ return !drive[d]; }).sort(), sent = 0;
     if (up.length){ kassaMsg('Сохраняю на Диск: ' + up.length + ' дн.…'); sent = await kassaPush(up); }
-    if (got || sent) saveDB();
+    if (sent) saveDB();
     if (got && typeof refresh === 'function') refresh();
     var all = Object.keys(drive).length + sent;
     kassaMsg('На Диске касса за ' + all + ' дн.' + (got ? ' Скачано сюда: ' + got + '.' : '') + (sent ? ' Сохранено сейчас: ' + sent + '.' : '') +
