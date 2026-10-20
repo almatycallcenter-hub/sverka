@@ -696,6 +696,20 @@
   .msPop label.msAll{border-bottom:1px solid var(--bd) !important;border-radius:6px 6px 0 0;margin-bottom:4px}
   .msPop input{width:auto;margin:0}
   /* ── Отчёт за неделю ── */
+  .wkB{color:var(--mut);font-size:11.5px;font-weight:400;white-space:nowrap}
+  .wkOk{color:var(--okT)} .wkNa{color:var(--naT)} .wkBad{color:var(--badT)}
+  .wkSm{font-size:12px;max-width:340px;white-space:normal}
+  tr.wkTot td{font-weight:600;border-top:2px solid var(--bd)}
+  .wkH3{font-size:14px;margin:16px 0 4px}
+  .wkWarn{background:rgba(250,178,25,.18);border-radius:8px;padding:8px 12px;font-size:13px}
+  .wkBriefBar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin-top:14px}
+  .wkBriefBar .btnLink{display:inline-flex;align-items:center;padding:7px 12px;border-radius:8px;background:#1f9d55;color:#fff;text-decoration:none;font-weight:600;font-size:13px}
+  .wkKpi>div .wkD{display:block}
+  .dqHm{display:grid;gap:3px;overflow-x:auto;font-variant-numeric:tabular-nums}
+  .dqHm .h{font-size:11px;color:var(--mut);text-align:center}
+  .dqHm .rn{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
+  .dqHm .c{height:30px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:600}
+  .dqHm .c.ok{background:rgba(12,163,12,.14);color:var(--okT)} .dqHm .c.part{background:rgba(250,178,25,.22);color:var(--naT)} .dqHm .c.no{background:rgba(208,59,59,.16);color:var(--badT)}
   .wkClk{cursor:pointer;border-radius:6px} .wkClk:hover{background:var(--row,#f3f3f0)} .wkDrill{margin:2px 0 12px}
   .wkDrill td,.wkDrill th{font-size:12.5px;padding:5px 7px}
   .wkHead{margin:4px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.45}
@@ -946,21 +960,23 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="bk"><span class="ic">🛍️</span>Брони сотрудников</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
-      <div class="navsec">Аналитика</div>
+      <div class="navsec">Отчёт</div>
       <a data-page="wk"><span class="ic">🗓️</span>Отчёт за неделю</a>
+      <a data-page="dq"><span class="ic">🧪</span>Качество данных</a>
+      <div class="navsec">Потери</div>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
       <a data-page="chr" data-tab="pos"><span class="ic">📈</span>Хронология</a>
       <a data-page="chr" data-tab="dyn"><span class="ic">📉</span>Динамика по дням</a>
       <a data-page="chr" data-tab="loss"><span class="ic">🏷️</span>Скидки и потери</a>
+      <a data-page="chr" data-tab="norm"><span class="ic">📏</span>Нормы потерь</a>
+      <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
       <a data-page="heat" data-tab="rank"><span class="ic">⏰</span>Что покупают по времени</a>
       <a data-page="heat" data-tab="qty"><span class="ic">🔥</span>Когда уценивают</a>
-      <div class="navsec">Дополнительно</div>
-      <a data-page="chr" data-tab="trio"><span class="ic">🥇</span>Топ-20: худший / лучший</a>
+      <div class="navsec">Перераспределение</div>
       <a data-page="chr" data-tab="pair"><span class="ic">🚚</span>Перемещать вместо уценки</a>
+      <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <a data-page="sos"><span class="ic">🆘</span>Спасатель филиала</a>
       <a data-page="chr" data-tab="prog"><span class="ic">🔮</span>Прогноз излишка</a>
-      <a data-page="chr" data-tab="norm"><span class="ic">📏</span>Нормы потерь</a>
-      <a data-page="chr" data-tab="route"><span class="ic">🗺️</span>Маршруты</a>
       <div class="navsec">Ещё</div>
       <a data-page="db"><span class="ic">💾</span>Хранилище</a>
       <a data-page="hist"><span class="ic">🗂️</span>История сверок</a>
@@ -1477,6 +1493,22 @@ document.addEventListener('DOMContentLoaded', function(){
       </section>
 
       <!-- ─── История ──────────────────────────────────── -->
+      <!-- ─── Качество данных ───────────────────────────── -->
+      <section class="page wide" id="pg-dq">
+        <div class="card">
+          <h2>Полнота выгрузки</h2>
+          <p class="lead">Сколько продукции витрины продано в каждом филиале по дням за последние две недели. Если день заметно меньше обычного — файл выгрузили посреди дня, этот день нужно загрузить заново.</p>
+          <div id="dqFull"></div>
+        </div>
+        <div class="card">
+          <h2>Сверка с ведомостью iiko</h2>
+          <p class="lead">Загрузите «Расширенную оборотно-сальдовую ведомость» из iiko по одному филиалу (можно со всеми его складами). Сайт сравнит приход, продажи, списания и инвентаризацию по каждой позиции с тем, что у него в выгрузках.</p>
+          <div class="row"><input type="file" id="fOsv" accept=".xlsx"> <label class="lbl"><input type="checkbox" id="osvOnly" checked> только продукция витрины</label></div>
+          <div class="msg" id="mOsv"></div>
+          <div id="outOsv"></div>
+        </div>
+      </section>
+
       <!-- ─── Отчёт за неделю ───────────────────────────── -->
       <section class="page wide" id="pg-wk">
         <div class="card noprint">
@@ -10589,6 +10621,7 @@ $('a0Go').onclick = function(){
 /* ═════════ навигация по разделам ═════════ */
 (function(){
   var TITLES = {
+    dq:  ['Качество данных','полнота выгрузок и сверка с ведомостью iiko'],
     wk:  ['Отчёт за неделю','итоги понедельника: деньги, потери, решения'],
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
@@ -10626,6 +10659,7 @@ $('a0Go').onclick = function(){
     el('scrim').classList.remove('on');
     var b = document.querySelector('.bodyArea'); if (b) b.scrollTop = 0;
     if (p === 'hist' && typeof renderHist === 'function') renderHist();
+    if (p === 'dq' && typeof dqRender === 'function') dqRender();
     if (p === 'bk' && typeof bkaLoad === 'function') bkaLoad();
     if (typeof showFresh === 'function') showFresh();
     if (p === 'chr'){
@@ -11475,6 +11509,7 @@ function wkCalc(mon){
     var o = cell(day, wh + '|' + ((wkDate(d).getDay() + 6) % 7));
     o.s20 += q; o.loss += q * wkPrice(name) * WK_LOSS.s20;
   });
+  var ext = wkExtra(mon, sun, BR);
   var tot = cell({}, 't');
   BR.forEach(function(w){ var o = by[w]; if (!o) return;
     Object.keys(tot).forEach(function(k){ if (typeof tot[k] === 'number' && k !== 'price') tot[k] += o[k]; }); });
@@ -11485,7 +11520,7 @@ function wkCalc(mon){
     if (miss.length) missing.push({ wh: w, days: miss });
   });
   return { mon: mon, sun: sun, branches: BR, by: by, dish: dish, day: day, bd: bd, tot: tot, stop: stop,
-           noPrice: Object.keys(noPrice).sort(), missing: missing };
+           noPrice: Object.keys(noPrice).sort(), missing: missing, ext: ext };
 }
 var WK_MSEG = { full: 'mFull', s20: 'mS20', dsc: 'mDsc', f50: 'mF50', vz: 'mVz', sp: 'mSp' };
 function wkSeg2(){ return WK_SEG.slice(0, 2).concat([{ k: 'dsc', t: 'другие скидки (бонусы MXM, ДР −10%, 10%)', c: '#3b82c4' }], WK_SEG.slice(2)); }
@@ -11576,6 +11611,8 @@ function wkHeadline(W, P){
       (s0 != null && s0 <= medS ? 'Потери там ниже середины по сети — заявку можно увеличить.'
                                : 'При этом и потери выше середины по сети — заявка не попадает в спрос по позициям.'));
   }
+  if (W.ext && W.ext.partial.length) out.push('Выгрузка неполная: ' + W.ext.partial.map(function(p){ return wkEsc(p.wh) + ' ' + wkRu(p.d); }).join(', ') +
+    ' — продаж меньше половины обычного дня, загрузите эти дни заново.');
   if (W.missing.length) out.push('Неполные данные: ' + W.missing.length + ' фил. без выгрузки за часть дней — ' +
     'цифры по ним занижены.');
   else if (W.noPrice.length) out.push('Нет цены у ' + W.noPrice.length + ' позиций — их потери в тенге не посчитаны.');
@@ -11669,59 +11706,485 @@ function wkHeat(W){
   });
   return h + '</div><p class="hint">Потери в тенге по дням недели. Тёмная клетка — день, в который филиал заказывает с запасом.</p>';
 }
+
+/* ── страница ── */
+/* ═════════ Отчёт за неделю — дополнения (20.10.2026) ═════════
+   Нормы и стоп по часам закрытия, инвентаризация и вероятный пересорт,
+   полнота выгрузки, среднее за 4 недели, «Главное в 5 строках». */
+var WK_CLOSE = null;
+function wkMin(s){ var m = /(\d{1,2})\D(\d{2})/.exec(S(s)); return m ? +m[1] * 60 + +m[2] : null; }
+function wkHm(t){ return t == null ? '—' : Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
+function wkBase(n, d, unit){ return d ? ' <span class="wkB">(' + wkQ(n) + ' из ' + wkQ(d) + (unit || '') + ')</span>' : ''; }
+function wkQ(q){ q = Math.round(q * 10) / 10; return q.toLocaleString('ru-RU'); }
+/* Время закрытия филиала — по последним чекам за 4 недели: берём «поздний обычный» день
+   (75-й процентиль) и округляем вверх до получаса: последний чек 21:47 → закрытие 22:00. */
+function wkCloseTimes(BR){
+  if (WK_CLOSE) return WK_CLOSE;
+  var last = '', mx = {}, memo = {};
+  (DB.cheki || []).forEach(function(r){ if (r[0] > last) last = r[0]; });
+  var from = last ? wkAdd(last, -28) : '';
+  (DB.cheki || []).forEach(function(r){
+    var d = r[0]; if (!d || d < from) return;
+    var c = S(r[1]), wh = memo[c]; if (wh === undefined) wh = memo[c] = wkBranchOf(c, BR) || '';
+    if (!wh) return;
+    var t = wkMin(r[3]); if (t == null) return;
+    var k = wh + '|' + d; if (!(mx[k] >= t)) mx[k] = t;
+  });
+  var per = {};
+  Object.keys(mx).forEach(function(k){ var w = k.slice(0, k.indexOf('|')); (per[w] = per[w] || []).push(mx[k]); });
+  WK_CLOSE = {};
+  Object.keys(per).forEach(function(w){
+    var a = per[w].sort(function(x, y){ return x - y; });
+    WK_CLOSE[w] = Math.min(24 * 60, Math.ceil(a[Math.floor((a.length - 1) * 0.75)] / 30) * 30);
+  });
+  return WK_CLOSE;
+}
+/* продажи витрины (шт) по филиалу и дню — для проверки полноты выгрузки */
+function wkDayCounts(from, to, BR){
+  var c = {};
+  (DB.mov || []).forEach(function(r){
+    var d = r[0]; if (!d || d < from || d > to || r[3] !== 'realiz') return;
+    if (BR.indexOf(r[1]) < 0 || !SPR[nrm(r[2])]) return;
+    var k = r[1] + '|' + d; c[k] = (c[k] || 0) + N(r[4]);
+  });
+  return c;
+}
+function wkMedian(a){ if (!a.length) return null; a = a.slice().sort(function(x, y){ return x - y; }); return a[a.length >> 1]; }
+/* обычный день филиала — медиана продаж за 4 недели до даты (дни без продаж не берём) */
+function wkPartial(from, to, BR){
+  var c = wkDayCounts(wkAdd(from, -28), to, BR), out = [];
+  BR.forEach(function(w){
+    var base = [];
+    for (var i = 1; i <= 28; i++){ var v = c[w + '|' + wkAdd(from, -i)]; if (v > 0) base.push(v); }
+    if (base.length < 5) for (var j = 0; ; j++){ var d0 = wkAdd(from, j); if (d0 > to) break; var v0 = c[w + '|' + d0]; if (v0 > 0) base.push(v0); }
+    var md = wkMedian(base); if (!md) return;
+    for (var d = from; d <= to; d = wkAdd(d, 1)){
+      var v1 = c[w + '|' + d] || 0;
+      if (v1 > 0 && v1 < md * 0.5) out.push({ wh: w, d: d, n: Math.round(v1), base: Math.round(md) });
+    }
+  });
+  return out;
+}
+/* всё дополнительное по неделе; вызывается из wkCalc сразу после chrono — SERIES ещё этой недели */
+function wkExtra(mon, sun, BR){
+  var ext = { stop: {}, norm: {}, inv: {}, pairs: [], same: [], partial: [], close: {} };
+  try{ ext.close = wkCloseTimes(BR); }catch(e){}
+  /* стоп: срок 24 ч — пустая витрина за час до закрытия норма; остальные сроки — норма 0 */
+  try{
+    Object.keys(SERIES).forEach(function(k){
+      var ser = SERIES[k], inf = ser.info; if (!inf || BR.indexOf(inf.wh) < 0) return;
+      var g = normSeg(inf, ser); if (!g) return;
+      var o = ext.stop[inf.wh] || (ext.stop[inf.wh] = { days: 0, stop: 0, ok: 0, over: 0, items: {} });
+      var cl = ext.close[inf.wh];
+      ser.forEach(function(x){
+        if (!x || x.d < mon || x.d > sun) return;
+        var sold = N(x.s) > 1e-9;   // стоп считаем только в дни, когда позицию продавали: распродали до нуля
+        if (!((x.st === 1 && sold) || N(x.bal) > 1e-9)) return;
+        o.days++;
+        if (x.st !== 1 || !sold) return;
+        o.stop++;
+        var t = wkMin(x.tm);
+        if (g.srok === '24 ч' && cl && t != null && t >= cl - 60) o.ok++;
+        else { o.over++; o.items[inf.name] = (o.items[inf.name] || 0) + 1; }
+      });
+    });
+  }catch(e){}
+  /* нормы «Не продано» и уценки — утверждённые на странице «Нормы потерь» (по сроку и форме хранения) */
+  try{
+    normPositions().forEach(function(x){
+      if (BR.indexOf(x.wh) < 0) return;
+      var n = normOf(x.g.id); if (!n) return;
+      var o = ext.norm[x.wh] || (ext.norm[x.wh] = { P: 0, L: 0, D: 0, aL: 0, aD: 0, oL: 0, oD: 0, mOL: 0, items: {} });
+      var aL = x.P * N(n.sp) / 100, aD = x.P * N(n.ud) / 100, pr = x.L > 1e-9 ? x.mL / x.L : 0;
+      o.P += x.P; o.L += x.L; o.D += x.D; o.aL += aL; o.aD += aD;
+      var ol = Math.max(0, x.L - aL); o.oL += ol; o.oD += Math.max(0, x.D - aD); o.mOL += ol * pr;
+      if (ol >= 1) o.items[x.name] = (o.items[x.name] || 0) + ol;
+    });
+  }catch(e){}
+  /* инвентаризация: излишки и недостача по продукции витрины, в тенге по цене продажи */
+  var dIn = {}, dOut = {};
+  (DB.mov || []).forEach(function(r){
+    var d = r[0]; if (!d || d < mon || d > sun) return;
+    var t = r[3]; if (t !== 'inv_in' && t !== 'inv_out') return;
+    var wh = r[1]; if (BR.indexOf(wh) < 0) return;
+    var k = nrm(r[2]); if (!SPR[k]) return;
+    var b = baseOf(k), sp = SPR[b.k] || SPR[k], q = N(r[4]) * b.f; if (!q) return;
+    var nm = S(sp.name) || S(r[2]), price = wkPrice(nm) || wkPrice(S(r[2])) || 0;
+    var o = ext.inv[wh] || (ext.inv[wh] = { inN: 0, outN: 0, inM: 0, outM: 0, items: {} });
+    var it = o.items[nm] || (o.items[nm] = { inN: 0, outN: 0, price: price });
+    if (t === 'inv_in'){ o.inN += q; o.inM += q * price; it.inN += q; }
+    else { o.outN += q; o.outM += q * price; it.outN += q; }
+    var kk = wh + '|' + d, box = t === 'inv_in' ? dIn : dOut;
+    (box[kk] = box[kk] || []).push({ name: nm, kat: S(sp.kat), price: price, q: q });
+  });
+  /* вероятный пересорт: в один день в одном филиале у позиции недостача, а у похожей
+     (та же категория, цена отличается не больше чем на треть) — излишек */
+  Object.keys(dOut).forEach(function(kk){
+    var ins = (dIn[kk] || []).map(function(x){ return { name: x.name, kat: x.kat, price: x.price, q: x.q }; });
+    if (!ins.length) return;
+    var p = kk.indexOf('|'), wh = kk.slice(0, p), d = kk.slice(p + 1);
+    dOut[kk].forEach(function(o){
+      var left = o.q;
+      ins.filter(function(i){ return i.q > 1e-9 && i.name !== o.name && i.kat === o.kat &&
+          (!o.price || !i.price || Math.abs(i.price - o.price) / Math.max(o.price, i.price) <= 0.34); })
+        .sort(function(a, b){ return Math.abs(a.price - o.price) - Math.abs(b.price - o.price); })
+        .forEach(function(i){
+          if (left < 1e-9) return;
+          var q = Math.min(left, i.q); left -= q; i.q -= q;
+          ext.pairs.push({ wh: wh, d: d, out: o.name, inn: i.name, q: q, mOut: q * o.price, mIn: q * i.price });
+        });
+    });
+  });
+  var agg = {};
+  ext.pairs.forEach(function(p){ var k = p.wh + '|' + p.out + '|' + p.inn, a = agg[k] || (agg[k] = { wh: p.wh, d: p.d, days: {}, out: p.out, inn: p.inn, q: 0, mOut: 0, mIn: 0 });
+    a.q += p.q; a.mOut += p.mOut; a.mIn += p.mIn; a.days[p.d] = 1; });
+  ext.pairs = Object.keys(agg).map(function(k){ return agg[k]; }).filter(function(a){ return a.q >= 1; });
+  ext.pairs.sort(function(a, b){ return b.mOut - a.mOut; });
+  Object.keys(ext.inv).forEach(function(w){
+    Object.keys(ext.inv[w].items).forEach(function(n){
+      var it = ext.inv[w].items[n];
+      if (it.inN >= 2 && it.outN >= 2) ext.same.push({ wh: w, name: n, inN: it.inN, outN: it.outN });
+    });
+  });
+  ext.same.sort(function(a, b){ return Math.min(b.inN, b.outN) - Math.min(a.inN, a.outN); });
+  try{ ext.partial = wkPartial(mon, sun, BR); }catch(e){}
+  return ext;
+}
+function wkInvNet(o){ return o ? o.outM - o.inM : 0; }
+function wkStopOver(W, wh){ var s = W.ext && W.ext.stop[wh]; return s && s.days ? s.over / s.days : null; }
+function wkNetStopOver(W){
+  var a = 0, b = 0; if (!W.ext) return null;
+  Object.keys(W.ext.stop).forEach(function(w){ a += W.ext.stop[w].over; b += W.ext.stop[w].days; });
+  return b ? a / b : null;
+}
+/* среднее за 4 недели до отчётной: прошлая неделя + три до неё */
+function wkAvg4(f){
+  var a = [WK.prev].concat(WK.past || []).map(function(X){ try{ return X ? f(X) : null; }catch(e){ return null; } })
+    .filter(function(v){ return v != null && isFinite(v); });
+  return a.length ? a.reduce(function(s, v){ return s + v; }, 0) / a.length : null;
+}
+function wkAvgTxt(v, cur, money){
+  if (v == null) return '';
+  var s = money ? wkK(v) : wkPct(v);
+  var c = cur == null ? '' : (cur > v * 1.05 ? ' bad' : cur < v * 0.95 ? ' ok' : '');
+  return '<span class="wkD' + c + '">ср. 4 нед.: ' + s + '</span>';
+}
+
+function wkKpis(W, P){
+  var t = W.tot, p = P.tot;
+  function tile(label, val, delta, sub, avg){
+    return '<div><span>' + label + '</span><b>' + val + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + delta + (avg || '') + '</div>'; }
+  function netStop(X){ var st = 0, all = 0; Object.keys(X.stop).forEach(function(w){ st += X.stop[w].st; all += X.stop[w].all; });
+    return all ? st / all : null; }
+  var so = 0, sd = 0, inv = 0;
+  Object.keys(W.ext.stop).forEach(function(w){ so += W.ext.stop[w].over; sd += W.ext.stop[w].days; });
+  Object.keys(W.ext.inv).forEach(function(w){ inv += wkInvNet(W.ext.inv[w]); });
+  return '<div class="kpi wkKpi">' +
+    tile('Потери выручки', wkK(t.loss), p.loss ? wkDelta(t.loss, p.loss, true) : '', 'по цене продажи',
+         wkAvgTxt(wkAvg4(function(X){ return X.tot.loss; }), t.loss, true)) +
+    tile('Доля потерь', wkPct(wkShare(t)), wkDelta(wkShare(t), wkShare(p)), 'от стоимости прихода',
+         wkAvgTxt(wkAvg4(function(X){ return wkShare(X.tot); }), wkShare(t))) +
+    tile('Выручка', wkK(t.rev), p.rev ? wkDelta(t.rev, p.rev, true) : '', 'по цене продажи, со скидками') +
+    tile('Пустая витрина', wkPct(netStop(W)), wkDelta(netStop(W), netStop(P)), 'дней с позицией',
+         wkAvgTxt(wkAvg4(netStop), netStop(W))) +
+    tile('Стоп сверх нормы', wkPct(sd ? so / sd : null), wkDelta(wkNetStopOver(W), wkNetStopOver(P)),
+         wkQ(so) + ' из ' + wkQ(sd) + ' дн. · 24 ч — за час до закрытия норма') +
+    tile('Инвентаризация', (inv > 0 ? '−' : inv < 0 ? '+' : '') + wkK(Math.abs(inv)), '',
+         inv > 0 ? 'недостача больше излишков' : inv < 0 ? 'излишки больше недостачи' : 'итог по сети') +
+    '</div>';
+}
+
 function wkBranchTable(W, P){
   var rows = W.branches.filter(function(w){ return W.by[w]; })
     .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
   var h = '<div class="wrapT"><table><thead><tr><th>Филиал</th><th>Приход</th><th>Потери выручки</th><th>Доля потерь</th>' +
-    '<th>к прошлой неделе</th><th>Пустая витрина</th><th>к прошлой неделе</th></tr></thead><tbody>';
+    '<th>к прошлой неделе</th><th>ср. 4 нед.</th><th>Пустая витрина</th><th>Стоп сверх нормы</th><th>Закрытие</th>' +
+    '<th>Инвентаризация, итог</th></tr></thead><tbody>';
   rows.forEach(function(w){
-    var o = W.by[w], p = P.by[w], s = wkShare(o), ps = wkShare(p), st = wkStop(W, w), pst = wkStop(P, w);
+    var o = W.by[w], p = P.by[w], s = wkShare(o), ps = wkShare(p);
+    var st = W.stop[w] || { st: 0, all: 0 }, so = W.ext.stop[w] || { over: 0, days: 0 };
+    var a4 = wkAvg4(function(X){ return X.by[w] ? wkShare(X.by[w]) : null; });
+    var inv = W.ext.inv[w], net = wkInvNet(inv);
     h += '<tr><td class="name">' + wkEsc(w) + '</td><td>' + wkK(o.gross) + '</td><td>' + wkK(o.loss) + '</td><td><b>' +
-      wkPct(s) + '</b></td><td>' + wkDelta(s, ps, false, true) + '</td><td>' + wkPct(st) + '</td><td>' + wkDelta(st, pst, false, true) + '</td></tr>';
+      wkPct(s) + '</b></td><td>' + wkDelta(s, ps, false, true) + '</td><td>' + wkAvgTxt(a4, s).replace('ср. 4 нед.: ', '') +
+      '</td><td>' + wkPct(st.all ? st.st / st.all : null) + wkBase(st.st, st.all, ' дн.') +
+      '</td><td>' + wkPct(so.days ? so.over / so.days : null) + wkBase(so.over, so.days, ' дн.') +
+      '</td><td>' + wkHm(W.ext.close[w]) + '</td><td>' +
+      (inv ? '<span class="' + (net > 0 ? 'wkBad' : 'wkOk') + '">' + (net > 0 ? '−' : '+') + wkK(Math.abs(net)) + '</span>' : '—') +
+      '</td></tr>';
   });
-  return h + '</tbody></table></div>';
+  return h + '</tbody></table></div><p class="hint">Пустая витрина — дни, когда позицию распродали до нуля, из дней, когда она была в филиале. ' +
+    'Сверх нормы: для срока 24 ч пустая витрина за час до закрытия — норма, раньше — превышение; для 48 ч и дольше норма 0; считаются дни, когда позицию продавали и распродали до нуля. ' +
+    'Время закрытия — по последним чекам филиала за 4 недели.</p>';
 }
+
+/* нормы: утверждённые на странице «Нормы потерь» — по сроку и форме хранения */
+function wkNorms(W){
+  var at = DB.norms && DB.norms.at ? ' (утверждены ' + wkEsc(DB.norms.at) + ')' : '';
+  var rows = W.branches.filter(function(w){ return W.ext.norm[w] || W.ext.stop[w]; });
+  if (!rows.length) return '<p class="hint">Норм пока нет — утвердите их на странице «Нормы потерь».</p>';
+  function cell(fact, norm, P){
+    if (!P) return '<td>—</td>';
+    var f = fact / P, n = norm / P, cls = f <= n + 1e-9 ? 'wkOk' : f <= n * 1.5 + 1e-9 ? 'wkNa' : 'wkBad';
+    return '<td><span class="' + cls + '">' + wkPct(f) + '</span> <span class="wkB">норма ' + wkPct(n) + '</span></td>';
+  }
+  var h = '<div class="wrapT"><table><thead><tr><th>Филиал</th><th>Не продано</th><th>сверх нормы по позициям, шт</th><th>то же, ₸</th>' +
+    '<th>Уценка</th><th>Стоп сверх нормы</th><th>Где чаще всего</th></tr></thead><tbody>';
+  rows.sort(function(a, b){ return ((W.ext.norm[b] || {}).mOL || 0) - ((W.ext.norm[a] || {}).mOL || 0); });
+  rows.forEach(function(w){
+    var n = W.ext.norm[w] || { P: 0, L: 0, D: 0, aL: 0, aD: 0, oL: 0, mOL: 0, items: {} }, s = W.ext.stop[w] || { over: 0, days: 0, items: {} };
+    var top = Object.keys(n.items).sort(function(a, b){ return n.items[b] - n.items[a]; }).slice(0, 2)
+      .map(function(k){ return wkEsc(k) + ' (не продано +' + wkQ(n.items[k]) + ')'; })
+      .concat(Object.keys(s.items).sort(function(a, b){ return s.items[b] - s.items[a]; }).slice(0, 2)
+      .map(function(k){ return wkEsc(k) + ' (стоп ' + s.items[k] + ' дн.)'; }));
+    h += '<tr><td class="name">' + wkEsc(w) + '</td>' + cell(n.L, n.aL, n.P) + '<td>' + (n.oL >= 0.5 ? wkQ(n.oL) : '—') + '</td><td>' +
+      (n.mOL >= 1 ? wkK(n.mOL) : '—') + '</td>' + cell(n.D, n.aD, n.P) +
+      '<td>' + wkPct(s.days ? s.over / s.days : null) + wkBase(s.over, s.days, ' дн.') + '</td><td class="name wkSm">' + (top.join('; ') || '—') + '</td></tr>';
+  });
+  return h + '</tbody></table></div><p class="hint">Нормы' + at + ' — по сроку и форме хранения, как на странице «Нормы потерь»: ' +
+    'норма филиала = сумма норм его позиций по их приходу. «Сверх нормы по позициям» — сумма перерасхода только по тем позициям, что вышли за норму: запас одной позиции не покрывает перерасход другой. ' +
+    'Уценка здесь — все скидки с процентом, как на странице «Нормы потерь». Зелёный — в норме, жёлтый — до полутора норм, красный — больше.</p>';
+}
+
+function wkInventory(W){
+  var ws = W.branches.filter(function(w){ return W.ext.inv[w]; });
+  if (!ws.length) return '<p class="hint">За неделю инвентаризаций по продукции витрины нет.</p>';
+  var T = { inN: 0, outN: 0, inM: 0, outM: 0 };
+  ws.sort(function(a, b){ return wkInvNet(W.ext.inv[b]) - wkInvNet(W.ext.inv[a]); });
+  var h = '<div class="wrapT"><table><thead><tr><th>Филиал</th><th>Излишки, шт</th><th>Излишки, ₸</th><th>Недостача, шт</th>' +
+    '<th>Недостача, ₸</th><th>Итог, ₸</th></tr></thead><tbody>';
+  ws.forEach(function(w){
+    var o = W.ext.inv[w], net = wkInvNet(o);
+    T.inN += o.inN; T.outN += o.outN; T.inM += o.inM; T.outM += o.outM;
+    h += '<tr><td class="name">' + wkEsc(w) + '</td><td>' + wkQ(o.inN) + '</td><td>' + wkK(o.inM) + '</td><td>' + wkQ(o.outN) +
+      '</td><td>' + wkK(o.outM) + '</td><td><b class="' + (net > 0 ? 'wkBad' : 'wkOk') + '">' + (net > 0 ? '−' : '+') + wkK(Math.abs(net)) + '</b></td></tr>';
+  });
+  var tn = T.outM - T.inM;
+  h += '<tr class="wkTot"><td class="name">Вся сеть</td><td>' + wkQ(T.inN) + '</td><td>' + wkK(T.inM) + '</td><td>' + wkQ(T.outN) +
+    '</td><td>' + wkK(T.outM) + '</td><td><b>' + (tn > 0 ? '−' : '+') + wkK(Math.abs(tn)) + '</b></td></tr></tbody></table></div>';
+  h += '<p class="hint">Итог = недостача − излишки по цене продажи; «−» — филиал недосчитался товара. ' +
+    'Если излишки и недостача почти равны, деньги не пропали, а продали одно, а пробили другое — это пересорт: он портит сверку и остатки.</p>';
+  if (W.ext.pairs.length){
+    h += '<h3 class="wkH3">Вероятный пересорт</h3><p class="hint">В один день в одном филиале у позиции недостача, а у похожей ' +
+      '(та же категория, близкая цена) — излишек. Проверить с филиалом, как пробивают.</p><div class="wrapT"><table><thead><tr>' +
+      '<th>Филиал</th><th>Дни</th><th>Недостача</th><th>Излишек</th><th>шт</th><th>₸</th></tr></thead><tbody>' +
+      W.ext.pairs.slice(0, 15).map(function(p){
+        return '<tr><td class="name">' + wkEsc(p.wh) + '</td><td class="wkSm">' + Object.keys(p.days).sort().map(function(d){ return wkRu(d).slice(0, 5); }).join(', ') + '</td><td class="name">' + wkEsc(p.out) +
+          '</td><td class="name">' + wkEsc(p.inn) + '</td><td>' + wkQ(p.q) + '</td><td>' + wkK(p.mOut) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' + (W.ext.pairs.length > 15 ? '<p class="hint">И ещё ' + (W.ext.pairs.length - 15) + ' пар.</p>' : '');
+  }
+  if (W.ext.same.length){
+    h += '<p class="hint"><b>У одной и той же позиции и излишек, и недостача за неделю</b> (пересчитывали в разные дни): ' +
+      W.ext.same.slice(0, 10).map(function(x){ return wkEsc(x.wh.replace(/\s*склад\s*$/i, '')) + ' — ' + wkEsc(x.name) +
+        ' (+' + wkQ(x.inN) + ' / −' + wkQ(x.outN) + ')'; }).join('; ') + '.</p>';
+  }
+  return h;
+}
+
+/* дисциплина — то, что сайт видит сам: списки на уценку по дням */
+function wkDiscipline(W){
+  var days = {}, ws = W.branches;
+  (DB.list || []).forEach(function(r){
+    var d = r[0]; if (!d || d < W.mon || d > W.sun) return;
+    var w = ws.indexOf(r[1]) >= 0 ? r[1] : wkBranchOf(S(r[1]), ws); if (!w) return;
+    (days[w] = days[w] || {})[d] = 1;
+  });
+  var h = '<div class="wrapT"><table><thead><tr><th>Филиал</th><th>Список на уценку прислан</th><th>Дни без списка</th></tr></thead><tbody>';
+  ws.filter(function(w){ return W.by[w]; }).forEach(function(w){
+    var got = days[w] ? Object.keys(days[w]).length : 0, miss = [];
+    for (var i = 0; i < 7; i++){ var d = wkAdd(W.mon, i); if (!(days[w] && days[w][d])) miss.push(wkRu(d)); }
+    h += '<tr><td class="name">' + wkEsc(w) + '</td><td><b class="' + (got >= 7 ? 'wkOk' : got >= 5 ? 'wkNa' : 'wkBad') + '">' +
+      wkPct(got / 7) + '</b>' + wkBase(got, 7, ' дн.') + '</td><td class="wkSm">' + (miss.join(', ') || '—') + '</td></tr>';
+  });
+  return h + '</tbody></table></div><p class="hint">Фото списания, совпадение накладной со списком и закрытые брони считаются на ' +
+    'страницах «Фото списания» и «Путь на склад 50%» — в недельный отчёт они попадут, когда эти данные будут сохраняться в таблицу.</p>';
+}
+
+/* «Главное в 5 строках» — текст для руководства (копировать или отправить в WhatsApp) */
+function wkBrief(W, P){
+  var t = W.tot, p = P.tot, L = [];
+  var dl = p.loss ? (t.loss - p.loss) / p.loss : null;
+  function plain(x){ return String(x).replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' '); }
+  L.push('1. Потери выручки ' + plain(wkK(t.loss)) + ' (' + wkPct(wkShare(t)) + ' прихода)' +
+    (dl == null ? '' : ', ' + (dl > 0 ? '+' : '−') + wkPct(Math.abs(dl)) + ' к прошлой неделе') + '.');
+  var rk = W.branches.filter(function(w){ return W.by[w] && W.by[w].gross > 0; })
+    .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
+  if (rk.length) L.push('2. Больше всех теряет ' + rk[0] + ' — ' + wkPct(wkShare(W.by[rk[0]])) + ', меньше всех ' +
+    rk[rk.length - 1] + ' — ' + wkPct(wkShare(W.by[rk[rk.length - 1]])) + '.');
+  var ds = Object.keys(W.dish).sort(function(a, b){ return W.dish[b].loss - W.dish[a].loss; }).slice(0, 3);
+  if (ds.length) L.push('3. Больше всего теряем на: ' + ds.map(function(k){ return k + ' (' + plain(wkK(W.dish[k].loss)) + ')'; }).join(', ') + '.');
+  var so = W.branches.filter(function(w){ return wkStopOver(W, w) != null; })
+    .sort(function(a, b){ return wkStopOver(W, b) - wkStopOver(W, a); });
+  if (so.length) L.push('4. Пустая витрина сверх нормы чаще всего в ' + so[0] + ' — ' + wkPct(wkStopOver(W, so[0])) + ' дней.');
+  var inv = 0; Object.keys(W.ext.inv).forEach(function(w){ inv += wkInvNet(W.ext.inv[w]); });
+  var q = W.missing.length + W.ext.partial.length;
+  L.push('5. Инвентаризация: ' + (inv > 0 ? 'недостача ' : 'излишек ') + plain(wkK(Math.abs(inv))) +
+    (W.ext.pairs.length ? ', вероятный пересорт — ' + W.ext.pairs.length + ' пар позиций' : '') + '.' +
+    (q ? ' Данные неполные (' + q + ' дн. по филиалам) — цифры занижены.' : ''));
+  return 'Тәп-Тәтті · неделя ' + wkRu(W.mon) + '–' + wkRu(W.sun) + '\n' + L.join('\n');
+}
+function wkCopyBrief(){
+  if (!WK) return;
+  var txt = wkBrief(WK.cur, WK.prev), done = function(){ wkMsg('Скопировано — вставьте в чат руководства.', 'ok'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, function(){ prompt('Скопируйте текст:', txt); });
+  else prompt('Скопируйте текст:', txt);
+}
+
 function wkQuality(W){
   var h = '';
   if (W.missing.length) h += '<p><b>Нет выгрузки за дни:</b></p><ul>' + W.missing.map(function(m){
     return '<li>' + wkEsc(m.wh) + ' — ' + m.days.join(', ') + '</li>'; }).join('') + '</ul>';
+  if (W.ext && W.ext.partial.length) h += '<p><b>Выгрузка за день неполная</b> (продаж меньше половины обычного дня — ' +
+    'скорее всего, файл выгрузили днём; загрузите этот день заново):</p><ul>' + W.ext.partial.map(function(p){
+      return '<li>' + wkEsc(p.wh) + ' — ' + wkRu(p.d) + ': ' + p.n + ' шт продаж при обычных ~' + p.base + '</li>'; }).join('') + '</ul>';
   if (W.noPrice.length) h += '<p><b>Нет цены (' + W.noPrice.length + '):</b> ' + W.noPrice.slice(0, 30).map(wkEsc).join(', ') +
     (W.noPrice.length > 30 ? ' и ещё ' + (W.noPrice.length - 30) : '') +
-    '. Цена берётся из чеков со скидкой 20%: этих позиций там ещё не было, поэтому в тенге они не посчитаны.</p>';
-  return h || '<p>Данные за неделю полные: выгрузки есть за все дни, цены есть у всех позиций.</p>';
-}
-function wkKpis(W, P){
-  var t = W.tot, p = P.tot;
-  function tile(label, val, delta, sub){
-    return '<div><span>' + label + '</span><b>' + val + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + delta + '</div>'; }
-  function netStop(X){ var st = 0, all = 0; Object.keys(X.stop).forEach(function(w){ st += X.stop[w].st; all += X.stop[w].all; });
-    return all ? st / all : null; }
-  return '<div class="kpi wkKpi">' +
-    tile('Потери выручки', wkK(t.loss), p.loss ? wkDelta(t.loss, p.loss, true) : '', 'по цене продажи') +
-    tile('Доля потерь', wkPct(wkShare(t)), wkDelta(wkShare(t), wkShare(p)), 'от стоимости прихода') +
-    tile('Выручка', wkK(t.rev), '', 'по цене продажи, со скидками') +
-    tile('Пустая витрина', wkPct(netStop(W)), wkDelta(netStop(W), netStop(P)), 'дней с позицией') +
-    '</div>';
+    '. Цена берётся из чеков; этих позиций там ещё не было, поэтому в тенге они не посчитаны.</p>';
+  h += '<p class="hint">Подробно по дням и сверка с ведомостью iiko — на странице «Качество данных».</p>';
+  return h;
 }
 
-/* ── страница ── */
 function wkRender(){
   var o = wkEl('outW'); if (!o) return;
   if (!WK){ o.innerHTML = ''; return; }
-  var W = WK.cur, P = WK.prev;
+  var W = WK.cur, P = WK.prev, brief = wkBrief(W, P);
   wkEl('wkTitle').textContent = 'Неделя ' + wkRu(W.mon) + ' — ' + wkRu(W.sun);
   o.innerHTML =
     '<div class="card"><h2>Главное</h2><ol class="wkHead">' + wkHeadline(W, P).map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>' +
-      wkKpis(W, P) + '</div>' +
-    '<div class="card"><h2>Куда ушла продукция</h2><p class="lead">Вся стоимость прихода недели по цене продажи — сколько продано по полной цене, а сколько ушло в уценку, на склад 50%, в возврат и списание.</p>' + wkFunnel(W) + '</div>' +
+      wkKpis(W, P) +
+      '<div class="noprint wkBriefBar"><button type="button" onclick="wkCopyBrief()">Скопировать «Главное в 5 строках»</button>' +
+      '<a class="btnLink" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(brief) + '">Отправить в WhatsApp</a>' +
+      '<span class="hint">текст для руководства — откроется WhatsApp, выберите чат и нажмите «Отправить»</span></div></div>' +
+    '<div class="card"><h2>Куда ушла продукция</h2><p class="lead">Всё, что ушло с витрины за неделю, в тенге по цене продажи.</p>' + wkFunnel(W) + '</div>' +
     '<div class="card"><h2>Потери против пустой витрины</h2><p class="lead">Две стороны одной заявки: много заказали — растут потери, мало — пустеет витрина.</p>' + wkScatter(W) + '</div>' +
     '<div class="card"><h2>Филиалы</h2>' + wkBranchTable(W, P) + '</div>' +
+    '<div class="card"><h2>Нормы</h2><p class="lead">Где филиал вышел за утверждённые нормы и на каких позициях.</p>' + wkNorms(W) + '</div>' +
     '<div class="card"><h2>Позиции, на которых теряем больше всего</h2>' + wkPareto(W) + '</div>' +
+    '<div class="card"><h2>Инвентаризация</h2><p class="lead">Излишки и недостача по продукции витрины — деньги, которых нет в списании и уценке.</p>' + wkInventory(W) + '</div>' +
     '<div class="card"><h2>Потери по дням недели</h2>' + wkHeat(W) + '</div>' +
     '<div class="card"><h2>Доля потерь за 8 недель</h2>' + wkTrend(W) + '</div>' +
+    '<div class="card"><h2>Дисциплина филиалов</h2>' + wkDiscipline(W) + '</div>' +
     '<div class="card"><h2>Качество данных</h2>' + wkQuality(W) + '</div>' +
     '<div class="card"><h2>Решения на неделю</h2><p class="lead">3–5 действий с ответственным. Через неделю здесь же отмечаем, выполнены ли решения прошлой недели.</p>' + wkDecHtml(W) + '</div>';
   wkDecBind();
+}
+
+/* ═════════ Страница «Качество данных» ═════════ */
+function dqRender(){
+  var box = wkEl('dqFull'); if (!box) return;
+  var BR = wkBranches(), last = '';
+  (DB.mov || []).forEach(function(r){ if (r[0] > last) last = r[0]; });
+  if (!last){ box.innerHTML = '<p class="hint">Сначала загрузите выгрузки iiko.</p>'; dqBind(); return; }
+  var from = wkAdd(last, -13), c = wkDayCounts(wkAdd(from, -28), last, BR), part = {};
+  wkPartial(from, last, BR).forEach(function(p){ part[p.wh + '|' + p.d] = p; });
+  var days = []; for (var d = from; d <= last; d = wkAdd(d, 1)) days.push(d);
+  var h = '<div class="dqHm" style="grid-template-columns:minmax(120px,170px) repeat(' + days.length + ',minmax(34px,1fr))"><span></span>' +
+    days.map(function(d){ return '<span class="h">' + wkRu(d).slice(0, 5) + '</span>'; }).join('');
+  BR.forEach(function(w){
+    h += '<span class="rn">' + wkEsc(w) + '</span>';
+    days.forEach(function(d){
+      var v = c[w + '|' + d] || 0, p = part[w + '|' + d];
+      var cls = !v ? 'no' : p ? 'part' : 'ok';
+      h += '<span class="c ' + cls + '" title="' + wkEsc(w) + ', ' + wkRu(d) + ': ' + Math.round(v) + ' шт продаж' +
+        (p ? ' при обычных ~' + p.base : '') + '">' + (v ? Math.round(v) : '—') + '</span>';
+    });
+  });
+  h += '</div><div class="wkLeg"><span><i style="background:var(--okBg,#e5f5e5)"></i>обычный день</span>' +
+    '<span><i style="background:#fdf2d6"></i>меньше половины обычного — выгрузка неполная</span>' +
+    '<span><i style="background:#fbe4e4"></i>нет продаж — день не загружен</span></div>' +
+    '<p class="hint">В ячейке — сколько штук продукции витрины продано за день. Последний день в выгрузках: ' + wkRu(last) + '.</p>';
+  box.innerHTML = h;
+  dqBind();
+}
+function dqBind(){
+  var f = wkEl('fOsv'); if (!f || f._b) return; f._b = 1;
+  f.onchange = function(){ if (f.files && f.files[0]) dqOsv(f.files[0]); };
+  var c = wkEl('osvOnly'); if (c) c.onchange = function(){ if (DQ_OSV) dqOsvRender(); };
+}
+var DQ_OSV = null;
+function dqMsg(t){ var m = wkEl('mOsv'); if (m) m.textContent = t; }
+function dqDate(s){ var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(s); return m ? m[3] + '-' + m[2] + '-' + m[1] : ''; }
+async function dqOsv(file){
+  dqMsg('Читаю ведомость…');
+  try{
+    var rows = await readXlsx(file);
+    var hi = -1, from = '', to = '', whs = [];
+    for (var i = 0; i < Math.min(rows.length, 20); i++){
+      var line = (rows[i] || []).map(S).join(' ');
+      if (/За период/i.test(line)){ var ds = line.match(/\d{2}\.\d{2}\.\d{4}/g) || []; from = dqDate(ds[0] || ''); to = dqDate(ds[1] || ds[0] || ''); }
+      if (/^\s*Склад/i.test(S((rows[i] || [])[0]))) whs = S(rows[i][0]).replace(/^\s*Склады?:\s*/i, '').split(/\s*,\s*/);
+      if ((rows[i] || []).some(function(x){ return S(x).trim() === 'Наименование'; })){ hi = i; break; }
+    }
+    if (hi < 1) throw new Error('Не нашла строку с колонками «Код / Наименование». Это точно «Расширенная оборотно-сальдовая ведомость»?');
+    var top = rows[hi - 1] || [], sub = rows[hi], col = {};
+    for (var j = 0; j < top.length; j++){ var t = S(top[j]).trim(); if (t) col[t] = j; }
+    var iN = sub.map(S).map(function(x){ return x.trim(); }).indexOf('Наименование');
+    function ci(name){ var k = Object.keys(col).filter(function(x){ return x.toLowerCase().indexOf(name) === 0; })[0]; return k == null ? -1 : col[k]; }
+    var C = { prih: ci('приход'), sale: ci('продажи'), spis: ci('списания'), izl: ci('излишки'), ned: ci('недостача') };
+    if (C.prih < 0 || C.sale < 0) throw new Error('Нет колонок «Приход» и «Продажи».');
+    var BR = wkBranches(), mine = BR.filter(function(w){ return whs.some(function(x){ return nrm(x) === nrm(w); }); });
+    if (!mine.length) mine = BR.filter(function(w){ return whs.some(function(x){ return sameBranch(x, w); }); });
+    if (!mine.length) throw new Error('Склады ведомости (' + whs.join(', ') + ') не совпали ни с одним филиалом сайта.');
+    var osv = {};
+    for (var r = hi + 1; r < rows.length; r++){
+      var R = rows[r] || [], nm = S(R[iN]).trim(); if (!nm) continue;
+      var k = nrm(nm), o = osv[k] || (osv[k] = { name: nm, prih: 0, sale: 0, spis: 0, izl: 0, ned: 0 });
+      ['prih', 'sale', 'spis', 'izl', 'ned'].forEach(function(f){ if (C[f] >= 0) o[f] += Math.abs(N(R[C[f]])); });
+    }
+    var last = '';
+    (DB.mov || []).forEach(function(x){ if (mine.indexOf(x[1]) >= 0 && x[0] > last) last = x[0]; });
+    var site = {}, to2 = to && last && last < to ? last : to;
+    (DB.mov || []).forEach(function(x){
+      var d = x[0]; if (!d || d < from || d > to2 || mine.indexOf(x[1]) < 0) return;
+      var t = x[3], f = /^prihod_/.test(t) ? 'prih' : t === 'realiz' ? 'sale' : t === 'spisanie' ? 'spis' : t === 'inv_in' ? 'izl' : t === 'inv_out' ? 'ned' : '';
+      if (!f) return;
+      var k = nrm(x[2]), o = site[k] || (site[k] = { name: S(x[2]), prih: 0, sale: 0, spis: 0, izl: 0, ned: 0 });
+      o[f] += N(x[4]);
+    });
+    DQ_OSV = { osv: osv, site: site, from: from, to: to, last: last, mine: mine, whs: whs, file: file.name };
+    dqMsg('');
+    dqOsvRender();
+  }catch(e){ dqMsg('Не получилось: ' + (e.message || e)); }
+}
+function dqOsvRender(){
+  var X = DQ_OSV, out = wkEl('outOsv'); if (!X || !out) return;
+  var only = wkEl('osvOnly') ? wkEl('osvOnly').checked : true;
+  var keys = {}; Object.keys(X.osv).forEach(function(k){ keys[k] = 1; }); Object.keys(X.site).forEach(function(k){ keys[k] = 1; });
+  var F = [['prih', 'Приход'], ['sale', 'Продажи'], ['spis', 'Списания'], ['izl', 'Излишки'], ['ned', 'Недостача']];
+  var T = {}, rows = [];
+  F.forEach(function(f){ T[f[0]] = [0, 0]; });
+  Object.keys(keys).forEach(function(k){
+    if (only && !SPR[k]) return;
+    var a = X.osv[k] || {}, b = X.site[k] || {}, diff = 0, row = { name: (a.name || b.name), d: {} };
+    F.forEach(function(f){
+      var va = N(a[f[0]]), vb = N(b[f[0]]); T[f[0]][0] += va; T[f[0]][1] += vb;
+      row.d[f[0]] = [va, vb]; diff = Math.max(diff, Math.abs(va - vb));
+    });
+    row.diff = diff; if (diff > 0.01) rows.push(row);
+  });
+  rows.sort(function(a, b){ return b.diff - a.diff; });
+  var h = '<p>Ведомость: <b>' + wkEsc(X.file) + '</b> · склады: ' + wkEsc(X.whs.join(', ')) + ' · период ' + wkRu(X.from) + ' — ' + wkRu(X.to) +
+    '. На сайте этот филиал: <b>' + wkEsc(X.mine.join(', ')) + '</b>.</p>';
+  if (X.last && X.to && X.last < X.to) h += '<p class="wkWarn">В выгрузках сайта данные только до <b>' + wkRu(X.last) + '</b>, а ведомость — до ' + wkRu(X.to) +
+    '. Всё, что было после ' + wkRu(X.last) + ', сайт не видит — продажи и приход за эти дни разойдутся. Для точной сверки берите ведомость за закрытую неделю.</p>';
+  h += '<div class="wrapT"><table><thead><tr><th></th>' + F.map(function(f){ return '<th>' + f[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+    '<tr><td class="name">Ведомость iiko</td>' + F.map(function(f){ return '<td>' + wkQ(T[f[0]][0]) + '</td>'; }).join('') + '</tr>' +
+    '<tr><td class="name">Сайт</td>' + F.map(function(f){ return '<td>' + wkQ(T[f[0]][1]) + '</td>'; }).join('') + '</tr>' +
+    '<tr class="wkTot"><td class="name">Разница</td>' + F.map(function(f){ var d = T[f[0]][0] - T[f[0]][1];
+      return '<td class="' + (Math.abs(d) > 0.5 ? 'wkBad' : 'wkOk') + '">' + (d > 0 ? '+' : '') + wkQ(d) + '</td>'; }).join('') + '</tr></tbody></table></div>';
+  if (!rows.length) h += '<p class="wkOk"><b>Все позиции совпали.</b></p>';
+  else {
+    h += '<h3 class="wkH3">Позиции с расхождением (' + rows.length + ')</h3><p class="hint">В каждой клетке: ведомость / сайт. Сверху — самые большие расхождения.</p>' +
+      '<div class="wrapT"><table><thead><tr><th>Позиция</th>' + F.map(function(f){ return '<th>' + f[1] + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      rows.slice(0, 200).map(function(r){
+        return '<tr><td class="name">' + wkEsc(r.name) + '</td>' + F.map(function(f){
+          var v = r.d[f[0]], bad = Math.abs(v[0] - v[1]) > 0.01;
+          return '<td' + (bad ? ' class="wkBad"' : '') + '>' + (v[0] || v[1] ? wkQ(v[0]) + ' / ' + wkQ(v[1]) : '—') + '</td>'; }).join('') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+  h += '<p class="hint">Возврат по сроку и склад 50% в ведомости отдельной колонкой не показываются, поэтому здесь не сверяются. ' +
+    '«Сумма с/н» у филиалов в iiko равна цене продажи — себестоимости в ведомости филиала нет.</p>';
+  out.innerHTML = h;
 }
 function wkRun(){
   var mon = wkEl('wkMon').value ? wkMonday(wkEl('wkMon').value) : wkLastFull();
@@ -11730,7 +12193,9 @@ function wkRun(){
   wkMsg('Считаю…', 'wait');
   setTimeout(function(){
     try{
-      WK = { cur: wkCalc(mon), prev: wkCalc(wkAdd(mon, -7)) };
+      WK_CLOSE = null;
+      var pst = [28, 21, 14].map(function(d){ return wkCalc(wkAdd(mon, -d)); });
+      WK = { prev: wkCalc(wkAdd(mon, -7)), cur: wkCalc(mon) }; WK.past = pst;
       wkRender();
       wkMsg('', '');
       wkLoadHist().then(wkRender);
