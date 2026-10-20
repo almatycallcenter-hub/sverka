@@ -3254,7 +3254,7 @@ function build(wh, dFrom, dTo){
          партии по ФИФО × 100. Алмалы бәліш ТТ10: приход 11.10 — 5 шт, в списке
          на 13.10 — 5 шт → 100%. Только там, где проверка прихода 20% «ок». */
       var lossPct = '';
-      if (M === 'ок' && pf > 0 && c > 0) lossPct = Math.round(c / pf * 100) + '%';
+      if (M === 'ок' && pf > 0 && c > 0) lossPct = (Math.round(c / pf * 10000) / 100) + '%';
 
       /* ── остаток партии к уценке по ФИФО ───────────────────
          Приход партии — это ещё не остаток: до дня уценки часть партии
@@ -4563,7 +4563,7 @@ function movKinds(){
   var share = tot ? miss / tot : 0;
   if (share > 0.05 || !c['perem_50'] || !c['vozvrat_srok'])
     warn = '<br><span class="warn">Назначение документа не определилось у ' +
-      Math.round(share * 100) + '% строк (' + miss + ' из ' + tot + ').</span> ' +
+      (Math.round(share * 10000) / 100) + '% строк (' + miss + ' из ' + tot + ').</span> ' +
       'Это значит, что товарный отчёт покрывает не все накладные из товарной ведомости. ' +
       'Выгрузите товарный отчёт <b>за тот же период и без фильтров</b>, что и ведомость, ' +
       'и загрузите оба файла заново. Пока этого нет, возврат по сроку, перемещение на склад 50% ' +
@@ -5411,7 +5411,7 @@ function dataFreshness(){
 /* ═════════ графики: свой SVG, без библиотек и без интернета ═════════ */
 function esc2(t){ return S(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function fmtNum(n){
-  n = Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10;
+  n = Math.round(n * 1000) / 1000;   // числа не округляем
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
@@ -5530,7 +5530,7 @@ function renderDyn(){
   var bs = Object.keys(BYWH).map(function(w){
     var x = BYWH[w];
     return { k: w, v: x.prih > 0 ? x.loss / x.prih : 0, drill: 'whQ|' + w,
-             label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 1000) / 10) : 0) + '%  ·  ' +
+             label: (x.prih > 0 ? (Math.round(x.loss / x.prih * 10000) / 100) : 0) + '%  ·  ' +
                     fmtNum(x.loss) + ' шт' };
   }).sort(function(a, b){ return b.v - a.v; });
   h += chartBars(bs, 'Доля потерь по филиалам — сколько из пришедшего не продали', '');
@@ -5555,7 +5555,7 @@ function renderDyn(){
   var top = Object.keys(poBlyudu).map(function(k){
     var t = poBlyudu[k];
     return { k: k, v: poDengam ? t.m : t.sht, drill: 'dish|' + k,
-             label: poDengam ? fmtNum(Math.round(t.m)) + ' ₸  ·  ' + r3(t.sht) + ' шт'
+             label: poDengam ? fmtNum(t.m) + ' ₸  ·  ' + r3(t.sht) + ' шт'
                              : r3(t.sht) + ' шт' };
   }).sort(function(a, b){ return b.v - a.v; }).slice(0, 10);
   if (top.length)
@@ -5628,7 +5628,7 @@ function dynDrill(code){
       o.q += x.T[t].q; o.m += x.T[t].m; });
     if (!x.price && (x.L > 1e-9 || x.D > 1e-9)) T.noPrice++; });
   var tipy = Object.keys(T.byT).sort(function(a, b){ return T.byT[b].m - T.byT[a].m || T.byT[b].q - T.byT[a].q; });
-  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 10000) / 100 + '%' : '—'; }
   var wh = kind === 'whQ' || kind === 'whM' ? CHRONO.byWh[key] : null;
   if (wh && fltAny(F)){
     wh = { loss: 0, prih: 0 };
@@ -5689,28 +5689,28 @@ function dynDrill(code){
     var v = byQty ? x.L : x.m;
     h += '<tr>' + (showWh ? '<td class="name" data-l="Филиал">' + esc(x.wh) + '</td>' : '') +
       (showName ? '<td class="name" data-l="Позиция">' + esc(x.name) + '</td>' : '') +
-      '<td data-l="Цена">' + (x.price ? fmtQ(Math.round(x.price)) : '<span class="warn">нет цены</span>') + '</td>' +
+      '<td data-l="Цена">' + (x.price ? fmtQ(x.price) : '<span class="warn">нет цены</span>') + '</td>' +
       '<td data-l="Не продано, шт">' + (x.L ? fmtQ(x.L) : '') + '</td>' +
       '<td data-l="возврат / склад 50% / списание">' + (x.L ? fmtQ(x.V) + ' / ' + fmtQ(x.F) + ' / ' + fmtQ(x.SP) : '') + '</td>' +
-      '<td data-l="Непроданное, ₸">' + (x.mL ? fmtQ(Math.round(x.mL)) : '') + '</td>' +
+      '<td data-l="Непроданное, ₸">' + (x.mL ? fmtQ(x.mL) : '') + '</td>' +
       '<td data-l="Скидка 20%, шт">' + (x.D ? fmtQ(x.D) : '') + '</td>' +
-      '<td data-l="Скидка 20%, ₸">' + (x.mD ? fmtQ(Math.round(x.mD)) : '') + '</td>' +
+      '<td data-l="Скидка 20%, ₸">' + (x.mD ? fmtQ(x.mD) : '') + '</td>' +
       '<td data-l="Другие скидки, шт">' + (x.qO ? fmtQ(x.qO) +
         '<br><small style="color:var(--mut)">' + esc(Object.keys(x.T).join(', ')) + '</small>' : '') + '</td>' +
-      '<td data-l="Другие скидки, ₸">' + (x.mO >= 1 ? fmtQ(Math.round(x.mO)) : '') + '</td>' +
-      '<td data-l="Итого, ₸"><b>' + (x.m ? fmtQ(Math.round(x.m)) : '') + '</b></td>' +
+      '<td data-l="Другие скидки, ₸">' + (x.mO >= 1 ? fmtQ(x.mO) : '') + '</td>' +
+      '<td data-l="Итого, ₸"><b>' + (x.m ? fmtQ(x.m) : '') + '</b></td>' +
       '<td data-l="Доля" style="min-width:90px">' + pc(v, byQty ? T.L : T.m) +
         '<div class="drillBar" style="width:' + (max ? Math.round(v / max * 100) : 0) + '%"></div></td></tr>';
   });
   h += '<tr class="totRow">' + (showWh ? '<td class="name"><b>Всего</b></td>' : '') +
     (showName ? '<td class="name">' + (showWh ? '' : '<b>Всего</b>') + '</td>' : '') +
     '<td></td><td data-l="Не продано, шт"><b>' + fmtQ(T.L) + '</b></td><td></td>' +
-    '<td data-l="Непроданное, ₸"><b>' + fmtQ(Math.round(T.mL)) + '</b></td>' +
+    '<td data-l="Непроданное, ₸"><b>' + fmtQ(T.mL) + '</b></td>' +
     '<td data-l="Скидка 20%, шт"><b>' + fmtQ(T.D) + '</b></td>' +
-    '<td data-l="Скидка 20%, ₸"><b>' + fmtQ(Math.round(T.mD)) + '</b></td>' +
+    '<td data-l="Скидка 20%, ₸"><b>' + fmtQ(T.mD) + '</b></td>' +
     '<td data-l="Другие скидки, шт"><b>' + fmtQ(T.qO) + '</b></td>' +
-    '<td data-l="Другие скидки, ₸"><b>' + fmtQ(Math.round(T.mO)) + '</b></td>' +
-    '<td data-l="Итого, ₸"><b>' + fmtQ(Math.round(T.m)) + '</b></td><td></td></tr></tbody></table></div>';
+    '<td data-l="Другие скидки, ₸"><b>' + fmtQ(T.mO) + '</b></td>' +
+    '<td data-l="Итого, ₸"><b>' + fmtQ(T.m) + '</b></td><td></td></tr></tbody></table></div>';
   var noSum = tipy.filter(function(t){ return CHRONO_NOSUM.indexOf(t) >= 0; });
   h += '<div class="hint">Формула та же, что в отчёте: непроданное (возврат по сроку + склад 50% + списание) ' +
     'по полной цене, плюс скидка 20% — пятая часть цены, плюс все остальные скидки из чеков ' +
@@ -5893,7 +5893,7 @@ function cardHead(info){
       '. В такие дни спрос обрезан: реальный мог быть выше, чем показывают продажи.' +
       (info.bestD ? ' Больше всего теряется в <b>' + info.bestD + '</b>.' : ''));
   if (info.discShare >= 0.15)
-    li.push('Со скидкой уходит <b>' + Math.round(info.discShare * 100) +
+    li.push('Со скидкой уходит <b>' + (Math.round(info.discShare * 10000) / 100) +
       '%</b> дней на витрине. Скидка — это минус пятая часть цены с каждой штуки; ' +
       'дешевле завозить меньше, чем уценивать.');
   if (info.SP > 0 || info.V > 0)
@@ -6043,11 +6043,11 @@ function dayTable(key){
         var mm = (x.dscM || {})[t];
         if (mm !== undefined) m += N(mm);
         else { var pc = discPct(t); if (pc) m += N((x.dsc || {})[t]) * price * pc; } });
-      return m >= 1 ? fmtNum(Math.round(m)) : '';
+      return m >= 1 ? fmtNum(m) : '';
     }, 'out'));
     C.push(col('Потери, ₸', function(x){
       var m = (N(x.v) + N(x.f50) + N(x.sp)) * price;
-      return m >= 1 ? '<span style="color:var(--badT)">' + fmtNum(Math.round(m)) + '</span>' : '';
+      return m >= 1 ? '<span style="color:var(--badT)">' + fmtNum(m) + '</span>' : '';
     }, 'out'));
   }
 
@@ -6105,12 +6105,12 @@ function kpiCRender(view){
   var tag = on ? '<span style="color:var(--acc,#2563eb)">по фильтру</span>' : '';
   box.innerHTML =
     '<div><span>Позиций филиал × блюдо</span><b>' + pos.length + '</b>' + tag + '</div>' +
-    '<div><span>Потери всего</span><b style="color:var(--badT)">' + Math.round(L) + ' шт</b>' + tag + '</div>' +
+    '<div><span>Потери всего</span><b style="color:var(--badT)">' + fmtQ(L) + ' шт</b>' + tag + '</div>' +
     '<div><span>Потери в деньгах</span>' + (noPrice
       ? '<b style="font-size:15px;color:var(--mut)">нет цен</b><span>загрузите «Продажи со скидкой 20%» заново</span>'
       : '<b style="color:var(--badT)">' + fmtT(M) + '</b>' + tag) + '</div>' +
     '<div><span>Больше всех теряет</span><b style="font-size:15px">' + (worst ? esc(worst) +
-      '<span style="font-size:12px;color:var(--mut)"> · ' + Math.round(wv) + ' шт</span>' : '—') + '</b></div>' +
+      '<span style="font-size:12px;color:var(--mut)"> · ' + fmtQ(wv) + ' шт</span>' : '—') + '</b></div>' +
     '<div><span>Пар для перемещения</span><b style="color:var(--okT)">' + pair.length +
       '</b><span>' + (noPrice ? 'экономия — нет цен' : 'экономия ' + fmtT(eco)) + '</span></div>';
 }
@@ -6192,7 +6192,7 @@ function renderChrono(view){
     var sk = kOf && SERIES[kOf(r)] ? kOf(r) : '';
     h += '<tr' + (sk ? ' class="clk" data-k="' + esc(sk) + '"' : '') + '>' + r.map(function(v, i){
       var cell = v;
-      if (pct.indexOf(i) >= 0 && v !== '') cell = Math.round(v * 1000) / 10 + '%';
+      if (pct.indexOf(i) >= 0 && v !== '') cell = Math.round(v * 10000) / 100 + '%';
       if (v === '' || v === null || v === undefined) cell = '';
       var cl = (i === 1 || (view === 'pos' && (i === P_WH || i === P_TODO))
              || (view === 'trio' && (i === 3 || i === 4 || i === 17))
@@ -6293,8 +6293,8 @@ function renderKx(){
     if (x.kind === 'Пицца — куски') T0.sl += x.q; else if (x.kind === 'Пицца — целая') T0.wh += x.q; else T0.br += x.q;
   });
   var nd = Object.keys(days).length;
-  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
-  function perDay(v, n){ return fmtQ(Math.round(v / Math.max(1, n) * 10) / 10); }
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 10000) / 100 + '%' : '—'; }
+  function perDay(v, n){ return fmtQ(Math.round(v / Math.max(1, n) * 1000) / 1000); }
   var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0">' + cover +
     ' В расчёте: ' + ru(from) + ' — ' + ru(to) + ', дней с продажами: ' + nd + '.' +
     (fltAny(F) ? ' <b>Включён фильтр:</b> ' + fltText(F) + '.' : '') +
@@ -6332,8 +6332,8 @@ function renderKx(){
       '<td data-l="в день">' + (w.sl ? perDay(w.sl, n) : '') + '</td>' +
       '<td data-l="Пицца целая, шт">' + (w.whole ? fmtQ(w.whole) : '') + '</td>' +
       '<td data-l="Завтраки, шт">' + (w.br ? fmtQ(w.br) : '') + '</td>' +
-      '<td data-l="Выручка, ₸"><b>' + fmtQ(Math.round(w.rev)) + '</b></td>' +
-      '<td data-l="Скидки, ₸" class="' + (w.s0 - w.rev > 0 ? 'bad' : '') + '">' + (w.s0 - w.rev >= 1 ? fmtQ(Math.round(w.s0 - w.rev)) : '') + '</td>' +
+      '<td data-l="Выручка, ₸"><b>' + fmtQ(w.rev) + '</b></td>' +
+      '<td data-l="Скидки, ₸" class="' + (w.s0 - w.rev > 0 ? 'bad' : '') + '">' + (w.s0 - w.rev >= 1 ? fmtQ(w.s0 - w.rev) : '') + '</td>' +
       '<td data-l="Доля скидок">' + pc(w.s0 - w.rev, w.s0) + '</td>' +
       '<td data-l="Последний кусок">' + (med === null ? '' : 'около ' + med + ':00' +
         (lh.length > 1 && lh[0] < med ? '<br><small style="color:var(--mut)">раньше всего ' + lh[0] + ':00</small>' : '')) + '</td></tr>';
@@ -6373,8 +6373,8 @@ function renderKx(){
     var b = byDish[dn];
     h += '<tr><td class="name" data-l="Блюдо">' + esc(dn) + '</td><td data-l="Что это">' + esc(b.kind) + '</td>' +
       '<td data-l="Продано, шт">' + fmtQ(b.q) + '</td><td data-l="в день">' + perDay(b.q, nd) + '</td>' +
-      '<td data-l="Выручка, ₸">' + fmtQ(Math.round(b.rev)) + '</td>' +
-      '<td data-l="Средняя цена, ₸">' + (b.q ? fmtQ(Math.round(b.rev / b.q)) : '') + '</td>' +
+      '<td data-l="Выручка, ₸">' + fmtQ(b.rev) + '</td>' +
+      '<td data-l="Средняя цена, ₸">' + (b.q ? fmtQ(b.rev / b.q) : '') + '</td>' +
       '<td data-l="Со скидкой, % шт" class="' + (b.q && b.disc / b.q >= 0.3 ? 'bad' : '') + '">' + pc(b.disc, b.q) + '</td>' +
       '<td class="name" data-l="Где больше всего">' + topNames(b.wh, 2) + '</td></tr>';
   });
@@ -6386,7 +6386,7 @@ function renderKx(){
     h += '<div class="lossSec"><h3>Скидки на завтраки и пиццу</h3><div class="wrapT"><table><thead><tr>' +
       '<th class="name">Тип скидки</th><th>Штук</th><th>Недополучено, ₸</th></tr></thead><tbody>' +
       tips.map(function(t){ return '<tr><td class="name">' + esc(t) + '</td><td>' + fmtQ(byTip[t].q) +
-        '</td><td class="bad">' + (byTip[t].lost >= 1 ? fmtQ(Math.round(byTip[t].lost)) : '0') + '</td></tr>'; }).join('') +
+        '</td><td class="bad">' + (byTip[t].lost >= 1 ? fmtQ(byTip[t].lost) : '0') + '</td></tr>'; }).join('') +
       '</tbody></table></div>' +
       (odd20.n ? '<div class="msg wait" style="display:block;margin:10px 0 0"><b>Проверить:</b> ' + odd20.n +
         ' раз (' + fmtQ(odd20.q) + ' шт) продажи пробиты со «Скидкой 20%», но сумма в чеке не уменьшилась. ' +
@@ -6499,17 +6499,17 @@ function renderKxChrono(){
   }
   var T = { in: 0, s: 0, l: 0, inv: 0, m: 0 };
   rows.forEach(function(x){ T.in += x.T.in; T.s += x.T.s; T.l += x.T.l; T.inv += x.T.inv; T.m += x.money; });
-  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 1000) / 10 + '%' : '—'; }
+  function pc(a, b){ return b > 1e-9 ? Math.round(a / b * 10000) / 100 + '%' : '—'; }
   var h = '<div class="hint" style="padding:0 4px 8px;margin-top:0">Период ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) +
     '. По товарной ведомости: <b>приготовлено</b> — акты приготовления (и приход с цеха), <b>списано</b> — списание, ' +
     'возврат по сроку и склад 50%. <b>Пицца — в кусках</b> (1 пицца = 8 кусков). Нажмите на строку — откроется по дням.' +
     (fltAny(F) ? ' <b>Включён фильтр:</b> ' + fltText(F) + '.' : '') + '</div>';
   h += '<div class="kpi" style="margin-bottom:12px">' +
-    '<div><span>Приготовлено и пришло</span><b>' + fmtQ(Math.round(T.in)) + '</b><span>шт и кусков</span></div>' +
-    '<div><span>Продано</span><b>' + fmtQ(Math.round(T.s)) + '</b><span>' + pc(T.s, T.in) + ' от приготовленного</span></div>' +
-    '<div><span>Списано</span><b style="color:var(--badT)">' + fmtQ(Math.round(T.l)) + '</b><span>' + pc(T.l, T.in) + ' от приготовленного</span></div>' +
+    '<div><span>Приготовлено и пришло</span><b>' + fmtQ(T.in) + '</b><span>шт и кусков</span></div>' +
+    '<div><span>Продано</span><b>' + fmtQ(T.s) + '</b><span>' + pc(T.s, T.in) + ' от приготовленного</span></div>' +
+    '<div><span>Списано</span><b style="color:var(--badT)">' + fmtQ(T.l) + '</b><span>' + pc(T.l, T.in) + ' от приготовленного</span></div>' +
     '<div><span>Инвентаризация</span><b style="color:var(' + (T.inv < -0.5 ? '--badT' : '--txt') + ')">' +
-      (T.inv > 0 ? '+' : '') + fmtQ(Math.round(T.inv)) + '</b><span>минус — недостача</span></div>' +
+      (T.inv > 0 ? '+' : '') + fmtQ(T.inv) + '</b><span>минус — недостача</span></div>' +
     '<div><span>Списано в деньгах</span><b style="color:var(--badT)">' + fmtT(T.m) + '</b><span>по средней цене продажи</span></div></div>';
   var head = ['Филиал','Блюдо','Приготовлено','Продано','Со скидкой','Списано','Доля списания','Инвент. ±',
               'Остаток на конец','Последняя продажа','Списано, ₸','Что делать'];
@@ -6527,7 +6527,7 @@ function renderKxChrono(){
       '<td data-l="Инвент. ±" class="' + (x.T.inv < -0.5 ? 'bad' : '') + '">' + (Math.abs(x.T.inv) > 1e-9 ? (x.T.inv > 0 ? '+' : '') + fmtQ(x.T.inv) : '') + '</td>' +
       '<td data-l="Остаток на конец">' + fmtQ(x.end) + '</td>' +
       '<td data-l="Последняя продажа">' + (x.hr === null ? '' : 'около ' + x.hr + ':00') + '</td>' +
-      '<td data-l="Списано, ₸" class="' + (x.money >= 1 ? 'bad' : '') + '">' + (x.money >= 1 ? fmtQ(Math.round(x.money)) : '') + '</td>' +
+      '<td data-l="Списано, ₸" class="' + (x.money >= 1 ? 'bad' : '') + '">' + (x.money >= 1 ? fmtQ(x.money) : '') + '</td>' +
       '<td class="name" data-l="Что делать">' + (x.todo ? '<span class="' + (/больше/.test(x.todo) ? 'good' : /документ/.test(x.todo) ? 'warn' : 'bad') + '">' + esc(x.todo) + '</span>' : '') + '</td></tr>';
   });
   h += '</tbody></table></div>' +
@@ -6544,7 +6544,7 @@ function kxcDays(i){
   var x = KXC && KXC[i]; if (!x) return;
   var h = '<h3 style="margin:0 0 2px">' + esc(x.name) + (x.pz ? ' — в кусках' : '') + '</h3>' +
     '<div class="hint" style="margin:0 0 12px">' + esc(x.wh) + ' · ' + ru(CHRONO.from) + ' — ' + ru(CHRONO.to) +
-    (x.pr ? ' · цена ' + fmtQ(Math.round(x.pr)) + ' ₸' + (x.pz ? ' за кусок' : '') : '') + '</div>' +
+    (x.pr ? ' · цена ' + fmtQ(x.pr) + ' ₸' + (x.pz ? ' за кусок' : '') : '') + '</div>' +
     '<div class="wrapT"><table><thead><tr><th>День</th><th>Приготовлено</th><th>Продано</th><th>Со скидкой</th>' +
     '<th>Списано</th><th>Инвент. ±</th><th>Перемещения ±</th><th>Остаток</th><th>Последняя продажа</th></tr></thead><tbody>';
   x.ser.forEach(function(z){
@@ -6667,14 +6667,14 @@ function renderLoss(){
               'Размер скидки','Где чаще'],
       L.disc.map(function(a){
         return '<tr><td class="name">' + esc(a.tip) + '</td>' +
-          '<td>' + fmtQ(a.q) + '</td><td>' + fmtQ(Math.round(a.s0)) + '</td>' +
-          '<td>' + fmtQ(Math.round(a.s1)) + '</td>' +
-          '<td class="bad">' + fmtQ(Math.round(a.poteria)) + '</td>' +
-          '<td>' + Math.round(a.pct * 100) + '%</td>' +
+          '<td>' + fmtQ(a.q) + '</td><td>' + fmtQ(a.s0) + '</td>' +
+          '<td>' + fmtQ(a.s1) + '</td>' +
+          '<td class="bad">' + fmtQ(a.poteria) + '</td>' +
+          '<td>' + (Math.round(a.pct * 10000) / 100) + '%</td>' +
           '<td class="name">' + topNames(a.wh, 2) + '</td></tr>';
       }).join('') +
       '<tr class="totRow"><td class="name"><b>Всего</b></td><td><b>' + fmtQ(totQ) +
-        '</b></td><td></td><td></td><td class="bad"><b>' + fmtQ(Math.round(totP)) +
+        '</b></td><td></td><td></td><td class="bad"><b>' + fmtQ(totP) +
         '</b></td><td></td><td></td></tr>');
   }
   h += '</div>';
@@ -6688,7 +6688,7 @@ function renderLoss(){
     ? tbl(['Филиал','Штук','Деньги, ₸','Что возвращают чаще'],
         L.kach.map(function(a){
           return '<tr><td class="name">' + esc(a.wh) + '</td><td>' + fmtQ(a.q) + '</td>' +
-            '<td class="bad">' + fmtQ(Math.round(a.money)) + '</td>' +
+            '<td class="bad">' + fmtQ(a.money) + '</td>' +
             '<td class="name">' + topNames(a.top) + '</td></tr>'; }).join(''))
     : '<div class="hint">За период возвратов по качеству не было.</div>';
   h += '</div>';
@@ -6704,7 +6704,7 @@ function renderLoss(){
         L.inv.map(function(a){
           return '<tr><td class="name">' + esc(a.wh) + '</td>' +
             '<td class="bad">' + fmtQ(a.minus) + '</td><td>' + fmtQ(a.plus) + '</td>' +
-            '<td class="bad">' + fmtQ(Math.round(a.mMoney)) + '</td>' +
+            '<td class="bad">' + fmtQ(a.mMoney) + '</td>' +
             '<td class="name">' + topNames(a.top) + '</td></tr>'; }).join(''),
         'Излишки показаны рядом не для красоты: если недостача и излишки примерно равны, ' +
         'это чаще всего пересорт — одну позицию пробили вместо другой, а не пропажа.')
@@ -6925,7 +6925,7 @@ function renderProg(){
         '<div style="flex:0 0 230px"><label class="lbl">Товар есть до вечера в</label>' +
           '<select id="pgCr" class="flt">' + [0.5, 0.6, 0.7, 0.8, 0.9].map(function(v){
             return '<option value="' + v + '"' + (Math.abs(v - PROG_CR) < 1e-9 ? ' selected' : '') + '>' +
-              Math.round(v * 100) + '% дней' + (v === 0.7 ? ' (обычно)' : '') + '</option>'; }).join('') +
+              (Math.round(v * 10000) / 100) + '% дней' + (v === 0.7 ? ' (обычно)' : '') + '</option>'; }).join('') +
           '</select></div>' +
       '</div>' +
       '<div class="row" style="gap:14px;flex-wrap:wrap;margin-top:6px">' +
@@ -7036,7 +7036,7 @@ function progBody(){
         shTxt(r.shNow, r.lb) + ' → ' + shTxt(r.shRec, r.lb),
         d >= 0.05 ? '<span class="chip ok">−' + fmtQ(d) + '</span>'
                   : d <= -0.05 ? '<span class="chip na">+' + fmtQ(-d) + '</span>' : '0',
-        r.eco >= 1 ? fmtQ(Math.round(r.eco)) : '',
+        r.eco >= 1 ? fmtQ(r.eco) : '',
         r.btAct === null ? '' : f(r.btPred) + ' / ' + f(r.btAct)];
     }
     h += '<tr class="clk" data-k="' + esc(r.key) + '">' + cells.map(function(c, i){
@@ -7073,7 +7073,7 @@ function progOpen(key){
   var h = '<h3 style="margin:0 0 4px">' + esc(r.name) + '</h3>' +
     '<div class="hint" style="margin-bottom:10px">' + esc(r.wh) + ' · ' + esc(r.cat || '') +
     (r.srok ? ' · срок ' + r.srok + ' ч' : '') + ' · товар есть до вечера в ' +
-    Math.round(PROG.cr * 100) + '% дней</div>';
+    (Math.round(PROG.cr * 10000) / 100) + '% дней</div>';
   if (!r.enough){
     h += '<div class="hint">Мало истории: ' + (r.daily ? r.nObs + ' дн., нужно хотя бы 14.'
          : r.nObs + ' полных недель, нужно хотя бы 3.') +
@@ -7088,7 +7088,7 @@ function progOpen(key){
   } else if (r.daily){
     h += '<div class="hint" style="margin:0 0 8px"><b>Как читать:</b> «Спрос по полной цене» — сколько ' +
       'обычно покупают без скидки в этот день недели. «Рекомендуем» — сколько завозить, чтобы товар был ' +
-      'до вечера в ' + Math.round(PROG.cr * 100) + '% дней. «Уходит на скидку и в списание» — сколько штук ' +
+      'до вечера в ' + (Math.round(PROG.cr * 10000) / 100) + '% дней. «Уходит на скидку и в списание» — сколько штук ' +
       'сейчас в среднем уценивают, списывают или возвращают по сроку; рядом — сколько будет, если завозить ' +
       'рекомендуемое. «Не хватит» — сколько покупателей ушли бы без товара.</div>' +
       '<div style="overflow-x:auto"><table><thead><tr><th>День</th><th>Дней в истории</th><th>Спрос по полной цене, обычно</th>' +
@@ -7284,7 +7284,7 @@ function normLight(fact, norm, P, weeks){
   if (fact * 100 <= norm * 1.5 + 1e-9) return 'na';
   return 'bad';
 }
-function pctTxt(v){ return (Math.round(v * 1000) / 10) + '%'; }
+function pctTxt(v){ return (Math.round(v * 10000) / 100) + '%'; }
 
 function renderNorms(){
   var o = $('outC');
@@ -7395,7 +7395,7 @@ function renderNorms(){
       '<td data-l="Уценка: факт / норма">' + cell(r.lD, r.a.sD, n.ud) + '</td>' +
       '<td data-l="Пустая витрина: факт / норма">' + cell(r.lS, r.a.sS, n.st) + '</td>' +
       '<td data-l="Сверх нормы, шт">' + (r.exL + r.exD >= 0.5 ? fmtQ(r.exL + r.exD) : '') + '</td>' +
-      '<td data-l="Сверх нормы, ₸">' + (r.money >= 1 ? fmtQ(Math.round(r.money)) : '') + '</td></tr>';
+      '<td data-l="Сверх нормы, ₸">' + (r.money >= 1 ? fmtQ(r.money) : '') + '</td></tr>';
   });
   h += '</tbody></table></div><div class="hint">Зелёный — в норме или лишнего меньше 1 шт в неделю. ' +
     'Жёлтый — до полутора норм. Красный — больше, нужен разбор. Нажмите на строку — откроются позиции. ' +
@@ -7466,7 +7466,7 @@ function normOpen(w, id){
         (x.D ? fmtQ(x.D) + ' шт' : '') + '</td>' +
       '<td data-l="Пустая витрина"><span class="chip ' + lS + '">' + pctTxt(sS) + '</span> ' +
         (x.stop ? x.stop + ' из ' + x.days + ' дн.' : '') + '</td>' +
-      '<td data-l="Потери, ₸">' + (x.mL + x.mD >= 1 ? fmtQ(Math.round(x.mL + x.mD)) : '') + '</td></tr>';
+      '<td data-l="Потери, ₸">' + (x.mL + x.mD >= 1 ? fmtQ(x.mL + x.mD) : '') + '</td></tr>';
   });
   h += '</tbody></table></div><div class="hint">Отсортировано по потерям в деньгах. Если позиция ' +
     'часто уходит в уценку, а витрина почти не пустеет — заявку можно снижать. Если витрина пустеет чаще ' +
@@ -7630,7 +7630,7 @@ $('btnChrono').onclick = async function(){
         flowNote, flowNote ? 'wait' : 'ok');
   } catch(e){ msg('m4','Ошибка: ' + (e.message || e),'err'); }
 };
-function fmtT(n){ return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g,' ') + ' ₸'; }
+function fmtT(n){ return wkMoney(n); }
 
 /* маршруты и закрытые филиалы применяем здесь: к этому месту всё уже объявлено */
 applyDefaults(); refresh();
@@ -7668,7 +7668,7 @@ $('btnChrXlsx').onclick = function(){
       head: ['Тип скидки','Штук','Сумма без скидки','Продано на','Недополучено','Размер скидки'],
       rows: L.disc.map(function(a){
         return [a.tip, r3(a.q), Math.round(a.s0), Math.round(a.s1),
-                Math.round(a.poteria), Math.round(a.pct * 100) + '%']; }) },
+                Math.round(a.poteria), (Math.round(a.pct * 10000) / 100) + '%']; }) },
     { name: 'Возврат по качеству', head: ['Филиал','Штук','Деньги'],
       rows: L.kach.map(function(a){ return [a.wh, r3(a.q), Math.round(a.money)]; }) },
     { name: 'Недостачи', head: ['Филиал','Недостача, шт','Излишки, шт','Недостача, ₸'],
@@ -7698,7 +7698,7 @@ $('btnChrXlsx').onclick = function(){
           r3(r.Of), r.lo === null ? '' : r3(r.lo), r.hi === null ? '' : r3(r.hi), r3(r.supNow),
           r.blind ? 'сначала добавить 1–2 шт' : (r.recLb ? '≥ ' : '') + r3(r.rec), r3(r.after), r3(r.shNow), r3(r.shRec),
           Math.round(r.eco), r.btPred === null ? '' : r3(r.btPred), r.btAct === null ? '' : r3(r.btAct),
-          Math.round(PROG.cr * 100) + '%']; }) }];
+          (Math.round(PROG.cr * 10000) / 100) + '%']; }) }];
   })()));
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -7745,7 +7745,7 @@ function whResolver(){
 /* Штуки бывают дробными — весовые позиции и кусочки. Три знака в ячейке
    нечитаемы, поэтому округляем до десятых и убираем пустой хвост. */
 function fmtQ(n){
-  var v = Math.round(n * 10) / 10;
+  var v = Math.round(n * 1000) / 1000;   // без округления: только убираем хвост вида 0.30000000004
   // без флага g пробел вставлялся только в первую группу: «5 591387»
   return String(v).replace(/\.0$/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
@@ -8229,9 +8229,9 @@ function renderHeatMix(flt){
       var lvl = share === null ? 0 : Math.max(1, Math.min(7, Math.ceil(share * 7)));
       var tip = DOW[w] + ' ' + pad(hh) + ':00\nсо скидкой: ' + fmtQ(dq) +
                 ' шт\nбез скидки: ' + fmtQ(fq) + ' шт' +
-                (share === null ? '' : '\nдоля уценки: ' + Math.round(share * 100) + '%');
+                (share === null ? '' : '\nдоля уценки: ' + (Math.round(share * 10000) / 100) + '%');
       h += '<td><span class="hmc l' + lvl + '" title="' + esc(tip) + '">' +
-           (share === null ? '·' : Math.round(share * 100) + '%') +
+           (share === null ? '·' : (Math.round(share * 10000) / 100) + '%') +
            '<i>' + fmtQ(dq) + ' / ' + fmtQ(fq) + '</i></span></td>';
     }
     h += '</tr>';
@@ -8272,7 +8272,7 @@ function renderHeatMix(flt){
       var dq3 = 0, fq3 = 0;
       for (var c2 = 0; c2 < 7; c2++){ dq3 += d.g[r2][c2]; fq3 += f.g[r2][c2]; }
       var s = (dq3 + fq3) > 0 ? dq3 / (dq3 + fq3) : 0;
-      if (s > 0.5 && dq3 > 0) hi.push(pad(HM_H0 + r2) + ':00 (' + Math.round(s * 100) + '%)');
+      if (s > 0.5 && dq3 > 0) hi.push(pad(HM_H0 + r2) + ':00 (' + (Math.round(s * 10000) / 100) + '%)');
     }
     if (hi.length)
       li.push('Часы, где больше половины продаж идёт со скидкой: <b>' + hi.join(', ') +
@@ -8378,11 +8378,11 @@ function renderHeatRank(flt){
       .sort(function(a, b){ return b.x - a.x; }).slice(0, 5);
     return '<div class="rkCard"><div class="rkHead"><span class="rkIc">' + sl.ic + '</span><div><b>' + sl.ru +
         ' · ' + sl.kz + '</b><span>' + (sl.from ? pad(sl.from) + ':00' : 'открытие') + '–' + (sl.to === 24 ? 'закрытия' : pad(sl.to) + ':00') +
-        ' · ' + Math.round(share * 100) + '% продаж дня · ≈ ' + fmtQ(st / R.nDays) + ' шт в день</span></div></div>' +
+        ' · ' + (Math.round(share * 10000) / 100) + '% продаж дня · ≈ ' + fmtQ(st / R.nDays) + ' шт в день</span></div></div>' +
       (top.length ? '<ol class="rkList">' + top.map(function(p, j){
           return '<li><span class="rkN">' + (medal[j] || (j + 1)) + '</span><span class="rkName">' + esc(p.name) +
             bar(p.s[i], mx) + '</span><span class="rkQ">' + fmtQ(p.s[i]) + '<small>' +
-            Math.round(p.s[i] / p.tot * 100) + '% его продаж</small></span></li>';
+            (Math.round(p.s[i] / p.tot * 10000) / 100) + '% его продаж</small></span></li>';
         }).join('') + '</ol>' : '<div class="hint">Продаж в это время нет.</div>') +
       (lift.length ? '<div class="rkLift"><b>Особенно в это время:</b> ' + lift.map(function(o){
           return esc(o.p.name) + ' <span>×' + (Math.round(o.x * 10) / 10) + '</span>'; }).join(', ') + '</div>' : '') +
@@ -8401,8 +8401,8 @@ function renderHeatRank(flt){
       return '<tr><td data-l="#">' + (j + 1) + '</td><td class="name" data-l="Позиция">' + esc(p.name) + '</td>' +
         '<td data-l="Категория">' + esc(p.cat || '') + '</td>' +
         '<td data-l="Половина продана к"><b>' + hhmm(p.med) + '</b></td>' +
-        '<td data-l="До 12:00">' + Math.round(p.noon * 100) + '%</td>' +
-        '<td data-l="После 18:00">' + Math.round(p.eve * 100) + '%</td>' +
+        '<td data-l="До 12:00">' + (Math.round(p.noon * 10000) / 100) + '%</td>' +
+        '<td data-l="После 18:00">' + (Math.round(p.eve * 10000) / 100) + '%</td>' +
         '<td data-l="Всего, шт">' + fmtQ(p.tot) + '</td>' +
         '<td data-l="В день">' + fmtQ(p.tot / R.nDays) + '</td></tr>';
     }).join('') + '</tbody></table></div>' +
@@ -8419,7 +8419,7 @@ function renderHeatRank(flt){
   $('kpiH').innerHTML =
     '<div><span>Продано по полной цене</span><b>' + fmtQ(R.tot) + ' шт</b><span>за ' + R.nDays + ' дн.</span></div>' +
     '<div><span>Самое загруженное время</span><b>' + (R.tot ? RANK_SLOTS[best].ru : '—') + '</b><span>' +
-      (R.tot ? Math.round(R.slotTot[best] / R.tot * 100) + '% продаж дня' : '') + '</span></div>' +
+      (R.tot ? (Math.round(R.slotTot[best] / R.tot * 10000) / 100) + '% продаж дня' : '') + '</span></div>' +
     '<div><span>Раскупают первым</span><b style="font-size:15px">' + (first[0] ? esc(first[0].name) : '—') + '</b><span>' +
       (first[0] ? 'половина продана к ' + hhmm(first[0].med) : '') + '</span></div>';
   $('cntH').textContent = 'позиций: ' + R.list.length;
@@ -8444,7 +8444,7 @@ function renderHeatArr(flt){
       '<td><span class="hmc l0">' + fmtQ(b.disc) + '</span></td>' +
       '<td><span class="hmc l' + lvl + '" title="' + esc(b.name + ': со скидкой ' +
         fmtQ(b.disc) + ' из ' + fmtQ(b.sold) + ' шт') + '">' +
-        (b.sold > 0 ? Math.round(b.share * 100) + '%' : '·') + '</span></td></tr>';
+        (b.sold > 0 ? (Math.round(b.share * 10000) / 100) + '%' : '·') + '</span></td></tr>';
   });
   h += '</tbody></table>';
   $('heatGrid').innerHTML = h;
@@ -8458,7 +8458,7 @@ function renderHeatArr(flt){
   $('kpiH').innerHTML = rows.map(function(b){
     return '<div><span>' + b.name + '</span><b style="color:var(--' +
       (b.share > 0.3 ? 'badT' : 'okT') + ')">' +
-      (b.sold > 0 ? Math.round(b.share * 100) + '%' : '—') + '</b><span>' +
+      (b.sold > 0 ? (Math.round(b.share * 10000) / 100) + '%' : '—') + '</b><span>' +
       fmtQ(b.sold) + ' шт</span></div>'; }).join('');
   $('cntH').textContent = 'продано всего: ' +
     fmtQ(rows.reduce(function(a, b){ return a + b.sold; }, 0)) + ' шт';
@@ -8470,10 +8470,10 @@ function renderHeatArr(flt){
   else {
     var worst = live.slice().sort(function(a, b){ return b.share - a.share; })[0];
     li.push('Дольше всего теряет продукция на этапе «<b>' + worst.name + '</b>»: ' +
-      Math.round(worst.share * 100) + '% продаж там идёт со скидкой.');
+      (Math.round(worst.share * 10000) / 100) + '% продаж там идёт со скидкой.');
     if (d0.sold > 0 && last.sold > 0)
       li.push('В день завоза со скидкой уходит <b>' + Math.round(d0.share * 100) +
-        '%</b>, а к третьим суткам — <b>' + Math.round(last.share * 100) + '%</b>. ' +
+        '%</b>, а к третьим суткам — <b>' + (Math.round(last.share * 10000) / 100) + '%</b>. ' +
         (last.share > d0.share * 2
           ? 'Всё, что не продалось в первые сутки, почти наверняка уйдёт по уценке — ' +
             'значит заявка должна закрывать примерно однодневный спрос.'
@@ -8639,7 +8639,7 @@ $('btnHeatXlsx').onclick = function(){
         var dq = mix.disc.g[i][w], fq = mix.full.g[i][w];
         if (!dq && !fq) continue;
         out.push([pad(HM_H0 + i) + ':00', DOW[w], r3(dq), r3(fq),
-                  (dq + fq) > 0 ? Math.round(dq / (dq + fq) * 100) + '%' : '']);
+                  (dq + fq) > 0 ? (Math.round(dq / (dq + fq) * 10000) / 100) + '%' : '']);
       }
       return out;
     })() });
@@ -8648,7 +8648,7 @@ $('btnHeatXlsx').onclick = function(){
     head: ['Сколько лежит','Продано всего','Из них со скидкой','Доля уценки'],
     rows: arr.rows.map(function(b){
       return [b.name, r3(b.sold), r3(b.disc),
-              b.sold > 0 ? Math.round(b.share * 100) + '%' : '']; }) });
+              b.sold > 0 ? (Math.round(b.share * 10000) / 100) + '%' : '']; }) });
   var blob = makeXlsx(sheets);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -9621,7 +9621,7 @@ function bkaList(){
     return b;
   }).sort(function(a, b){ return (b.made || 0) - (a.made || 0) || (+b.num || 0) - (+a.num || 0); });
 }
-function bkaMoney(n){ return fmtQ(Math.round(n || 0)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+function bkaMoney(n){ return wkMoney(n); }
 function bkaAgo(t){
   if (!t) return '';
   var m = Math.round((Date.now() - t) / 60000);
@@ -11470,10 +11470,9 @@ function wkMonday(s){ var d = wkDate(s), k = (d.getDay() + 6) % 7; d.setDate(d.g
 /* последняя ПОЛНАЯ неделя: в понедельник это прошлая неделя */
 function wkLastFull(){ return wkAdd(wkMonday(wkIso(new Date())), -7); }
 function wkRu(s){ var p = String(s).split('-'); return p[2] + '.' + p[1]; }
-function wkMoney(x){ x = Math.round(x || 0); return String(x).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
-function wkK(x){ x = x || 0; return Math.abs(x) >= 1e6 ? (x / 1e6).toFixed(2).replace('.', ',') + ' млн ₸'
-  : Math.abs(x) >= 1e3 ? Math.round(x / 1e3) + ' тыс ₸' : Math.round(x) + ' ₸'; }
-function wkPct(x){ return (x == null || !isFinite(x)) ? '—' : (Math.round(x * 1000) / 10).toString().replace('.', ',') + '%'; }
+function wkMoney(x){ x = Math.round((x || 0) * 100) / 100; var p = String(Math.abs(x)).split('.'); return (x < 0 ? '−' : '') + p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (p[1] ? ',' + p[1] : '') + ' ₸'; }
+function wkK(x){ return wkMoney(x); }   /* полное число: без «млн» и «тыс» */
+function wkPct(x){ return (x == null || !isFinite(x)) ? '—' : (Math.round(x * 10000) / 100).toString().replace('.', ',') + '%'; }
 function wkEsc(s){ return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
 /* ── источники данных сайта (всё через эти функции — проще проверить и заменить) ── */
@@ -11613,7 +11612,7 @@ function wkFunnel(W){
     'Нажмите на филиал — откроется список позиций с цифрами.</p>';
   return h;
 }
-function wkQty(q){ q = Math.round(q * 10) / 10; return q ? q.toLocaleString('ru-RU') : '—'; }
+function wkQty(q){ q = Math.round(q * 1000) / 1000; return q ? q.toLocaleString('ru-RU') : '—'; }
 function wkDrill(el){
   var box = el.nextElementSibling; if (!box) return;
   if (!box.hidden){ box.hidden = true; el.querySelector('.wkFn').innerHTML = el.querySelector('.wkFn').innerHTML.replace('▾', '▸'); return; }
@@ -11644,7 +11643,7 @@ function wkDelta(a, b, money, short){
   if (a == null || b == null || !isFinite(a) || !isFinite(b)) return '';
   var d = a - b; if (Math.abs(d) < 1e-9) return '<span class="wkD">без изменений</span>';
   var up = d > 0, txt = money ? (up ? '+' : '−') + wkK(Math.abs(d))
-    : (up ? '+' : '−') + (Math.round(Math.abs(d) * 1000) / 10).toString().replace('.', ',') + ' п.п.';
+    : (up ? '+' : '−') + (Math.round(Math.abs(d) * 10000) / 100).toString().replace('.', ',') + ' п.п.';
   return '<span class="wkD ' + (up ? 'bad' : 'ok') + '">' + txt + (short ? '' : ' к прошлой неделе') + '</span>';
 }
 
@@ -11780,7 +11779,7 @@ var WK_CLOSE = null;
 function wkMin(s){ var m = /(\d{1,2})\D(\d{2})/.exec(S(s)); return m ? +m[1] * 60 + +m[2] : null; }
 function wkHm(t){ return t == null ? '—' : Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2); }
 function wkBase(n, d, unit){ return d ? ' <span class="wkB">(' + wkQ(n) + ' из ' + wkQ(d) + (unit || '') + ')</span>' : ''; }
-function wkQ(q){ q = Math.round(q * 10) / 10; return q.toLocaleString('ru-RU'); }
+function wkQ(q){ q = Math.round(q * 1000) / 1000; return q.toLocaleString('ru-RU'); }
 /* Время закрытия филиала — по последним чекам за 4 недели: берём «поздний обычный» день
    (75-й процентиль) и округляем вверх до получаса: последний чек 21:47 → закрытие 22:00. */
 function wkCloseTimes(BR){
@@ -12510,7 +12509,7 @@ function dqRender(){
     days.forEach(function(d){
       var v = c[w + '|' + d] || 0, p = part[w + '|' + d];
       var cls = !v ? 'no' : p ? 'part' : 'ok';
-      h += '<span class="c ' + cls + '" title="' + wkEsc(w) + ', ' + wkRu(d) + ': ' + Math.round(v) + ' шт продаж' +
+      h += '<span class="c ' + cls + '" title="' + wkEsc(w) + ', ' + wkRu(d) + ': ' + fmtQ(v) + ' шт продаж' +
         (p ? ' при обычных ~' + p.base : '') + '">' + (v ? Math.round(v) : '—') + '</span>';
     });
   });
