@@ -11403,9 +11403,9 @@ function wkCat(name){
 function wkCalc(mon){
   WK_PR = null;
   var sun = wkAdd(mon, 6), BR = wkBranches();
-  var by = {}, dish = {}, day = {}, bd = {}, noPrice = {}, seenDay = {}, stop = {}, keep = {};
+  var by = {}, dish = {}, day = {}, bd = {}, noPrice = {}, seenDay = {}, stop = {}, keep = {}, keepN = {};
   function cell(o, k){ return o[k] || (o[k] = { prih: 0, sold: 0, s20: 0, f50: 0, vz: 0, sp: 0, gross: 0, rev: 0, loss: 0,
-                                                 mFull: 0, mS20: 0, mF50: 0, mVz: 0, mSp: 0, price: 0, kat: '' }); }
+                                                 mFull: 0, mS20: 0, mF50: 0, mVz: 0, mSp: 0, dsc: 0, mDsc: 0, mDscSum: 0, price: 0, kat: '' }); }
   /* Основа — те же строки, что на странице «Хронология»: только продукция из справочника
      (молоко, лимоны, кофе и прочее сырьё не попадают), кусочки пересчитаны в целые,
      приход по акту приготовления — только там, где так и положено. */
@@ -11418,7 +11418,7 @@ function wkCalc(mon){
     var wh = r[iW]; if (BR.indexOf(wh) < 0) return;
     var name = S(r[iD]), price = N(r[iPr]) || wkPrice(name);
     if (!price) noPrice[name] = 1;
-    keep[wh + '|' + nrm(name)] = 1;
+    keep[wh + '|' + nrm(name)] = 1; keepN[wh + '|' + nrm(name)] = name;
     var v = { prih: N(r[iP]), sold: N(r[iS]), s20: N(r[i20]), f50: N(r[i5]), vz: N(r[iV]), sp: N(r[iSp]) };
     var full = Math.max(0, v.sold - v.s20);
     [cell(by, wh), cell(dish, name), cell(bd, wh + '|' + name)].forEach(function(o){
@@ -11437,6 +11437,25 @@ function wkCalc(mon){
     var k = nrm(name), b = baseOf(k);
     return keep[wh + '|' + b.k] || keep[wh + '|' + k] ? b.f : 0;
   }
+  /* другие скидки — бонусы MXM, «ДР −10%», «Скидка 10%». Это не потери (маркетинг),
+     но и не продажа по полной цене: показываем отдельно, выручку уменьшаем на их сумму.
+     «Скидка 50%» не берём — это продажа со склада 50%, она уже учтена. */
+  (DB.dsc || []).forEach(function(r){
+    var d = r[0]; if (!d || d < mon || d > sun) return;
+    var t = S(r[3]); if (!t || /50\s*%/.test(t)) return;
+    var wh = wkBranchOf(S(r[1]), BR); if (!wh) return;
+    var raw = S(r[2]), k = nrm(raw), b = baseOf(k);
+    var key = keepN[wh + '|' + b.k] ? wh + '|' + b.k : keepN[wh + '|' + k] ? wh + '|' + k : '';
+    if (!key) return;
+    var nm = keepN[key], q = N(r[4]) * (key === wh + '|' + b.k ? b.f : 1); if (!q) return;
+    var o0 = bd[wh + '|' + nm], price = o0 ? o0.price : wkPrice(nm);
+    var m = (r.length > 5 && r[5] !== '' && r[5] != null) ? N(r[5]) : 0;
+    if (!m){ var pm = /(\d+)\s*%/.exec(t); m = pm ? q * price * (+pm[1]) / 100 : 0; }
+    [by[wh], dish[nm], o0].forEach(function(o){
+      if (!o) return;
+      o.dsc += q; o.mDsc += q * price; o.mDscSum += m; o.rev -= m; o.mFull -= q * price;
+    });
+  });
   (DB.mov || []).forEach(function(r){
     var d = r[0]; if (!d || d < mon || d > sun) return;
     var wh = r[1]; if (BR.indexOf(wh) < 0) return;
@@ -11468,7 +11487,9 @@ function wkCalc(mon){
   return { mon: mon, sun: sun, branches: BR, by: by, dish: dish, day: day, bd: bd, tot: tot, stop: stop,
            noPrice: Object.keys(noPrice).sort(), missing: missing };
 }
-var WK_MSEG = { full: 'mFull', s20: 'mS20', f50: 'mF50', vz: 'mVz', sp: 'mSp' };
+var WK_MSEG = { full: 'mFull', s20: 'mS20', dsc: 'mDsc', f50: 'mF50', vz: 'mVz', sp: 'mSp' };
+function wkSeg2(){ return WK_SEG.slice(0, 2).concat([{ k: 'dsc', t: 'другие скидки (бонусы MXM, ДР −10%, 10%)', c: '#3b82c4' }], WK_SEG.slice(2)); }
+function wkM(o, s){ return Math.max(0, o[WK_MSEG[s]]); }
 function wkFunnel(W){
   var rows = W.branches.filter(function(w){ return W.by[w] && W.by[w].prih > 0; })
     .sort(function(a, b){ return wkShare(W.by[b]) - wkShare(W.by[a]); });
@@ -11476,19 +11497,19 @@ function wkFunnel(W){
   var h = '<div class="wkFun">';
   rows.concat(['__all']).forEach(function(w){
     var o = w === '__all' ? W.tot : W.by[w];
-    var sum = WK_SEG.reduce(function(a, s){ return a + o[WK_MSEG[s.k]]; }, 0) || 1;
+    var sum = wkSeg2().reduce(function(a, s){ return a + wkM(o, s.k); }, 0) || 1;
     h += '<div class="wkFr wkClk' + (w === '__all' ? ' all' : '') + '" data-wk="' + wkEsc(w) + '" onclick="wkDrill(this)" title="Нажмите — покажу по позициям">' +
-      '<span class="wkFn">▸ ' + (w === '__all' ? 'Вся сеть' : wkEsc(w)) + '</span><span class="wkFb">' + WK_SEG.map(function(s){
-        var m = o[WK_MSEG[s.k]], p = m / sum; if (p <= 0) return '';
+      '<span class="wkFn">▸ ' + (w === '__all' ? 'Вся сеть' : wkEsc(w)) + '</span><span class="wkFb">' + wkSeg2().map(function(s){
+        var m = wkM(o, s.k), p = m / sum; if (p <= 0) return '';
         return '<i style="width:' + (p * 100).toFixed(2) + '%;background:' + s.c + '" title="' + s.t + ': ' +
           wkK(m) + ' (' + wkPct(p) + ')"></i>'; }).join('') +
-      '</span><span class="wkFv">' + wkPct(1 - o.mFull / sum) + '</span></div><div class="wkDrill" hidden></div>';
+      '</span><span class="wkFv">' + wkPct(1 - wkM(o, 'full') / sum) + '</span></div><div class="wkDrill" hidden></div>';
   });
-  h += '</div><div class="wkLeg">' + WK_SEG.map(function(s){
+  h += '</div><div class="wkLeg">' + wkSeg2().map(function(s){
     return '<span><i style="background:' + s.c + '"></i>' + s.t + '</span>'; }).join('') +
     '<span class="hint">справа — доля, ушедшая не по полной цене</span></div>' +
     '<p class="hint">Как считается: берутся те же позиции, что на странице «Хронология» (только продукция из справочника, без сырья). ' +
-    'Каждая часть = штуки × цена продажи из справочника. «Продано по полной» = продано всего − продано со скидкой 20%. ' +
+    'Каждая часть = штуки × цена продажи из справочника. «Продано по полной» = продано всего − уценка 20% − другие скидки (бонусы MXM, ДР −10%, скидка 10%). Другие скидки — не потери, но выручку уменьшают на сумму скидки. ' +
     'Нажмите на филиал — откроется список позиций с цифрами.</p>';
   return h;
 }
@@ -11501,17 +11522,17 @@ function wkDrill(el){
   else Object.keys(W.bd).forEach(function(k){ var i = k.indexOf('|'); if (k.slice(0, i) === w) list.push([k.slice(i + 1), W.bd[k]]); });
   list = list.filter(function(x){ return x[1].prih || x[1].sold; })
     .sort(function(a, b){ return b[1].loss - a[1].loss || b[1].mFull - a[1].mFull; });
-  var t = '<div class="wrapT"><table><thead><tr><th>Позиция</th><th>Приход</th><th>Продано по полной</th><th>Уценка 20%</th>' +
-    '<th>Склад 50%</th><th>Возврат</th><th>Списание</th><th>Цена, ₸</th><th>Продано по полной, ₸</th><th>Потери выручки, ₸</th></tr></thead><tbody>';
+  var t = '<div class="wrapT"><table><thead><tr><th>Позиция</th><th>Приход</th><th>Продано по полной</th><th>Уценка 20%</th><th>Другие скидки</th>' +
+    '<th>Склад 50%</th><th>Возврат</th><th>Списание</th><th>Цена, ₸</th><th>Продано по полной, ₸</th><th>Сумма других скидок, ₸</th><th>Потери выручки, ₸</th></tr></thead><tbody>';
   list.forEach(function(x){
     var o = x[1];
-    t += '<tr><td class="name">' + wkEsc(x[0]) + '</td><td>' + wkQty(o.prih) + '</td><td>' + wkQty(Math.max(0, o.sold - o.s20)) +
-      '</td><td>' + wkQty(o.s20) + '</td><td>' + wkQty(o.f50) + '</td><td>' + wkQty(o.vz) + '</td><td>' + wkQty(o.sp) +
+    t += '<tr><td class="name">' + wkEsc(x[0]) + '</td><td>' + wkQty(o.prih) + '</td><td>' + wkQty(Math.max(0, o.sold - o.s20 - o.dsc)) +
+      '</td><td>' + wkQty(o.s20) + '</td><td>' + wkQty(o.dsc) + '</td><td>' + wkQty(o.f50) + '</td><td>' + wkQty(o.vz) + '</td><td>' + wkQty(o.sp) +
       '</td><td>' + (all ? '' : (o.price ? Math.round(o.price).toLocaleString('ru-RU') : '<span class="hint">нет цены</span>')) +
-      '</td><td>' + wkK(o.mFull) + '</td><td>' + (o.loss ? wkK(o.loss) : '—') + '</td></tr>';
+      '</td><td>' + wkK(Math.max(0, o.mFull)) + '</td><td>' + (o.mDscSum ? wkK(o.mDscSum) : '—') + '</td><td>' + (o.loss ? wkK(o.loss) : '—') + '</td></tr>';
   });
   t += '</tbody></table></div><p class="hint">Количество — в штуках; у весовых позиций (бауырсақ, печенье на вес) — в кг, а торты, проданные кусочками, пересчитаны в целые — поэтому бывают дроби. ' +
-    'Потери выручки = (списание + возврат) × цена + склад 50% × цена × 0,5 + уценка 20% × цена × 0,2.</p>';
+    'Другие скидки в потери не входят. Потери выручки = (списание + возврат) × цена + склад 50% × цена × 0,5 + уценка 20% × цена × 0,2.</p>';
   box.innerHTML = list.length ? t : '<p class="hint">Нет позиций.</p>';
   box.hidden = false;
   el.querySelector('.wkFn').innerHTML = el.querySelector('.wkFn').innerHTML.replace('▸', '▾');
