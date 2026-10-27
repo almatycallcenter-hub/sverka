@@ -9712,7 +9712,7 @@ function bkaPriceList(){
     if (!s0 || !k) return;
     q[k] = (q[k] || 0) + N(r[3]); sum[k] = (sum[k] || 0) + s0; name[k] = name[k] || String(r[2]).trim();
   });
-  return Object.keys(q).filter(function(k){ return q[k] > 0; }).map(function(k){ return [name[k], Math.round(sum[k] / q[k])]; });
+  return Object.keys(q).filter(function(k){ return q[k] > 0; }).map(function(k){ return [name[k], sum[k] / q[k]]; });   // без округления
 }
 async function bkaPrices(quiet){
   var list = bkaPriceList();
@@ -9720,7 +9720,7 @@ async function bkaPrices(quiet){
   try{
     var j = await apiCall('prices_set', { key: apiCfg().read || '', prices: list });
     try{ localStorage.setItem('tt_price_sent', String(list.length) + ':' + list.slice(0, 50).join('|').length); }catch(e){}
-    if (!quiet) msg('bkMsg', 'Цены отправлены в витрину: ' + (j.saved || list.length) + ' позиций. Сотрудник видит цену −' + BKA.off + '%.', 'ok');
+    if (!quiet) msg('bkMsg', 'Цены записаны в справочник: ' + (j.saved || 0) + ' позиций' + (j.notInSpr ? ' (ещё ' + j.notInSpr + ' — нет в справочнике, пропущены)' : '') + '. Сотрудник видит цену −' + BKA.off + '%.', 'ok');
   }catch(e){ if (!quiet) msg('bkMsg', 'Цены не ушли: ' + esc(e.message), 'err'); }
 }
 function bkaPricesAuto(){
