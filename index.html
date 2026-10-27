@@ -2265,7 +2265,8 @@ function applySpr(list){
       SPR_GAPS.push(r[0]);
     }
     SPR[k] = { name: r[0], srok: srok, forma: r[2] || '',
-               skidka: r[3] || '', kat: r[4] || '', spis: r[5] || '' };
+               skidka: r[3] || '', kat: r[4] || '', spis: r[5] || '',
+               price: +r[6] > 0 ? +r[6] : 0 };   // цена из справочника (аудит, шаг 3)
   });
   Object.keys(SPR).forEach(function(k){
     if (k.indexOf('кусоч') < 0) return;
@@ -4827,6 +4828,9 @@ function priceMap(){
   });
   var p = {};
   Object.keys(q).forEach(function(k){ if (q[k] > 0) p[k] = sum[k] / q[k]; });
+  /* Цена из справочника главнее: один источник цен с витриной (аудит, шаг 3).
+     Позиции без цены в справочнике считаются по чекам, как раньше. */
+  Object.keys(SPR).forEach(function(k){ if (SPR[k].price > 0) p[k] = SPR[k].price; });
   return p;
 }
 
