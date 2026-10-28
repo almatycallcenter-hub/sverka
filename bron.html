@@ -76,12 +76,15 @@ main{max-width:640px;margin:0 auto;padding:16px}
   try{ W = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Telegram.WebApp : null; }catch(e){}
   function el(id){ return document.getElementById(id); }
   function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  function money(n){ return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+  function money(n){   // без округления: «1 125,5 ₸»
+    var s = String(+(+n || 0).toPrecision(12)).split('.');
+    return s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (s[1] ? ',' + s[1] : '') + ' ₸';
+  }
   function fq(n){ return Math.round(n * 100) / 100; }
   var DOW = ['вс','пн','вт','ср','чт','пт','сб'], MON = ['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
   function day(s){ var p = String(s).split('-'), d = new Date(+p[0], +p[1]-1, +p[2]); return DOW[d.getDay()] + ', ' + (+p[2]) + ' ' + MON[+p[1]-1]; }
   function hm(t){ var d = new Date(t); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
-  var ST = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена' };
+  var ST = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена', none: 'Не выдано' };
   var NUM = (new URLSearchParams(location.search).get('n') || '').replace(/\D/g, '');
   var sp = W ? ((W.initDataUnsafe || {}).start_param || '') : '';
   if (!NUM && /^bk\d+$/.test(sp)) NUM = sp.slice(2);
