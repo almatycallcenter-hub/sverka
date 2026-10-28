@@ -660,9 +660,12 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
   var PHONE = '', PHONE_SHOW = '', PHONE_MAN = '', PHONE_FAIL = '';
   try{ PHONE_MAN = localStorage.getItem('tt_vitrina_phone_man') || ''; }catch(e){}
   try{ PHONE = localStorage.getItem('tt_vitrina_phone') || ''; PHONE_SHOW = localStorage.getItem('tt_vitrina_phone_show') || ''; }catch(e){}
-  var ST_T = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена', past: 'Прошла' };
+  var ST_T = { 'new': 'Новая', ready: 'Собрана', done: 'Выдана', cancel: 'Отменена', past: 'Прошла', none: 'Не выдано' };
 
-  function money(n){ return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+  function money(n){   // без округления: «1 125,5 ₸»
+    var s = String(+(+n || 0).toPrecision(12)).split('.');
+    return s[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + (s[1] ? ',' + s[1] : '') + ' ₸';
+  }
   function rowOf(dish){ return rowsOf(BR).filter(function(x){ return x.dish === dish; })[0] || null; }
   function staffOf(dish){ var r = rowOf(dish); return r ? (+r.staff || 0) : 0; }
   function fullOf(dish){ var r = rowOf(dish); return r ? (+r.price || 0) : 0; }
@@ -672,7 +675,7 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
       if (!(CART[k] > 0)) return;
       var p = staffOf(k); if (p) s += p * CART[k]; else miss++;
     });
-    return { sum: Math.round(s), miss: miss };
+    return { sum: s, miss: miss };
   }
 
   /* Фото — из foto.json (название → файл). Пока фото нет — заглушка: эмодзи по
@@ -776,7 +779,8 @@ main{max-width:760px;margin:0 auto;padding:4px 16px 0}
       '<div class="mini">' + (m.status === 'ready' ? '📦 Заберите: ' : '📍 ') + esc(place) + '</div>' +
       '<div class="ft"><b>' + (m.total ? money(m.total) : '') + '</b>' +
       (live ? '<div class="acts">' + (m.day === DAY && m.status === 'new' ? '<button type="button" data-mbedit="' + esc(m.num) + '">Изменить</button>' : '') +
-              '<button type="button" class="r" data-mbcancel="' + esc(m.num) + '">Отменить</button></div>'
+              (m.canCancel === false ? '<span class="mini" style="margin:0">отменить — через филиал</span>'
+                : '<button type="button" class="r" data-mbcancel="' + esc(m.num) + '">Отменить</button>') + '</div>'
             : (m.saved && m.status !== 'cancel' ? '<span class="mini" style="margin:0">сэкономили ' + money(m.saved) + '</span>' : '')) +
       '</div></div>';
   }
