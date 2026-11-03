@@ -964,6 +964,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="rep" data-tab="rep" class="on"><span class="ic">📊</span>Отчёт по дням</a>
       <div class="navsec">Отчёт</div>
       <a data-page="wk"><span class="ic">🗓️</span>Отчёт за неделю</a>
+      <a data-page="mon"><span class="ic">📑</span>Отчёт за месяц</a>
       <a data-page="dq"><span class="ic">🧪</span>Качество данных</a>
       <div class="navsec">Потери</div>
       <a data-page="exp"><span class="ic">⏳</span>Что должно истечь</a>
@@ -1566,6 +1567,22 @@ document.addEventListener('DOMContentLoaded', function(){
           <div class="row"><input type="file" id="fOsv" accept=".xlsx"> <label class="lbl"><input type="checkbox" id="osvOnly" checked> только продукция витрины</label></div>
           <div class="msg" id="mOsv"></div>
           <div id="outOsv"></div>
+        </div>
+      </section>
+
+      <!-- ─── Отчёт за месяц ───────────────────────────── -->
+      <section class="page wide" id="pg-mon">
+        <div class="card noprint">
+          <h2>Отчёт за месяц</h2>
+          <p class="lead">Две книги Excel за выбранный период. «Скидка и списание» — сроки уценки и списания по FIFO, сравнение филиалов и продукции, склад 50%, движение товара; считается по выгрузкам iiko и спискам, загруженным на сайт. «Работа с ботом» — когда филиалы отправляют списки, дедлайн, версии и дни без списка; время отправки берётся из приёмника (нужен ключ на чтение).</p>
+          <div class="row" style="margin-top:10px;align-items:flex-end">
+            <div style="flex:0 0 170px"><label class="lbl">С</label><input type="date" id="monFrom"></div>
+            <div style="flex:0 0 170px"><label class="lbl">По</label><input type="date" id="monTo"></div>
+            <div style="flex:0 0 auto"><button id="btnMonMain">Скачать: Скидка и списание</button></div>
+            <div style="flex:0 0 auto"><button class="sec" id="btnMonBot">Скачать: Работа с ботом</button></div>
+          </div>
+          <div class="msg" id="mMon"></div>
+          <p class="lead" style="margin-top:10px">Перед отчётом загрузите свежие товарную ведомость, товарный отчёт и продажи за весь период (и «Продажа 50%» — для листа склада 50%), а в «Списках филиалов» заберите списки из приёмника. Правила подсчёта — на листе «Как считалось» в самой книге.</p>
         </div>
       </section>
 
@@ -10690,6 +10707,7 @@ $('a0Go').onclick = function(){
     tr:  ['Обучение фото','фото списания с подписью — для распознавания продукции'],
     dq:  ['Качество данных','полнота выгрузок и сверка с ведомостью iiko'],
     wk:  ['Отчёт за неделю','итоги понедельника: деньги, потери, решения'],
+    mon: ['Отчёт за месяц','сроки скидки и списания, работа с ботом — в Excel'],
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     zay: ['20-50% жеңілдік өнімдері','что завтра уходит по скидке'],
@@ -12732,5 +12750,6 @@ function wkDecBind(){
 
 </script>
 
+<script src="month.js"></script>
 </body>
 </html>
