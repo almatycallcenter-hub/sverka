@@ -146,7 +146,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   var API = 'https://script.google.com/macros/s/AKfycbyB2zMJldSSbflPVmWqlJxWvBcRrI1agvAnGSYHeUVdvVElOTxbs3dPszB_IdqOm88zyg/exec';
   var MAX_PHOTOS = 6, MAX_SIDE = 1600, QUALITY = 0.72;
   /* Накладную снимаем крупнее и чище: её читает распознавание текста. */
-  var DOC_SIDE = 2200, DOC_QUALITY = 0.88;
+  var DOC_SIDE = 2200, DOC_QUALITY = 0.88, MAX_DOCS = 3;
 
   var TG = null;
   try{ TG = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData
@@ -193,7 +193,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function rememberDest(d, v){ DEST_MEM[nrm(d)] = v; try{ localStorage.setItem(DKEY, JSON.stringify(DEST_MEM)); }catch(e){} }
 
   var today = new Date(), yest = new Date(); yest.setDate(today.getDate() - 1);
-  var S = { day: iso(today), branch: '', items: [], photos: [], reason: 'По срокам', daily: 'По срокам',
+  var S = { docs: [], docAt: null, day: iso(today), branch: '', items: [], photos: [], reason: 'По срокам', daily: 'По срокам',
             note: '', catalog: [], reasons: ['По срокам'], sentAt: '', adding: false, q: '', busy: false,
             bag: {}, other: [], sub: '' };
   /* Утреннее «по срокам» — по вечернему списку, одно на день. Остальные
@@ -262,7 +262,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       S.bag = { daily: S.items }; S.pbag = {}; S.restored = false;
       var last = null;
       function take(dr, legacy){
-        if (!dr || !(dr.photos && dr.photos.length || dr.items && dr.items.length || dr.doc)) return;
+        if (!dr || !(dr.photos && dr.photos.length || dr.items && dr.items.length || dr.doc || dr.docs && dr.docs.length)) return;
         var k = keyOf(dr.reason || S.daily);
         if (k === 'daily' && sent.length && dr.at < Date.now() - 6 * 3600e3) return;
         if (legacy && k !== 'daily'){   // старый общий черновик — переносим в карман его причины
@@ -270,7 +270,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
         if (S.pbag[k] && S.pbag[k].at >= dr.at) return;
         if (dr.items) S.bag[k] = dr.items;
         S.pbag[k] = { photos: (dr.photos || []).map(ph), note: dr.note || '', sub: dr.sub || '', x: dr.x || null,
-                      doc: k === 'daily' ? (dr.doc || null) : null, at: dr.at || 0 };
+                      docs: k === 'daily' ? (dr.docs || (dr.doc ? [dr.doc] : [])) : [], at: dr.at || 0 };
         if (!last || dr.at > last.at) last = dr;
         S.restored = true;
       }
@@ -334,7 +334,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     } else h += '<button class="add" id="add">＋ Добавить позицию</button>';
     if (needDest()) h += '<div class="hint">«Склад» — расходная на склад по срокам, «Акт» — акт списания на месте.</div>';
 
-    if (isDaily() && (needDoc(S.items) || S.doc)) h += docHtml();
+    if (isDaily() && (needDoc(S.items) || S.docs.length)) h += docHtml();
     h += '<h2>Фото / Сурет</h2><div class="shots">' + S.photos.map(function(p, i){
       return '<div class="shot"><img src="' + ph(p).src + '" alt=""><button data-dp="' + i + '" aria-label="Удалить фото">✕</button></div>'; }).join('') + '</div>';
     if (S.photos.length < MAX_PHOTOS)
@@ -394,20 +394,20 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     S.x = pb.x || (r === DR ? { fio: '', pos: '', date: S.day } : null);
     S.reason = r; S.items = S.bag[k] || (S.bag[k] = []);
     S.photos = pb.photos; S.note = pb.note; S.sub = pb.sub || '';
-    S.doc = k === 'daily' ? (pb.doc || null) : null;
-    if (S.doc && S.doc.state === 'reading') setTimeout(docRead, 50);
+    S.docs = k === 'daily' ? (pb.docs || (pb.doc ? [pb.doc] : [])) : []; S.docAt = null;
+    S.docs.forEach(function(d){ if (d.state === 'reading') setTimeout(function(){ docRead(d); }, 50); });
     if (k !== 'daily'){ if (!S.sub) S.sub = pb.sub = newSub();
       S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
   }
   function stash(){ var k = keyOf(S.reason);
-    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, doc: k === 'daily' ? S.doc : null, at: Date.now() }; }
+    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, docs: k === 'daily' ? S.docs : [], at: Date.now() }; }
   function readDraft(m){ try{ return JSON.parse(localStorage.getItem(draftKey(m)) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
     if (!S.branch || S.busy) return;   // во время отправки не пишем — иначе отправленное вернётся черновиком
     var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, x: S.x, at: Date.now() };
-    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos, doc: isDaily() ? S.doc : null }, d))); }
+    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos, docs: isDaily() ? S.docs : [] }, d))); }
     catch(e){ try{ localStorage.setItem(draftKey(), JSON.stringify(d)); }catch(e2){} }   // фото не влезли — хотя бы числа
-    try{ if (TG){ (S.photos.length || S.doc) ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
+    try{ if (TG){ (S.photos.length || S.docs.length) ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
   }
   function dropDraft(k){ try{ localStorage.removeItem(draftKey(k)); }catch(e){}
     try{ TG && TG.disableClosingConfirmation(); }catch(e){} }
@@ -463,10 +463,11 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     }
     if (t.id === 'add'){ S.adding = true; return render(); }
     if (t.id === 'cam') return camOpen();
-    if (t.id === 'dcam') return camOpen('doc');
-    if (t.id === 'dkeep'){ if (S.doc) S.doc.keep = true; return render(); }
-    if (t.id === 'ddel'){ S.doc = null; return render(); }
-    if (t.id === 'dretry') return docRead();
+    if (t.id === 'dcam'){ if (S.docs.length >= MAX_DOCS) return; S.docAt = null; return camOpen('doc'); }
+    if ((a = t.getAttribute('data-dre')) !== null){ S.docAt = +a; return camOpen('doc'); }
+    if ((a = t.getAttribute('data-dkeep')) !== null){ if (S.docs[+a]) S.docs[+a].keep = true; return render(); }
+    if ((a = t.getAttribute('data-ddel')) !== null){ S.docs.splice(+a, 1); return render(); }
+    if ((a = t.getAttribute('data-dretry')) !== null) return docRead(S.docs[+a]);
     if ((a = t.getAttribute('data-dadd')) !== null) return docAdd(a === 'all' ? null : +a);
     if ((a = t.getAttribute('data-dfix')) !== null) return docFix(+a);
   });
@@ -830,32 +831,35 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     c.getContext('2d').drawImage(src, 0, 0, c.width, c.height);
     enhance(c);
     drawStamp(c, stampLines(ms));
-    S.doc = { src: c.toDataURL('image/jpeg', DOC_QUALITY), state: 'reading', read: null, keep: false, tries: (S.doc ? S.doc.tries || 0 : 0),
+    /* Переснимаем — кадр встаёт на место старого; иначе — ещё одна накладная (до MAX_DOCS). */
+    var old = S.docAt !== null ? S.docs[S.docAt] : null;
+    var nd = { src: c.toDataURL('image/jpeg', DOC_QUALITY), state: 'reading', read: null, keep: false, tries: (old ? old.tries || 0 : 0),
               m: { t: ms, src: how, h: '', lat: GEO ? GEO.lat : null, lon: GEO ? GEO.lon : null, acc: GEO ? GEO.acc : null, place: geoPlace() } };
-    S.docTries = 0;
+    if (old) S.docs[S.docAt] = nd; else if (S.docs.length < MAX_DOCS) S.docs.push(nd); else return;
+    S.docAt = null; S.docTries = 0;
     var f = el('cfl'); if (f){ f.style.opacity = '.8'; setTimeout(function(){ f.style.opacity = '0'; }, 60); }
     setTimeout(camClose, 250);
-    docRead();
+    docRead(nd);
   }
-  function docRead(){
-    var d = S.doc; if (!d) return;
+  function docRead(d){
+    if (!d || S.docs.indexOf(d) < 0) return;
     d.state = 'reading'; render();
     api({ action: 'ph_doc', day: S.day, doc: d.src }).then(function(r){
-      if (S.doc !== d) return;
+      if (S.docs.indexOf(d) < 0) return;
       if (!r || (r.error && !(r.rows && r.rows.length))){ d.state = 'err'; d.err = (r && r.error) || 'Нет ответа.'; return render(); }
       d.read = r; d.tries = (d.tries || 0) + 1;
       d.state = r.readable ? 'ok' : 'bad';
       render();
-    }).catch(function(){ if (S.doc === d){ d.state = 'err'; d.err = 'Нет связи.'; render(); } });
+    }).catch(function(){ if (S.docs.indexOf(d) >= 0){ d.state = 'err'; d.err = 'Нет связи.'; render(); } });
   }
   /* Сверка на телефоне: та же логика, что в таблице. */
   function docCmp(){
-    var r = S.doc && S.doc.read, out = { ok: 0, onlyDoc: [], onlyList: [], diff: [] };
-    if (!r) return out;
+    var rows = docRows(), out = { ok: 0, onlyDoc: [], onlyList: [], diff: [] };
+    if (!rows.length) return out;
     var list = {};
     S.items.forEach(function(it, i){ if (it.dest !== 'akt' && Number(it.qty) > 0) list[nrm(it.dish)] = i; });
     var seen = {};
-    (r.rows || []).forEach(function(x, j){
+    rows.forEach(function(x, j){
       var k = nrm(x.dish); seen[k] = 1;
       if (!(k in list)) out.onlyDoc.push(j);
       else if (Math.abs(Number(S.items[list[k]].qty) - Number(x.qty)) > 1e-9) out.diff.push(j);
@@ -865,10 +869,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     return out;
   }
   function docAdd(j){
-    var r = S.doc && S.doc.read; if (!r) return;
+    var rows = docRows(); if (!rows.length) return;
     var c = docCmp(), add = j === null ? c.onlyDoc : [j];
     add.forEach(function(j2){
-      var x = r.rows[j2]; if (!x) return;
+      var x = rows[j2]; if (!x) return;
       var ex = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
       if (ex){ ex.qty = Number(x.qty) || 0; ex.dest = 'sklad'; return; }
       var cat = ''; S.catalog.some(function(cc){ if (nrm(cc[0]) === nrm(x.dish)){ cat = cc[1]; return true; } });
@@ -877,51 +881,80 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     render();
   }
   function docFix(j){
-    var x = S.doc && S.doc.read && S.doc.read.rows[j]; if (!x) return;
+    var x = docRows()[j]; if (!x) return;
     S.items.forEach(function(i){ if (nrm(i.dish) === nrm(x.dish)) i.qty = Number(x.qty) || 0; });
     render();
   }
+  /* Строки всех прочитанных накладных вместе: одна позиция из двух накладных — сумма. */
+  function docRows(){
+    var rows = [], at = {};
+    S.docs.forEach(function(d){ (d.read && d.read.rows || []).forEach(function(x){
+      var k = nrm(x.dish);
+      if (k in at) rows[at[k]].qty = Number(rows[at[k]].qty) + Number(x.qty);
+      else { at[k] = rows.length; rows.push({ dish: x.dish, qty: Number(x.qty), kg: x.kg }); }
+    }); });
+    return rows;
+  }
+  function docHead(d, i){
+    var r = d.read || {};
+    return 'Накладная' + (r.num ? ' №' + esc(r.num) : (S.docs.length > 1 ? ' ' + (i + 1) : '')) + (r.time ? ' от ' + esc(r.time) : '');
+  }
+  /* Одна накладная: её кадр и как она прочиталась. */
+  function docOne(d, i){
+    var t = '', r = d.read || {}, head = docHead(d, i);
+    if (d.state === 'reading') t = '<b>Читаю накладную…</b><div class="pl">Несколько секунд.</div>';
+    else if (d.state === 'err') t = '<b>⚠️ Не получилось прочитать</b><div class="pl">' + esc(d.err || '') + '</div>' +
+      '<div class="db"><button data-dretry="' + i + '">Ещё раз</button><button data-dre="' + i + '">Переснять</button></div>';
+    else if (d.state === 'bad'){
+      t = '<b>⚠️ ' + head + ' читается не полностью</b>' +
+        '<div class="pl">Переснимите: ровно сверху, без бликов и тени, весь чек в рамке.' +
+        (r.total ? ' В чеке позиций: ' + r.total + ', прочитано: ' + ((r.rows || []).length + (r.unknown || []).length) + '.' : '') + '</div>' +
+        '<div class="db"><button data-dre="' + i + '">📄 Переснять</button>' + ((d.tries || 0) >= 2 && !d.keep ? '<button data-dkeep="' + i + '">Оставить это фото</button>' : '') + '</div>' +
+        (d.keep ? '<div class="pl">Оставили как есть — в группе отметим, что сверить вручную.</div>' : '');
+    } else t = '<b>📄 ' + head + '</b><div class="pl">Прочитана · ' + (r.rows || []).length + ' поз.</div>' +
+      '<div class="db"><button data-dre="' + i + '">Переснять</button></div>';
+    return '<div class="doc" style="margin-bottom:8px"><img src="' + d.src + '" alt=""><div class="dt">' + t +
+      (d.state === 'reading' ? '' : '<div class="pl" style="margin-top:6px"><button data-ddel="' + i + '" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">Убрать эту накладную</button></div>') +
+      '</div></div>';
+  }
+  /* Сверка со списком — по всем накладным сразу. */
+  function docCmpHtml(){
+    var rows = docRows(), c = docCmp(), many = S.docs.length > 1, t,
+        head = many ? 'Накладные (' + S.docs.length + ')' : docHead(S.docs[0], 0),
+        unknown = [].concat.apply([], S.docs.map(function(d){ return d.read && d.read.unknown || []; }));
+    if (!c.onlyDoc.length && !c.onlyList.length && !c.diff.length)
+      return '<b>✅ ' + head + ': ' + (many ? 'совпадают' : 'совпадает') + ' со списком</b><div class="pl">' + c.ok + ' поз.</div>';
+    t = '<b>⚠️ ' + head + ': есть расхождения</b>';
+    if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладной, но нет в списке:</b></div><ul>' +
+      c.onlyDoc.map(function(j){ var x = rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') +
+        ' <button data-dadd="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">＋ В список</button></li>'; }).join('') + '</ul>' +
+      (c.onlyDoc.length > 1 ? '<div class="db"><button data-dadd="all">＋ Добавить все ' + c.onlyDoc.length + '</button></div>' : '');
+    if (c.diff.length) t += '<div class="pl" style="margin-top:6px"><b>Разное количество:</b></div><ul>' +
+      c.diff.map(function(j){ var x = rows[j], it = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
+        return '<li>' + esc(x.dish) + ': в накладн' + (many ? 'ых' : 'ой') + ' ' + r3(x.qty) + ', в списке ' + r3(it ? it.qty : 0) +
+          ' <button data-dfix="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">Как в накладной</button></li>'; }).join('') + '</ul>';
+    if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке «Склад», но нет в накладн' + (many ? 'ых' : 'ой') + ':</b></div><ul>' +
+      c.onlyList.map(function(i){ return '<li>' + esc(S.items[i].dish) + ' — ' + r3(S.items[i].qty) + '</li>'; }).join('') + '</ul>' +
+      '<div class="pl">Проверьте: забыли вписать в накладную, не сняли вторую накладную или это «Акт»?</div>';
+    if (unknown.length) t += '<div class="pl" style="margin-top:6px">Не нашла в справочнике: ' +
+      unknown.map(function(u){ return '«' + esc(u.raw) + '»'; }).join(', ') + '</div>';
+    return t;
+  }
   function docHtml(){
-    var d = S.doc, h = '<h2>📄 Накладная на склад / Жүкқұжат</h2>';
-    if (!d){
+    var h = '<h2>📄 Накладная на склад / Жүкқұжат</h2>';
+    if (!S.docs.length){
       return h + '<button class="cam" id="dcam">📄 Сфотографировать накладную</button>' +
         '<div class="hint">Положите накладную на ровный стол при хорошем свете. Весь чек — в рамке, текст должен читаться. ' +
         'Таблица прочитает её и сверит со списком. / Жүкқұжатты анық түсіріңіз.</div>';
     }
-    var t = '';
-    if (d.state === 'reading') t = '<b>Читаю накладную…</b><div class="pl">Несколько секунд.</div>';
-    else if (d.state === 'err') t = '<b>⚠️ Не получилось прочитать</b><div class="pl">' + esc(d.err || '') + '</div>' +
-      '<div class="db"><button id="dretry">Ещё раз</button><button id="dcam">Переснять</button></div>';
-    else {
-      var r = d.read || {}, c = docCmp(), head = 'Накладная' + (r.num ? ' №' + esc(r.num) : '') + (r.time ? ' от ' + esc(r.time) : '');
-      if (d.state === 'bad'){
-        t = '<b>⚠️ ' + head + ' читается не полностью</b>' +
-          '<div class="pl">Переснимите: ровно сверху, без бликов и тени, весь чек в рамке.' +
-          (r.total ? ' В чеке позиций: ' + r.total + ', прочитано: ' + ((r.rows || []).length + (r.unknown || []).length) + '.' : '') + '</div>' +
-          '<div class="db"><button id="dcam">📄 Переснять</button>' + ((d.tries || 0) >= 2 && !d.keep ? '<button id="dkeep">Оставить это фото</button>' : '') + '</div>' +
-          (d.keep ? '<div class="pl">Оставили как есть — в группе отметим, что сверить вручную.</div>' : '');
-      } else if (!c.onlyDoc.length && !c.onlyList.length && !c.diff.length){
-        t = '<b>✅ ' + head + ': совпадает со списком</b><div class="pl">' + c.ok + ' поз.</div>';
-      } else {
-        t = '<b>⚠️ ' + head + ': есть расхождения</b>';
-        if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладной, но нет в списке:</b></div><ul>' +
-          c.onlyDoc.map(function(j){ var x = r.rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') +
-            ' <button data-dadd="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">＋ В список</button></li>'; }).join('') + '</ul>' +
-          (c.onlyDoc.length > 1 ? '<div class="db"><button data-dadd="all">＋ Добавить все ' + c.onlyDoc.length + '</button></div>' : '');
-        if (c.diff.length) t += '<div class="pl" style="margin-top:6px"><b>Разное количество:</b></div><ul>' +
-          c.diff.map(function(j){ var x = r.rows[j], it = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
-            return '<li>' + esc(x.dish) + ': в накладной ' + r3(x.qty) + ', в списке ' + r3(it ? it.qty : 0) +
-              ' <button data-dfix="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">Как в накладной</button></li>'; }).join('') + '</ul>';
-        if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке «Склад», но нет в накладной:</b></div><ul>' +
-          c.onlyList.map(function(i){ return '<li>' + esc(S.items[i].dish) + ' — ' + r3(S.items[i].qty) + '</li>'; }).join('') + '</ul>' +
-          '<div class="pl">Проверьте: забыли вписать в накладную или это «Акт»?</div>';
-        if ((r.unknown || []).length) t += '<div class="pl" style="margin-top:6px">Не нашла в справочнике: ' +
-          r.unknown.map(function(u){ return '«' + esc(u.raw) + '»'; }).join(', ') + '</div>';
-      }
-      if (d.state === 'ok') t += '<div class="db"><button id="dcam">Переснять</button></div>';
-    }
-    return h + '<div class="doc"><img src="' + d.src + '" alt=""><div class="dt">' + t + '</div></div>' +
-      (d.state === 'reading' ? '' : '<div class="hint"><button id="ddel" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">Убрать фото накладной</button></div>');
+    S.docs.forEach(function(d, i){ h += docOne(d, i); });
+    var waiting = S.docs.some(function(d){ return d.state === 'reading' || d.state === 'err'; }),
+        anyOk = S.docs.some(function(d){ return d.state === 'ok'; });
+    if (!waiting && anyOk) h += '<div class="doc" style="margin-bottom:8px"><div class="dt">' + docCmpHtml() + '</div></div>';
+    if (S.docs.length < MAX_DOCS && !S.docs.some(function(d){ return d.state === 'reading'; }))
+      h += '<button class="add" id="dcam">＋ Ещё накладная / Тағы жүкқұжат</button>' +
+        '<div class="hint">Накладных несколько или чек длинный — снимите каждую отдельным кадром (до ' + MAX_DOCS + '). / Әр жүкқұжатты бөлек түсіріңіз.</div>';
+    return h;
   }
 
   /* Всё, что набрано по разным причинам, — список актов к отправке.
@@ -934,15 +967,15 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       if (!pb) return;
       var n = items.filter(function(i){ return Number(i.qty) > 0; }).length;
       var photos = pb.photos || [];
-      if (!photos.length && !(k === 'daily' && pb.doc) && (k === 'daily' || !n)) return;
-      var x = pb.x, note = String(pb.note || '').trim(), dc = k === 'daily' ? pb.doc : null;
+      if (!photos.length && !(k === 'daily' && pb.docs && pb.docs.length) && (k === 'daily' || !n)) return;
+      var x = pb.x, note = String(pb.note || '').trim(), dcs = k === 'daily' ? (pb.docs || []) : [];
       var problem = !photos.length ? 'нет фото' : !n ? 'нет позиций' :
-        (k === 'daily' && needDoc(items) && !dc) ? 'нет накладной' :
-        (dc && dc.state === 'reading') ? 'читаю накладную' :
-        (dc && dc.state === 'bad' && !dc.keep) ? 'переснимите накладную' :
+        (k === 'daily' && needDoc(items) && !dcs.length) ? 'нет накладной' :
+        dcs.some(function(d){ return d.state === 'reading'; }) ? 'читаю накладную' :
+        dcs.some(function(d){ return d.state === 'bad' && !d.keep; }) ? 'переснимите накладную' :
         (r === 'Другое' && !note) ? 'нет комментария' :
         (r === DR && !(x && String(x.fio || '').trim())) ? 'не указан сотрудник' : '';
-      out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', doc: dc, problem: problem });
+      out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', docs: dcs, problem: problem });
     });
     return out;
   }
@@ -960,7 +993,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var ps = a.photos.map(ph);
     return { action: 'ph_send', day: S.day, items: items, photos: ps.map(function(p){ return p.src; }),
              meta: ps.map(function(p){ return p.m || {}; }), reason: a.r, note: fullNote(a),
-             doc: daily && a.doc ? a.doc.src : '', docMeta: daily && a.doc ? a.doc.m : null,
+             docs: daily ? a.docs.map(function(d){ return d.src; }) : [],
+             docsMeta: daily ? a.docs.map(function(d){ return d.m || {}; }) : [],
              sub: daily ? '' : (a.sub || newSub()) };
   }
 
