@@ -890,10 +890,26 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var rows = [], at = {};
     S.docs.forEach(function(d){ (d.read && d.read.rows || []).forEach(function(x){
       var k = nrm(x.dish);
-      if (k in at) rows[at[k]].qty = Number(rows[at[k]].qty) + Number(x.qty);
-      else { at[k] = rows.length; rows.push({ dish: x.dish, qty: Number(x.qty), kg: x.kg }); }
+      if (k in at){ rows[at[k]].qty = Number(rows[at[k]].qty) + Number(x.qty);
+                    if (rows[at[k]].from.indexOf(d) < 0) rows[at[k]].from.push(d); }
+      else { at[k] = rows.length; rows.push({ dish: x.dish, qty: Number(x.qty), kg: x.kg, from: [d] }); }
     }); });
     return rows;
+  }
+  /* Короткое имя накладной для подписи «из какой»: номер, а если его не прочитали — порядковый. */
+  function docTag(d){
+    var r = d.read || {}, i = S.docs.indexOf(d);
+    return r.num ? '№' + esc(r.num) : 'накладная ' + (i + 1);
+  }
+  function fromTag(x){
+    return S.docs.length > 1 && x.from && x.from.length ? ' <span style="color:var(--mut)">(' + x.from.map(docTag).join(', ') + ')</span>' : '';
+  }
+  /* Что именно прочиталось в этой накладной — списком, а не числом позиций. */
+  function docReadList(r){
+    var rows = r.rows || [], un = r.unknown || [];
+    if (!rows.length && !un.length) return '<div class="pl">Позиций не нашла.</div>';
+    return '<ul>' + rows.map(function(x){ return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') + '</li>'; }).join('') +
+      un.map(function(u){ return '<li>«' + esc(u.raw) + '»' + (u.qty !== null && u.qty !== undefined ? ' — ' + r3(u.qty) : '') + ' <span style="color:var(--mut)">(нет в справочнике)</span></li>'; }).join('') + '</ul>';
   }
   function docHead(d, i){
     var r = d.read || {};
@@ -909,9 +925,10 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       t = '<b>⚠️ ' + head + ' читается не полностью</b>' +
         '<div class="pl">Переснимите: ровно сверху, без бликов и тени, весь чек в рамке.' +
         (r.total ? ' В чеке позиций: ' + r.total + ', прочитано: ' + ((r.rows || []).length + (r.unknown || []).length) + '.' : '') + '</div>' +
+        ((r.rows || []).length || (r.unknown || []).length ? '<div class="pl" style="margin-top:4px">Что прочиталось:</div>' + docReadList(r) : '') +
         '<div class="db"><button data-dre="' + i + '">📄 Переснять</button>' + ((d.tries || 0) >= 2 && !d.keep ? '<button data-dkeep="' + i + '">Оставить это фото</button>' : '') + '</div>' +
         (d.keep ? '<div class="pl">Оставили как есть — в группе отметим, что сверить вручную.</div>' : '');
-    } else t = '<b>📄 ' + head + '</b><div class="pl">Прочитана · ' + (r.rows || []).length + ' поз.</div>' +
+    } else t = '<b>📄 ' + head + '</b><div class="pl">Прочитано:</div>' + docReadList(r) +
       '<div class="db"><button data-dre="' + i + '">Переснять</button></div>';
     return '<div class="doc" style="margin-bottom:8px"><img src="' + d.src + '" alt=""><div class="dt">' + t +
       (d.state === 'reading' ? '' : '<div class="pl" style="margin-top:6px"><button data-ddel="' + i + '" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">Убрать эту накладную</button></div>') +
@@ -921,23 +938,23 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   function docCmpHtml(){
     var rows = docRows(), c = docCmp(), many = S.docs.length > 1, t,
         head = many ? 'Накладные (' + S.docs.length + ')' : docHead(S.docs[0], 0),
-        unknown = [].concat.apply([], S.docs.map(function(d){ return d.read && d.read.unknown || []; }));
+        unknown = [].concat.apply([], S.docs.map(function(d){ return (d.read && d.read.unknown || []).map(function(u){ return { raw: u.raw, tag: docTag(d) }; }); }));
     if (!c.onlyDoc.length && !c.onlyList.length && !c.diff.length)
       return '<b>✅ ' + head + ': ' + (many ? 'совпадают' : 'совпадает') + ' со списком</b><div class="pl">' + c.ok + ' поз.</div>';
     t = '<b>⚠️ ' + head + ': есть расхождения</b>';
-    if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладной, но нет в списке:</b></div><ul>' +
-      c.onlyDoc.map(function(j){ var x = rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') +
+    if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладн' + (many ? 'ых' : 'ой') + ', но нет в списке:</b></div><ul>' +
+      c.onlyDoc.map(function(j){ var x = rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') + fromTag(x) +
         ' <button data-dadd="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">＋ В список</button></li>'; }).join('') + '</ul>' +
       (c.onlyDoc.length > 1 ? '<div class="db"><button data-dadd="all">＋ Добавить все ' + c.onlyDoc.length + '</button></div>' : '');
     if (c.diff.length) t += '<div class="pl" style="margin-top:6px"><b>Разное количество:</b></div><ul>' +
       c.diff.map(function(j){ var x = rows[j], it = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
-        return '<li>' + esc(x.dish) + ': в накладн' + (many ? 'ых' : 'ой') + ' ' + r3(x.qty) + ', в списке ' + r3(it ? it.qty : 0) +
+        return '<li>' + esc(x.dish) + ': в накладн' + (many ? 'ых' : 'ой') + ' ' + r3(x.qty) + fromTag(x) + ', в списке ' + r3(it ? it.qty : 0) +
           ' <button data-dfix="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">Как в накладной</button></li>'; }).join('') + '</ul>';
     if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке «Склад», но нет в накладн' + (many ? 'ых' : 'ой') + ':</b></div><ul>' +
       c.onlyList.map(function(i){ return '<li>' + esc(S.items[i].dish) + ' — ' + r3(S.items[i].qty) + '</li>'; }).join('') + '</ul>' +
       '<div class="pl">Проверьте: забыли вписать в накладную, не сняли вторую накладную или это «Акт»?</div>';
     if (unknown.length) t += '<div class="pl" style="margin-top:6px">Не нашла в справочнике: ' +
-      unknown.map(function(u){ return '«' + esc(u.raw) + '»'; }).join(', ') + '</div>';
+      unknown.map(function(u){ return '«' + esc(u.raw) + '»' + (many ? ' (' + u.tag + ')' : ''); }).join(', ') + '</div>';
     return t;
   }
   function docHtml(){
