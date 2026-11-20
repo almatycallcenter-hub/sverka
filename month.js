@@ -1127,7 +1127,18 @@ var AKT = (function(){
   function el(id){ return document.getElementById(id); }
   function fx(v){ if (typeof v !== 'number') return v; var r = Math.round(v * 1e6) / 1e6; return r === 0 ? 0 : r; }
   function bkey(w){ var n = whNum(w); return n !== null ? 'n' + n : nrm(String(w).replace(/склад/i, '')); }
-  function dkey(s){ return nrm(s).replace(/\s*\((ф|шт)\)\s*$/, ''); }
+  function dkey(s){ return nrm(s).replace(/\s*\((ф|шт)\)\s*$/, '').replace(/(\d)\s+см/g, '$1см'); }
+  /* Кусок пиццы в приложении — в iiko списывается долей целой пиццы 30 см (1 кусок = 1/8):
+     «Пицца курица (кусок)» → «Пицца с курицей 30см». Слова сравниваем по первым 5 буквам. */
+  var PIZ = null;
+  function pizzaWhole(name){
+    var k = nrm(name); if (!/^пицц/.test(k) || !/\(кус(ок|очек)\)\s*$/.test(k)) return null;
+    if (!PIZ){ PIZ = []; Object.keys(typeof SPR === 'object' && SPR || {}).forEach(function(n){ if (/^пицц/.test(n) && /30\s*см/.test(n)) PIZ.push(n); }); }
+    var words = k.replace(/\(кус(ок|очек)\)/, '').split(/\s+/).filter(function(w){ return w && !/^пицц/.test(w); });
+    var hit = PIZ.filter(function(n){ var nw = n.split(/\s+/);
+      return words.every(function(w){ var st = w.slice(0, 5); return nw.some(function(x){ return x.slice(0, 5) === st; }); }); });
+    return hit.length === 1 ? (SPR[hit[0]] && SPR[hit[0]].name) || hit[0] : null;
+  }
   async function load(from, to){
     var c = apiCfg();
     if (!c.read) throw new Error('Нужен ключ на чтение — впишите его в «Списках филиалов» (Забрать из приёмника).');
@@ -1144,13 +1155,20 @@ var AKT = (function(){
       if (!names[bkey(b)] || /склад/i.test(b)) names[bkey(b)] = b;
       return M[k];
     }
+    /* Из актов iiko берём только продукцию: позиции справочника и то, что филиалы
+       вообще отправляли через приложение. Тряпки, сливки, стаканы — мимо. */
+    var known = {};
+    Object.keys(typeof SPR === 'object' && SPR || {}).forEach(function(n){ known[dkey(n)] = 1; });
+    rows.forEach(function(r){ known[dkey(r.dish)] = 1; var w = pizzaWhole(r.dish); if (w) known[dkey(w)] = 1; });
     rows.forEach(function(r){
       if (r.dest !== 'akt' || !(r.qty > 0)) return;
-      var x = get(r.day, r.branch, r.dish); x.app += r.qty; x.inApp = true; x.reasons[r.reason] = 1; if (r.unit === 'кг') x.kg = true;
+      var w = pizzaWhole(r.dish), q = w ? r.qty / 8 : r.qty;
+      var x = get(r.day, r.branch, w || r.dish); x.app += q; x.inApp = true; x.reasons[r.reason + (w ? ' (кусков: ' + r.qty + ')' : '')] = 1; if (r.unit === 'кг') x.kg = true;
     });
     (DB.mov || []).forEach(function(r){
       if (r[3] !== 'spisanie' || r[0] < from || r[0] > to || !r[1]) return;
       if (typeof isDelivery === 'function' && isDelivery(r[1])) return;
+      if (!known[dkey(r[2])]) return;
       var x = get(r[0], r[1], r[2]); x.iiko += Math.abs(N(r[4])); x.inIiko = true;
     });
     return Object.keys(M).map(function(k){
