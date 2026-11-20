@@ -958,6 +958,7 @@ document.addEventListener('DOMContentLoaded', function(){
       <a data-page="off" class="brOnly"><span class="ic">🗑️</span>Списание завтра</a>
       <div class="navsec">Сверка</div>
       <a data-page="in"><span class="ic">📦</span>Приёмка списаний</a>
+      <a data-page="akt"><span class="ic">🧾</span>Акты: сверка с iiko</a>
       <a data-page="tr"><span class="ic">📷</span>Обучение фото</a>
       <a data-page="bk"><span class="ic">🛍️</span>Брони сотрудников</a>
       <a data-page="rep" data-tab="m50"><span class="ic">🏷️</span>Путь на склад 50%</a>
@@ -1161,6 +1162,25 @@ document.addEventListener('DOMContentLoaded', function(){
 
         <div class="printHead" id="inHead"></div>
         <div id="inBody"></div>
+      </section>
+
+      <!-- ─── Акты списания: приложение против iiko ─────── -->
+      <section class="page wide" id="pg-akt">
+        <div class="card noprint">
+          <h2>Акты списания: сверка с iiko</h2>
+          <p class="lead">Что филиалы отправили через «Фото списания» как <b>акт на месте</b> (обучение, ДР, 7-й кофе, по качеству, акт по срокам и т.д.)
+            против актов списания в iiko из загруженной товарной ведомости — по дню, филиалу и позиции. Обычно смотрят вчерашний день:
+            загрузите свежую ведомость и нажмите «Сверить».</p>
+          <div class="row" style="margin-top:10px;align-items:flex-end">
+            <div style="flex:0 0 170px"><label class="lbl">С</label><input type="date" id="aktFrom"></div>
+            <div style="flex:0 0 170px"><label class="lbl">По</label><input type="date" id="aktTo"></div>
+            <div style="flex:0 0 auto"><button id="aktRun">Сверить</button></div>
+            <div style="flex:0 0 auto"><button class="sec" id="aktXlsx">Файлом</button></div>
+            <label style="flex:0 0 auto;display:flex;gap:6px;align-items:center"><input type="checkbox" id="aktDiff" checked> только расхождения</label>
+          </div>
+          <div class="msg" id="mAkt"></div>
+        </div>
+        <div id="aktBody"></div>
       </section>
 
       <!-- ─── Брони сотрудников: как заказы в магазине ─── -->
@@ -10708,6 +10728,7 @@ $('a0Go').onclick = function(){
     dq:  ['Качество данных','полнота выгрузок и сверка с ведомостью iiko'],
     wk:  ['Отчёт за неделю','итоги понедельника: деньги, потери, решения'],
     mon: ['Отчёт за месяц','сроки скидки и списания, работа с ботом — в Excel'],
+    akt: ['Акты: сверка с iiko','акты из «Фото списания» против актов списания iiko'],
     up:  ['Выгрузки iiko','четыре файла из iiko'],
     sp:  ['Списки филиалов','что филиал заявил на уценку'],
     zay: ['20-50% жеңілдік өнімдері','что завтра уходит по скидке'],

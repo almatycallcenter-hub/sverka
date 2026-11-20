@@ -1086,10 +1086,19 @@ function monBookBot(A, from, to){
       busy(this, true); msg('mMon', 'Считаю «Скидка и списание» за ' + ru(p[0]) + '–' + ru(p[1]) + '…', 'wait');
       await new Promise(function(r){ setTimeout(r, 30); });
       var R = MON.compute(p[0], p[1]);
-      var B = monBookMain(R, p[0], p[1]);
+      var B = monBookMain(R, p[0], p[1]), akt = '';
+      /* Листы по актам: строки фото списания — из приёмника, нужен ключ на чтение. */
+      try{
+        if (apiCfg().read){
+          msg('mMon', 'Забираю из приёмника акты фото списания…', 'wait');
+          var P = await AKT.load(p[0], p[1]);
+          AKT.reasonsSheet(B.wb, P.rows || [], p[0], p[1]);
+          akt = ' Листы «Акты по причинам» и «Акты — сверка с iiko» добавлены.';
+        } else akt = ' Листов по актам нет — нужен ключ на чтение.';
+      }catch(e){ akt = ' Листы по актам не добавлены: ' + e.message; }
       save(await B.wb.blob(), 'Отчёт скидка и списание ' + ru(p[0]) + ' — ' + ru(p[1]));
       var bad = B.QC.filter(function(q){ return q[3] !== 'совпадает'; }).length;
-      msg('mMon', 'Готово: строк скидки — ' + R.DISC.length + ', списания — ' + R.SPW.length + '. Проверки: ' + (bad ? 'расхождений ' + bad + ' — см. лист «Как считалось»' : 'все сошлись') + '.', bad ? 'err' : 'ok');
+      msg('mMon', 'Готово: строк скидки — ' + R.DISC.length + ', списания — ' + R.SPW.length + '. Проверки: ' + (bad ? 'расхождений ' + bad + ' — см. лист «Как считалось»' : 'все сошлись') + '.' + akt, bad ? 'err' : 'ok');
     }catch(e){ msg('mMon', 'Не получилось: ' + e.message, 'err'); }
     busy(this, false);
   }
@@ -1109,4 +1118,152 @@ function monBookBot(A, from, to){
   }
   if (el('btnMonMain')) el('btnMonMain').onclick = main;
   if (el('btnMonBot')) el('btnMonBot').onclick = bot;
+})();
+/* ═════════ Акты списания: сверка с iiko и итог по причинам ═════════
+   Строки «Фото списания» берём из приёмника (ph_rows, ключ на чтение),
+   акты списания iiko — из загруженной товарной ведомости (вид «Акт списания»).
+   Сверяем «Акт на месте» из приложения с актами iiko: день × филиал × позиция. */
+var AKT = (function(){
+  function el(id){ return document.getElementById(id); }
+  function fx(v){ if (typeof v !== 'number') return v; var r = Math.round(v * 1e6) / 1e6; return r === 0 ? 0 : r; }
+  function bkey(w){ var n = whNum(w); return n !== null ? 'n' + n : nrm(String(w).replace(/склад/i, '')); }
+  function dkey(s){ return nrm(s).replace(/\s*\((ф|шт)\)\s*$/, ''); }
+  async function load(from, to){
+    var c = apiCfg();
+    if (!c.read) throw new Error('Нужен ключ на чтение — впишите его в «Списках филиалов» (Забрать из приёмника).');
+    var P = await apiCall('ph_rows', { key: c.read, from: from, to: to });
+    if (!P || P.error) throw new Error((P && P.error) || 'Приёмник не ответил.');
+    return P;
+  }
+  /* Сверка: строки с ключом день|филиал|позиция. */
+  function compare(rows, from, to){
+    var M = {}, names = {};
+    function get(day, b, dish){
+      var k = day + '|' + bkey(b) + '|' + dkey(dish);
+      if (!M[k]) M[k] = { day: day, b: b, dish: dish, app: 0, iiko: 0, reasons: {}, kg: false, inApp: false, inIiko: false };
+      if (!names[bkey(b)] || /склад/i.test(b)) names[bkey(b)] = b;
+      return M[k];
+    }
+    rows.forEach(function(r){
+      if (r.dest !== 'akt' || !(r.qty > 0)) return;
+      var x = get(r.day, r.branch, r.dish); x.app += r.qty; x.inApp = true; x.reasons[r.reason] = 1; if (r.unit === 'кг') x.kg = true;
+    });
+    (DB.mov || []).forEach(function(r){
+      if (r[3] !== 'spisanie' || r[0] < from || r[0] > to || !r[1]) return;
+      if (typeof isDelivery === 'function' && isDelivery(r[1])) return;
+      var x = get(r[0], r[1], r[2]); x.iiko += Math.abs(N(r[4])); x.inIiko = true;
+    });
+    return Object.keys(M).map(function(k){
+      var x = M[k], d = fx(x.iiko - x.app);
+      x.b = names[bkey(x.b)] || x.b; x.app = fx(x.app); x.iiko = fx(x.iiko); x.diff = d;
+      x.st = !x.inIiko ? 'Нет акта в iiko' : !x.inApp ? 'Нет в приложении' : Math.abs(d) < 1e-9 ? 'Совпадает' : d > 0 ? 'В iiko больше' : 'В iiko меньше';
+      x.why = Object.keys(x.reasons).join(', ');
+      return x;
+    }).sort(function(a, b){ return a.day < b.day ? -1 : a.day > b.day ? 1 : (whNum(a.b) || 99) - (whNum(b.b) || 99) || (a.dish < b.dish ? -1 : 1); });
+  }
+  var COL = { 'Совпадает': 'GRN', 'Нет акта в iiko': 'RED', 'Нет в приложении': 'YEL', 'В iiko больше': 'ORG', 'В iiko меньше': 'ORG' };
+
+  /* ── экран ── */
+  var LAST = null;
+  function iso(d){ return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  var y = new Date(); y.setDate(y.getDate() - 1);
+  if (el('aktFrom') && !el('aktFrom').value) el('aktFrom').value = iso(y);
+  if (el('aktTo') && !el('aktTo').value) el('aktTo').value = iso(y);
+  function draw(){
+    if (!LAST) return;
+    var only = el('aktDiff') && el('aktDiff').checked, L = LAST.lines.filter(function(x){ return !only || x.st !== 'Совпадает'; });
+    var cnt = {}; LAST.lines.forEach(function(x){ cnt[x.st] = (cnt[x.st] || 0) + 1; });
+    var head = '<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px">' + ['Совпадает', 'В iiko больше', 'В iiko меньше', 'Нет акта в iiko', 'Нет в приложении'].map(function(s){
+      return '<span style="padding:4px 10px;border-radius:10px;background:var(--soft);font-size:13px">' + esc(s) + ': <b>' + (cnt[s] || 0) + '</b></span>'; }).join('') + '</div>';
+    if (!L.length){ el('aktBody').innerHTML = head + '<p class="lead">' + (LAST.lines.length ? 'Расхождений нет.' : 'За эти дни нет ни актов в приложении, ни актов iiko.') + '</p>'; return; }
+    var bg = { GRN: '#e2efda', RED: '#f8cbad', YEL: '#fff2cc', ORG: '#fce4d6' };
+    var TD = 'style="padding:6px 8px;border-bottom:1px solid var(--bd)"', TN = 'style="padding:6px 8px;border-bottom:1px solid var(--bd);text-align:right"';
+    el('aktBody').innerHTML = head + '<div class="card" style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr>' +
+      ['Дата', 'Филиал', 'Позиция', 'Причина в приложении', 'В приложении', 'В iiko', 'Разница', 'Итог'].map(function(h, i){
+        return '<th style="padding:6px 8px;text-align:' + (i >= 4 && i <= 6 ? 'right' : 'left') + ';border-bottom:2px solid var(--bd);color:var(--mut);font-weight:600">' + h + '</th>'; }).join('') +
+      '</tr></thead><tbody>' +
+      L.map(function(x){ return '<tr><td ' + TD + '>' + ru(x.day) + '</td><td ' + TD + '>' + esc(x.b) + '</td><td ' + TD + '>' + esc(x.dish) + '</td><td ' + TD + '>' + esc(x.why) + '</td>' +
+        '<td ' + TN + '>' + (x.inApp ? x.app : '') + '</td><td ' + TN + '>' + (x.inIiko ? x.iiko : '') + '</td><td ' + TN + '>' + (x.diff ? x.diff : '') + '</td>' +
+        '<td style="padding:6px 8px;border-bottom:1px solid var(--bd);color:#222;background:' + bg[COL[x.st]] + '">' + esc(x.st) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+  }
+  async function run(){
+    try{
+      var a = el('aktFrom').value, b = el('aktTo').value;
+      if (!a || !b || a > b) throw new Error('Укажите период: дата «с» не позже даты «по».');
+      if (!DB.mov || !DB.mov.length) throw new Error('Нет товарной ведомости — загрузите её в «Выгрузках iiko».');
+      var maxd = DB.mov.reduce(function(m, r){ return r[0] > m ? r[0] : m; }, '');
+      msg('mAkt', 'Забираю из приёмника акты из приложения…', 'wait');
+      var P = await load(a, b);
+      LAST = { from: a, to: b, lines: compare(P.rows || [], a, b) };
+      draw();
+      var bad = LAST.lines.filter(function(x){ return x.st !== 'Совпадает'; }).length;
+      msg('mAkt', 'Сверено строк: ' + LAST.lines.length + ', расхождений: ' + bad + '.' +
+        (maxd < b ? ' Внимание: ведомость загружена только по ' + ru(maxd) + ' — акты iiko после этой даты не видны.' : ''), bad ? 'err' : 'ok');
+    }catch(e){ msg('mAkt', 'Не получилось: ' + e.message, 'err'); }
+  }
+  async function xlsx(){
+    if (!LAST) return msg('mAkt', 'Сначала нажмите «Сверить».', 'err');
+    var wb = new XW.Book(), ws = wb.sheet('Акты — сверка с iiko');
+    ws.set(1, 1, 'Акты списания: приложение против iiko, ' + ru(LAST.from) + ' — ' + ru(LAST.to), XW.ST.title);
+    ws.table(3, ['Дата', 'Филиал', 'Позиция', 'Причина в приложении', 'В приложении', 'В iiko', 'Разница (iiko − приложение)', 'Итог'],
+      LAST.lines.map(function(x){ return [ru(x.day), x.b, x.dish, x.why, x.inApp ? x.app : '', x.inIiko ? x.iiko : '', x.diff || '', x.st]; }),
+      { chk: [7], fill: function(v){ return COL[v]; }, widths: [11, 22, 34, 26, 12, 10, 14, 18] });
+    ws.freeze = [1, 4]; ws.filter = 'A3:H' + (3 + LAST.lines.length);
+    var blob = await wb.blob(), aa = document.createElement('a');
+    aa.href = URL.createObjectURL(blob); aa.download = ('Акты сверка с iiko ' + ru(LAST.from) + ' — ' + ru(LAST.to)).replace(/[\\/:*?"<>|]/g, '') + '.xlsx';
+    document.body.appendChild(aa); aa.click(); setTimeout(function(){ URL.revokeObjectURL(aa.href); aa.remove(); }, 4000);
+  }
+  if (el('aktRun')) el('aktRun').onclick = run;
+  if (el('aktDiff')) el('aktDiff').onchange = draw;
+  if (el('aktXlsx')) el('aktXlsx').onclick = xlsx;
+
+  /* ── лист «Акты по причинам» в книге «Скидка и списание» ── */
+  function reasonsSheet(wb, rows, from, to){
+    var ws = wb.sheet('Акты по причинам'), ST = XW.ST;
+    ws.set(1, 1, 'Фото списания по причинам, ' + ru(from) + ' — ' + ru(to), ST.title);
+    ws.text(2, 1, 'Источник — мини-приложение «Фото списания» (лист «Списание — фото»). Отправка = один акт филиала (одна карточка в группе). «По срокам» делится на «Склад по срокам» (расходная накладная) и «Акт на месте». Штуки и килограммы — отдельно.');
+    ws.merge(2, 1, 2, 8);
+    var R = {}, BR = {}, D = {}, brs = {}, rs = {};
+    rows.forEach(function(r){
+      var why = r.reason + (r.dest === 'sklad' ? ' — склад по срокам' : (r.reason === AKT_DAILY ? ' — акт на месте' : ''));
+      var kg = r.unit === 'кг', send = r.day + '|' + r.branch + '|' + r.reason + '|' + r.sub;
+      var x = R[why] || (R[why] = { sends: {}, branches: {}, pos: 0, sht: 0, kg: 0 });
+      x.sends[send] = 1; x.branches[r.branch] = 1; x.pos++; if (kg) x.kg += r.qty; else x.sht += r.qty;
+      var bk = r.branch + '|' + why, y = BR[bk] || (BR[bk] = { sends: {}, sht: 0, kg: 0 });
+      y.sends[send] = 1; if (kg) y.kg += r.qty; else y.sht += r.qty;
+      brs[r.branch] = 1; rs[why] = 1;
+      var dk = why + '|' + r.dish, z = D[dk] || (D[dk] = { why: why, dish: r.dish, sht: 0, kg: 0, br: {} });
+      if (kg) z.kg += r.qty; else z.sht += r.qty; z.br[r.branch] = 1;
+    });
+    var WHY = Object.keys(rs).sort(function(a, b){ return Object.keys(R[b].sends).length - Object.keys(R[a].sends).length; });
+    var BRS = Object.keys(brs).sort(function(a, b){ return (whNum(a) || 99) - (whNum(b) || 99) || (a < b ? -1 : 1); });
+    var r0 = 4;
+    var t1 = ws.table(r0, ['Причина', 'Отправок', 'Филиалов', 'Строк (позиций)', 'Штук', 'Килограммов'],
+      WHY.map(function(w){ var x = R[w]; return [w, Object.keys(x.sends).length, Object.keys(x.branches).length, x.pos, fx(x.sht), fx(x.kg)]; }),
+      { title: 'Сеть: по причинам', total: ['Итого', WHY.reduce(function(s, w){ return s + Object.keys(R[w].sends).length; }, 0), BRS.length,
+        WHY.reduce(function(s, w){ return s + R[w].pos; }, 0), fx(WHY.reduce(function(s, w){ return s + R[w].sht; }, 0)), fx(WHY.reduce(function(s, w){ return s + R[w].kg; }, 0))],
+        widths: [40, 11, 10, 14, 10, 12] });
+    r0 = t1[1] + 3;
+    var t2 = ws.table(r0, ['Филиал'].concat(WHY.map(function(w){ return w + ', отправок / шт'; })),
+      BRS.map(function(b){ return [b].concat(WHY.map(function(w){ var y = BR[b + '|' + w]; return y ? Object.keys(y.sends).length + ' / ' + fx(y.sht) + (y.kg ? ' + ' + fx(y.kg) + ' кг' : '') : ''; })); }),
+      { title: 'Филиалы × причины (отправок / штук)' });
+    r0 = t2[1] + 3;
+    var DL = Object.keys(D).map(function(k){ return D[k]; }).sort(function(a, b){ return a.why < b.why ? -1 : a.why > b.why ? 1 : (b.sht + b.kg) - (a.sht + a.kg); });
+    ws.table(r0, ['Причина', 'Позиция', 'Штук', 'Килограммов', 'Филиалов'],
+      DL.map(function(z){ return [z.why, z.dish, fx(z.sht), fx(z.kg), Object.keys(z.br).length]; }), { title: 'Что списывали: позиции по причинам' });
+    ws.freeze = [2, 5];
+    /* сверка с iiko за весь период — итог по филиалам */
+    var L = compare(rows, from, to), S2 = {};
+    L.forEach(function(x){ var s = S2[x.b] || (S2[x.b] = { app: 0, iiko: 0, n: 0, bad: 0 }); s.app += x.inApp ? x.app : 0; s.iiko += x.inIiko ? x.iiko : 0; s.n++; if (x.st !== 'Совпадает') s.bad++; });
+    var ws2 = wb.sheet('Акты — сверка с iiko');
+    ws2.set(1, 1, 'Акты списания: приложение против iiko, ' + ru(from) + ' — ' + ru(to), ST.title);
+    var tt = ws2.table(3, ['Филиал', 'Акт на месте в приложении, ед.', 'Акты списания iiko, ед.', 'Строк сверено', 'Расхождений'],
+      Object.keys(S2).sort(function(a, b){ return (whNum(a) || 99) - (whNum(b) || 99); }).map(function(b){ var s = S2[b]; return [b, fx(s.app), fx(s.iiko), s.n, s.bad]; }),
+      { title: 'По филиалам', widths: [24, 16, 16, 12, 12] });
+    ws2.table(tt[1] + 3, ['Дата', 'Филиал', 'Позиция', 'Причина в приложении', 'В приложении', 'В iiko', 'Разница (iiko − приложение)', 'Итог'],
+      L.map(function(x){ return [ru(x.day), x.b, x.dish, x.why, x.inApp ? x.app : '', x.inIiko ? x.iiko : '', x.diff || '', x.st]; }),
+      { title: 'Построчно', chk: [7], fill: function(v){ return COL[v]; }, widths: [11, 24, 34, 26, 12, 10, 14, 18] });
+  }
+  var AKT_DAILY = 'По срокам';
+  return { load: load, compare: compare, reasonsSheet: reasonsSheet };
 })();

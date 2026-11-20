@@ -270,7 +270,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
         if (S.pbag[k] && S.pbag[k].at >= dr.at) return;
         if (dr.items) S.bag[k] = dr.items;
         S.pbag[k] = { photos: (dr.photos || []).map(ph), note: dr.note || '', sub: dr.sub || '', x: dr.x || null,
-                      docs: k === 'daily' ? (dr.docs || (dr.doc ? [dr.doc] : [])) : [], at: dr.at || 0 };
+                      docs: dr.docs || (k === 'daily' && dr.doc ? [dr.doc] : []), at: dr.at || 0 };
         if (!last || dr.at > last.at) last = dr;
         S.restored = true;
       }
@@ -334,15 +334,15 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     } else h += '<button class="add" id="add">＋ Добавить позицию</button>';
     if (needDest()) h += '<div class="hint">«Склад» — расходная на склад по срокам, «Акт» — акт списания на месте.</div>';
 
-    if (isDaily() && (needDoc(S.items) || S.docs.length)) h += docHtml();
+    if (S.docs.length || (isDaily() ? needDoc(S.items) : needAkt(S.items))) h += docHtml();
     h += '<h2>Фото / Сурет</h2><div class="shots">' + S.photos.map(function(p, i){
       return '<div class="shot"><img src="' + ph(p).src + '" alt=""><button data-dp="' + i + '" aria-label="Удалить фото">✕</button></div>'; }).join('') + '</div>';
     if (S.photos.length < MAX_PHOTOS)
       h += '<button class="cam" id="cam">📷 ' + (S.photos.length ? 'Ещё фото' : 'Сфотографировать') + '</button>';
     h += '<div class="hint">' + (S.reason === '7-й кофе бесплатно'
-      ? 'В кадре — акт списания и карта с отметками. / Кадрда — акт және карта.'
+      ? 'В кадре — карта с отметками. Акт — отдельным кадром выше. / Кадрда — карта, акт — жоғарыда бөлек.'
       : isDaily() ? 'В кадре — продукция. Накладную — отдельным кадром выше. / Кадрда — өнім.'
-      : 'В кадре — продукция и накладная или акт. / Кадрда — өнім және құжат.') +
+      : 'В кадре — продукция. Акт — отдельным кадром выше. / Кадрда — өнім, акт — жоғарыда бөлек.') +
       ' Снимаем только здесь — на фото ставится время и место. / Тек осында түсіреміз.</div>';
 
     if (S.reason === DR && S.x){
@@ -394,18 +394,18 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     S.x = pb.x || (r === DR ? { fio: '', pos: '', date: S.day } : null);
     S.reason = r; S.items = S.bag[k] || (S.bag[k] = []);
     S.photos = pb.photos; S.note = pb.note; S.sub = pb.sub || '';
-    S.docs = k === 'daily' ? (pb.docs || (pb.doc ? [pb.doc] : [])) : []; S.docAt = null;
+    S.docs = pb.docs || (k === 'daily' && pb.doc ? [pb.doc] : []); S.docAt = null;
     S.docs.forEach(function(d){ if (d.state === 'reading') setTimeout(function(){ docRead(d); }, 50); });
     if (k !== 'daily'){ if (!S.sub) S.sub = pb.sub = newSub();
       S.items.forEach(function(i){ if (!needDest()) i.dest = 'akt'; }); }
   }
   function stash(){ var k = keyOf(S.reason);
-    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, docs: k === 'daily' ? S.docs : [], at: Date.now() }; }
+    S.bag[k] = S.items; S.pbag[k] = { photos: S.photos, note: S.note, sub: S.sub, x: S.x, docs: S.docs, at: Date.now() }; }
   function readDraft(m){ try{ return JSON.parse(localStorage.getItem(draftKey(m)) || 'null'); }catch(e){ return null; } }
   function saveDraft(){
     if (!S.branch || S.busy) return;   // во время отправки не пишем — иначе отправленное вернётся черновиком
     var d = { items: S.items, reason: S.reason, note: S.note, sub: S.sub, x: S.x, at: Date.now() };
-    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos, docs: isDaily() ? S.docs : [] }, d))); }
+    try{ localStorage.setItem(draftKey(), JSON.stringify(Object.assign({ photos: S.photos, docs: S.docs }, d))); }
     catch(e){ try{ localStorage.setItem(draftKey(), JSON.stringify(d)); }catch(e2){} }   // фото не влезли — хотя бы числа
     try{ if (TG){ (S.photos.length || S.docs.length) ? TG.enableClosingConfirmation() : TG.disableClosingConfirmation(); } }catch(e){}
   }
@@ -423,7 +423,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       !q.length ? 'Добавьте фото' :
       bad.length ? (bad[0].k === keyOf(S.reason) ? ({ 'нет фото': 'Добавьте фото', 'нет позиций': 'Добавьте позицию', 'нет комментария': 'Напишите комментарий',
                                                    'не указан сотрудник': 'Впишите сотрудника', 'нет накладной': 'Снимите накладную',
-                                                   'читаю накладную': 'Читаю накладную…', 'переснимите накладную': 'Переснимите накладную' })[bad[0].problem]
+                                                   'читаю накладную': 'Читаю накладную…', 'переснимите накладную': 'Переснимите накладную',
+                                                   'нет акта': 'Снимите акт', 'читаю акт': 'Читаю акт…', 'переснимите акт': 'Переснимите акт' })[bad[0].problem]
                                                  : bad[0].r + ': ' + bad[0].problem) :
       q.length === 1 && cur ? 'Отправить · ' + cur.n + ' поз. · ' + cur.photos.length + ' фото' :
       q.length === 1 ? 'Отправить «' + q[0].r + '» · ' + q[0].n + ' поз.' :
@@ -612,7 +613,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     box.className = 'camv'; box.id = 'camv';
     box.innerHTML = '<div class="geo" id="cgeo"></div>' +
       '<video id="cvid" playsinline autoplay muted></video>' +
-      (isDoc ? '<div class="frame"></div><div class="dhint" id="dhint">Накладная на всю рамку — подойдите ближе, ровно сверху, без бликов и тени. / Жүкқұжат толық кадрда.</div>' : '') +
+      (isDoc ? '<div class="frame"></div><div class="dhint" id="dhint">Документ на всю рамку — подойдите ближе, ровно сверху, без бликов и тени. / Құжат толық кадрда.</div>' : '') +
       '<div class="stamp" id="cst"></div><div class="flash" id="cfl"></div>' +
       '<div class="cbar"><button class="cx" id="cclose">✕ Готово</button>' +
       '<button class="shut" id="cshot" aria-label="Снять" disabled></button><span class="cn" id="ccnt"></span></div>';
@@ -684,7 +685,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var st = el('cst');
     if (st){ var l = stampLines(srvNow());
       st.innerHTML = '<b>' + esc(l[0]) + '</b>' + l.slice(1).map(function(x){ return '<br>' + esc(x); }).join(''); }
-    var c = el('ccnt'); if (c) c.textContent = CAM.doc ? 'Накладная' : S.photos.length + ' из ' + MAX_PHOTOS;
+    var c = el('ccnt'); if (c) c.textContent = CAM.doc ? DW().one : S.photos.length + ' из ' + MAX_PHOTOS;
     var v = el('cvid'), b = el('cshot');
     if (b) b.disabled = !(v && v.videoWidth) || (!CAM.doc && S.photos.length >= MAX_PHOTOS);
   }
@@ -771,6 +772,11 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
      таблица читает текст и сверяет позиции с тем, что здесь набрано. Что
      есть в накладной, но нет в списке, можно добавить одной кнопкой. */
   function needDoc(items){ return (items || []).some(function(i){ return i.dest !== 'akt' && Number(i.qty) > 0; }); }
+  /* Акт списания — для всех причин, кроме «По срокам»: печатный чек из iiko, снимается так же, как накладная. */
+  function needAkt(items){ return (items || []).some(function(i){ return i.dest === 'akt' && Number(i.qty) > 0; }); }
+  var NAKL = { one: 'Накладная', low: 'накладная', acc: 'накладную', in1: 'накладной', inN: 'накладных', pl: 'Накладные' },
+      AKT  = { one: 'Акт', low: 'акт', acc: 'акт', in1: 'акте', inN: 'актах', pl: 'Акты' };
+  function DW(){ return isDaily() ? NAKL : AKT; }
   /* Свет и резкость по середине кадра: средняя яркость и разброс «лапласиана». */
   function quality(src, w, h){
     var W = 480, H = Math.round(W * h / w), c = document.createElement('canvas');
@@ -857,7 +863,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var rows = docRows(), out = { ok: 0, onlyDoc: [], onlyList: [], diff: [] };
     if (!rows.length) return out;
     var list = {};
-    S.items.forEach(function(it, i){ if (it.dest !== 'akt' && Number(it.qty) > 0) list[nrm(it.dish)] = i; });
+    S.items.forEach(function(it, i){ if ((isDaily() ? it.dest !== 'akt' : it.dest === 'akt') && Number(it.qty) > 0) list[nrm(it.dish)] = i; });
     var seen = {};
     rows.forEach(function(x, j){
       var k = nrm(x.dish); seen[k] = 1;
@@ -874,9 +880,9 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     add.forEach(function(j2){
       var x = rows[j2]; if (!x) return;
       var ex = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
-      if (ex){ ex.qty = Number(x.qty) || 0; ex.dest = 'sklad'; return; }
+      if (ex){ ex.qty = Number(x.qty) || 0; ex.dest = isDaily() ? 'sklad' : 'akt'; return; }
       var cat = ''; S.catalog.some(function(cc){ if (nrm(cc[0]) === nrm(x.dish)){ cat = cc[1]; return true; } });
-      S.items.push({ dish: x.dish, cat: cat, plan: null, qty: Number(x.qty) || 0, dest: 'sklad', kg: isKg(x.dish) });
+      S.items.push({ dish: x.dish, cat: cat, plan: null, qty: Number(x.qty) || 0, dest: isDaily() ? 'sklad' : 'akt', kg: isKg(x.dish) });
     });
     render();
   }
@@ -899,7 +905,7 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   /* Короткое имя накладной для подписи «из какой»: номер, а если его не прочитали — порядковый. */
   function docTag(d){
     var r = d.read || {}, i = S.docs.indexOf(d);
-    return r.num ? '№' + esc(r.num) : 'накладная ' + (i + 1);
+    return r.num ? '№' + esc(r.num) : DW().low + ' ' + (i + 1);
   }
   function fromTag(x){
     return S.docs.length > 1 && x.from && x.from.length ? ' <span style="color:var(--mut)">(' + x.from.map(docTag).join(', ') + ')</span>' : '';
@@ -913,12 +919,12 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
   }
   function docHead(d, i){
     var r = d.read || {};
-    return 'Накладная' + (r.num ? ' №' + esc(r.num) : (S.docs.length > 1 ? ' ' + (i + 1) : '')) + (r.time ? ' от ' + esc(r.time) : '');
+    return DW().one + (r.num ? ' №' + esc(r.num) : (S.docs.length > 1 ? ' ' + (i + 1) : '')) + (r.time ? ' от ' + esc(r.time) : '');
   }
   /* Одна накладная: её кадр и как она прочиталась. */
   function docOne(d, i){
     var t = '', r = d.read || {}, head = docHead(d, i);
-    if (d.state === 'reading') t = '<b>Читаю накладную…</b><div class="pl">Несколько секунд.</div>';
+    if (d.state === 'reading') t = '<b>Читаю ' + DW().acc + '…</b><div class="pl">Несколько секунд.</div>';
     else if (d.state === 'err') t = '<b>⚠️ Не получилось прочитать</b><div class="pl">' + esc(d.err || '') + '</div>' +
       '<div class="db"><button data-dretry="' + i + '">Ещё раз</button><button data-dre="' + i + '">Переснять</button></div>';
     else if (d.state === 'bad'){
@@ -931,46 +937,46 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     } else t = '<b>📄 ' + head + '</b><div class="pl">Прочитано:</div>' + docReadList(r) +
       '<div class="db"><button data-dre="' + i + '">Переснять</button></div>';
     return '<div class="doc" style="margin-bottom:8px"><img src="' + d.src + '" alt=""><div class="dt">' + t +
-      (d.state === 'reading' ? '' : '<div class="pl" style="margin-top:6px"><button data-ddel="' + i + '" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">Убрать эту накладную</button></div>') +
+      (d.state === 'reading' ? '' : '<div class="pl" style="margin-top:6px"><button data-ddel="' + i + '" style="background:none;border:0;padding:0;color:var(--mut);text-decoration:underline;font-size:14px">' + (isDaily() ? 'Убрать эту накладную' : 'Убрать этот акт') + '</button></div>') +
       '</div></div>';
   }
   /* Сверка со списком — по всем накладным сразу. */
   function docCmpHtml(){
     var rows = docRows(), c = docCmp(), many = S.docs.length > 1, t,
-        head = many ? 'Накладные (' + S.docs.length + ')' : docHead(S.docs[0], 0),
+        head = many ? DW().pl + ' (' + S.docs.length + ')' : docHead(S.docs[0], 0),
         unknown = [].concat.apply([], S.docs.map(function(d){ return (d.read && d.read.unknown || []).map(function(u){ return { raw: u.raw, tag: docTag(d) }; }); }));
     if (!c.onlyDoc.length && !c.onlyList.length && !c.diff.length)
       return '<b>✅ ' + head + ': ' + (many ? 'совпадают' : 'совпадает') + ' со списком</b><div class="pl">' + c.ok + ' поз.</div>';
     t = '<b>⚠️ ' + head + ': есть расхождения</b>';
-    if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В накладн' + (many ? 'ых' : 'ой') + ', но нет в списке:</b></div><ul>' +
+    if (c.onlyDoc.length) t += '<div class="pl" style="margin-top:6px"><b>В ' + (many ? DW().inN : DW().in1) + ', но нет в списке:</b></div><ul>' +
       c.onlyDoc.map(function(j){ var x = rows[j]; return '<li>' + esc(x.dish) + ' — ' + r3(x.qty) + ' ' + (x.kg ? 'кг' : 'шт') + fromTag(x) +
         ' <button data-dadd="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">＋ В список</button></li>'; }).join('') + '</ul>' +
       (c.onlyDoc.length > 1 ? '<div class="db"><button data-dadd="all">＋ Добавить все ' + c.onlyDoc.length + '</button></div>' : '');
     if (c.diff.length) t += '<div class="pl" style="margin-top:6px"><b>Разное количество:</b></div><ul>' +
       c.diff.map(function(j){ var x = rows[j], it = S.items.filter(function(i){ return nrm(i.dish) === nrm(x.dish); })[0];
-        return '<li>' + esc(x.dish) + ': в накладн' + (many ? 'ых' : 'ой') + ' ' + r3(x.qty) + fromTag(x) + ', в списке ' + r3(it ? it.qty : 0) +
+        return '<li>' + esc(x.dish) + ': в ' + (many ? DW().inN : DW().in1) + ' ' + r3(x.qty) + fromTag(x) + ', в списке ' + r3(it ? it.qty : 0) +
           ' <button data-dfix="' + j + '" style="margin-left:6px;padding:3px 9px;border-radius:8px;border:1px solid var(--ink);background:var(--card);font-size:13px">Как в накладной</button></li>'; }).join('') + '</ul>';
-    if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке «Склад», но нет в накладн' + (many ? 'ых' : 'ой') + ':</b></div><ul>' +
+    if (c.onlyList.length) t += '<div class="pl" style="margin-top:6px"><b>В списке' + (isDaily() ? ' «Склад»' : '') + ', но нет в ' + (many ? DW().inN : DW().in1) + ':</b></div><ul>' +
       c.onlyList.map(function(i){ return '<li>' + esc(S.items[i].dish) + ' — ' + r3(S.items[i].qty) + '</li>'; }).join('') + '</ul>' +
-      '<div class="pl">Проверьте: забыли вписать в накладную, не сняли вторую накладную или это «Акт»?</div>';
+      '<div class="pl">' + (isDaily() ? 'Проверьте: забыли вписать в накладную, не сняли вторую накладную или это «Акт»?' : 'Проверьте: забыли вписать в акт или не сняли второй акт?') + '</div>';
     if (unknown.length) t += '<div class="pl" style="margin-top:6px">Не нашла в справочнике: ' +
       unknown.map(function(u){ return '«' + esc(u.raw) + '»' + (many ? ' (' + u.tag + ')' : ''); }).join(', ') + '</div>';
     return t;
   }
   function docHtml(){
-    var h = '<h2>📄 Накладная на склад / Жүкқұжат</h2>';
+    var d1 = isDaily(), h = d1 ? '<h2>📄 Накладная на склад / Жүкқұжат</h2>' : '<h2>📄 Акт списания / Есептен шығару актісі</h2>';
     if (!S.docs.length){
-      return h + '<button class="cam" id="dcam">📄 Сфотографировать накладную</button>' +
-        '<div class="hint">Положите накладную на ровный стол при хорошем свете. Весь чек — в рамке, текст должен читаться. ' +
-        'Таблица прочитает её и сверит со списком. / Жүкқұжатты анық түсіріңіз.</div>';
+      return h + '<button class="cam" id="dcam">📄 ' + (d1 ? 'Сфотографировать накладную' : 'Сфотографировать акт') + '</button>' +
+        '<div class="hint">' + (d1 ? 'Положите накладную' : 'Положите акт списания из iiko') + ' на ровный стол при хорошем свете. Весь чек — в рамке, текст должен читаться. ' +
+        'Таблица прочитает ' + (d1 ? 'её' : 'его') + ' и сверит со списком. / ' + (d1 ? 'Жүкқұжатты' : 'Актіні') + ' анық түсіріңіз.</div>';
     }
     S.docs.forEach(function(d, i){ h += docOne(d, i); });
     var waiting = S.docs.some(function(d){ return d.state === 'reading' || d.state === 'err'; }),
         anyOk = S.docs.some(function(d){ return d.state === 'ok'; });
     if (!waiting && anyOk) h += '<div class="doc" style="margin-bottom:8px"><div class="dt">' + docCmpHtml() + '</div></div>';
     if (S.docs.length < MAX_DOCS && !S.docs.some(function(d){ return d.state === 'reading'; }))
-      h += '<button class="add" id="dcam">＋ Ещё накладная / Тағы жүкқұжат</button>' +
-        '<div class="hint">Накладных несколько или чек длинный — снимите каждую отдельным кадром (до ' + MAX_DOCS + '). / Әр жүкқұжатты бөлек түсіріңіз.</div>';
+      h += '<button class="add" id="dcam">' + (d1 ? '＋ Ещё накладная / Тағы жүкқұжат' : '＋ Ещё акт / Тағы акт') + '</button>' +
+        '<div class="hint">' + (d1 ? 'Накладных' : 'Актов') + ' несколько или чек длинный — снимите каждый документ отдельным кадром (до ' + MAX_DOCS + '). / Әр құжатты бөлек түсіріңіз.</div>';
     return h;
   }
 
@@ -984,12 +990,13 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
       if (!pb) return;
       var n = items.filter(function(i){ return Number(i.qty) > 0; }).length;
       var photos = pb.photos || [];
-      if (!photos.length && !(k === 'daily' && pb.docs && pb.docs.length) && (k === 'daily' || !n)) return;
-      var x = pb.x, note = String(pb.note || '').trim(), dcs = k === 'daily' ? (pb.docs || []) : [];
+      if (!photos.length && !(pb.docs && pb.docs.length) && (k === 'daily' || !n)) return;
+      var x = pb.x, note = String(pb.note || '').trim(), dcs = pb.docs || [];
       var problem = !photos.length ? 'нет фото' : !n ? 'нет позиций' :
         (k === 'daily' && needDoc(items) && !dcs.length) ? 'нет накладной' :
-        dcs.some(function(d){ return d.state === 'reading'; }) ? 'читаю накладную' :
-        dcs.some(function(d){ return d.state === 'bad' && !d.keep; }) ? 'переснимите накладную' :
+        (k !== 'daily' && needAkt(items) && !dcs.length) ? 'нет акта' :
+        dcs.some(function(d){ return d.state === 'reading'; }) ? (k === 'daily' ? 'читаю накладную' : 'читаю акт') :
+        dcs.some(function(d){ return d.state === 'bad' && !d.keep; }) ? (k === 'daily' ? 'переснимите накладную' : 'переснимите акт') :
         (r === 'Другое' && !note) ? 'нет комментария' :
         (r === DR && !(x && String(x.fio || '').trim())) ? 'не указан сотрудник' : '';
       out.push({ k: k, r: r, items: items, n: n, photos: photos, note: note, x: x, sub: pb.sub || '', docs: dcs, problem: problem });
@@ -1010,8 +1017,8 @@ textarea{display:block;width:100%;min-height:70px;padding:12px 14px;border:1px s
     var ps = a.photos.map(ph);
     return { action: 'ph_send', day: S.day, items: items, photos: ps.map(function(p){ return p.src; }),
              meta: ps.map(function(p){ return p.m || {}; }), reason: a.r, note: fullNote(a),
-             docs: daily ? a.docs.map(function(d){ return d.src; }) : [],
-             docsMeta: daily ? a.docs.map(function(d){ return d.m || {}; }) : [],
+             docs: a.docs.map(function(d){ return d.src; }),
+             docsMeta: a.docs.map(function(d){ return d.m || {}; }),
              sub: daily ? '' : (a.sub || newSub()) };
   }
 
